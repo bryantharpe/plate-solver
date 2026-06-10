@@ -1,0 +1,74 @@
+{
+  "cases": [
+    {
+      "index_linear": 0,
+      "index_quadratic": 0,
+      "key": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "key_hash": 0,
+      "key_hash_low16": 0
+    },
+    {
+      "index_linear": 879222,
+      "index_quadratic": 462620,
+      "key": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "key_hash": 19593938001,
+      "key_hash_low16": 50257
+    },
+    {
+      "index_linear": 585158,
+      "index_quadratic": 160222,
+      "key": [
+        10,
+        50,
+        100,
+        200,
+        249
+      ],
+      "key_hash": 975787512510,
+      "key_hash_low16": 53950
+    },
+    {
+      "index_linear": 570322,
+      "index_quadratic": 353299,
+      "key": [
+        249,
+        249,
+        249,
+        249,
+        249
+      ],
+      "key_hash": 976562499999,
+      "key_hash_low16": 12703
+    },
+    {
+      "index_linear": 468763,
+      "index_quadratic": 464205,
+      "key": [
+        7,
+        0,
+        13,
+        0,
+        200
+      ],
+      "key_hash": 781250812507,
+      "key_hash_low16": 23131
+    }
+  ],
+  "magic_rand": 2654435761,
+  "pattern_bins": 250,
+  "pattern_max_error": 0.001,
+  "source": "tetra3._compute_pattern_key_hash / _pattern_key_hash_to_index (key_hash=sum key[m]*bins^m uint64; quad idx=(h*MAGIC)%N, lin idx=h%N)",
+  "table_size": 1000003
+}

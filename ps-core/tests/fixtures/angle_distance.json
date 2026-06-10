@@ -1,0 +1,55 @@
+{
+  "cases": [
+    {
+      "angle": 1e-07,
+      "angle_back": 1e-07,
+      "distance": 9.999999999999996e-08
+    },
+    {
+      "angle": 0.0001,
+      "angle_back": 0.0001,
+      "distance": 9.999999995833334e-05
+    },
+    {
+      "angle": 0.001,
+      "angle_back": 0.001,
+      "distance": 0.0009999999583333338
+    },
+    {
+      "angle": 0.01,
+      "angle_back": 0.01,
+      "distance": 0.009999958333385416
+    },
+    {
+      "angle": 0.1,
+      "angle_back": 0.1,
+      "distance": 0.09995833854135666
+    },
+    {
+      "angle": 0.5,
+      "angle_back": 0.5,
+      "distance": 0.4948079185090459
+    },
+    {
+      "angle": 1.0,
+      "angle_back": 1.0,
+      "distance": 0.958851077208406
+    },
+    {
+      "angle": 2.0,
+      "angle_back": 2.0,
+      "distance": 1.682941969615793
+    },
+    {
+      "angle": 3.0,
+      "angle_back": 3.0000000000000004,
+      "distance": 1.994989973208109
+    },
+    {
+      "angle": 3.141592653589793,
+      "angle_back": 3.141592653589793,
+      "distance": 2.0
+    }
+  ],
+  "source": "tetra3._distance_from_angle / _angle_from_distance (2*sin(a/2), 2*asin(d/2))"
+}
