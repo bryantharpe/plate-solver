@@ -47,12 +47,5 @@
 //! `ps-core/tests/fixtures/` (regenerate with
 //! `tools/parity/.venv/bin/python tools/parity/capture_core.py`).
 
-#[cfg(test)]
-mod tests {
-    /// Scaffold smoke test: the crate compiles and links. Real primitive tests
-    /// arrive with MC2–MC7.
-    #[test]
-    fn scaffold_compiles() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod angle;
+pub mod celestial;

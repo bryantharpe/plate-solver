@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 nalgebra.workspace = true
+
+[dev-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
