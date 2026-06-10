@@ -1,0 +1,38 @@
+[package]
+name = "cedar_detect"
+version = "0.8.0"
+edition = "2021"
+
+[[bin]]
+name = "cedar-detect-server"
+path = "src/bin/cedar_detect_server.rs"
+
+[dependencies]
+approx = "0.5.1"
+clap = { version = "4.3.19", features = ["derive"] }
+env_logger = "0.10.0"
+image = "0.25.1"
+imageproc = "0.25.0"
+libc = "0.2.147"
+log = "0.4.19"
+prctl = "1.0.0"
+prost = "0.12.3"
+prost-types = "0.12.3"
+tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
+tonic = "0.11"
+tonic-web = "0.11.0"
+
+[build-dependencies]
+tonic-build = "0.11"
+prost-build = "0.12.3"
+
+[lints.clippy]
+await_holding_lock = "warn"
+large_futures = "warn"
+unused_async = "warn"
+significant_drop_in_scrutinee = "warn"
+# Performance
+large_stack_arrays = "warn"
+# Code quality
+cloned_instead_of_copied = "warn"
+redundant_clone = "warn"

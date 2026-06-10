@@ -1,0 +1,16 @@
+Map hot pixels with a dark exposure.
+  Benefit: Can run with tight focus (don't need to insist on a spread to
+    adjacent pixels). This can yield marginally higher signal to noise by
+    concentrating all of a star's intensity into a single pixel, allowing
+    for marginally shorter exposures.
+  Drawback: Adds a workflow complication, need the user's involvement in
+    capturing the dark frame.
+
+Investigate subtracting dark frame to reduce fixed pattern noise. Will this
+allow better star detection by eliminating fixed pattern component of noise?
+Can build up a dark frame from operational frames over time, for different
+pointings.
+
+When calling compute_moments() on full res image when binning was used for star
+detection, pass in a map of hot pixels detected during the binning. This will
+allow compute_moments() to replace hot pixels during the moment calculations.
