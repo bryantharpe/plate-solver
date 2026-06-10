@@ -60,14 +60,14 @@ must ground requirements in these and cite the doc number.
 | Reference doc | Feeds feature (change) |
 |---|---|
 | `docs/01-overview-and-concepts.md` | all (concepts, glossary, end-to-end walkthrough) |
-| `docs/02-coordinate-systems-and-math.md` | **`math-core`** (`01-foundation-math-core`) |
+| `docs/02-coordinate-systems-and-math.md` | **`math-core`** (`feat-01-foundation-math-core`) |
 | `docs/03-star-detection-tetra3.md` | reference-only (tetra3 simple detector; non-goal) |
-| `docs/04-star-detection-cedar-detect.md` | **`star-detection`** (`02-star-detection`) |
-| `docs/05-database-generation.md` | **`pattern-database`** (`03-`, format/load §6–7) + **`database-generation`** (`04-`, build §1–6) |
-| `docs/06-plate-solving.md` | **`plate-solver`** (`05-plate-solver`) |
-| `docs/07-cedar-detect-service-api.md` | **`grpc-service`** (`06-grpc-service`) |
+| `docs/04-star-detection-cedar-detect.md` | **`star-detection`** (`feat-02-star-detection`) |
+| `docs/05-database-generation.md` | **`pattern-database`** (`feat-03-`, format/load §6–7) + **`database-generation`** (`feat-04-`, build §1–6) |
+| `docs/06-plate-solving.md` | **`plate-solver`** (`feat-05-plate-solver`) |
+| `docs/07-cedar-detect-service-api.md` | **`grpc-service`** (`feat-06-grpc-service`) |
 | `docs/08-tetra3-vs-cedar-comparison.md` | cross-cutting defaults/decisions (all designs); informs **`mobile-runtime`** |
-| perf notes in docs 04/06/08 | **`mobile-runtime`** (`07-mobile-runtime`) |
+| perf notes in docs 04/06/08 | **`mobile-runtime`** (`feat-07-mobile-runtime`) |
 
 Feature dependency order (implementation order): `math-core` → `star-detection` → `pattern-database`
 → `database-generation` → `plate-solver` → `grpc-service` → `mobile-runtime`.
