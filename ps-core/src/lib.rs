@@ -49,4 +49,5 @@
 
 pub mod angle;
 pub mod celestial;
+pub mod distortion;
 pub mod projection;
