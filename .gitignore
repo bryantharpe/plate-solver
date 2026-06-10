@@ -3,3 +3,9 @@
 
 # macOS
 .DS_Store
+
+# Rust
+/target
+
+# Parity venv
+tools/parity/.venv
