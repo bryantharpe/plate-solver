@@ -12,7 +12,7 @@
 #
 # WHAT EACH ITERATION DOES:
 #   one fresh Opus orchestrator process -> read plan.md -> do exactly ONE unblocked task to
-#   completion (delegate Rust to ps-coder/Qwen, review via ps-judge/Opus, run the gate, check
+#   completion (delegate Rust to ps-coder/Qwen, review via ps-judge/Sonnet, run the gate, check
 #   the box, append the Run Log, commit work+plan) -> exit. The bash loop then relaunches for
 #   the next task until the plan is done / all-blocked / no progress / max iterations.
 #
@@ -24,7 +24,7 @@
 #     loops will collide on plan.md and git. Stop the interactive session first.
 #   * Models/routing match memory `grind-orchestrator-model` + `llm-routing-litellm`:
 #     orchestrator = claude-opus-4-8 (real Anthropic), ps-coder = qwen3.6-27b (local, $0),
-#     ps-judge = claude-opus-4-8, small/background -> local qwen.
+#     ps-judge = claude-sonnet-4-6-real (real Anthropic Sonnet), small/background -> local qwen.
 
 set -uo pipefail
 
@@ -73,8 +73,13 @@ Tasks, and the Decisions/Blocked/Run logs).
 Do EXACTLY ONE task this run, then STOP. Do not start a second task. Do not "keep going". The
 process will exit and a fresh one will start for the next task. Concretely:
 
-1. Read plan.md top to bottom: Purpose/DoD, ALL Guardrails, the full task list, and the
-   Decisions/Blocked/Run logs. (Also re-read any cited spec/reference only as needed.)
+1. Read plan.md for: Purpose/DoD, ALL Guardrails (in full — load-bearing), the task list
+   (checkboxes + deps, to pick the next task), the Decisions Log, the Blocked Log, and only the
+   LAST ~5 Run Log entries (the Run Log is append-only history you do NOT need in full — read the
+   tail, e.g. `tail -n 40 plan.md`, not the whole file). Do NOT read cited spec/reference docs
+   into THIS orchestrator context; delegate any heavy reading to a single `Explore` or `ps-coder`
+   subagent and keep raw spec text out of this window (it is re-read every turn and is the main
+   token cost).
 2. Select the FIRST task whose checkbox is unchecked AND whose `deps:` are all `[x]`, and which
    is NOT already marked BLOCKED. If no such task exists, output exactly NOTHING-TO-DO and stop.
 3. Implement that ONE task to its acceptance criteria, obeying EVERY guardrail. Delegate
@@ -90,7 +95,8 @@ process will exit and a fresh one will start for the next task. Concretely:
 6. STOP.
 
 Model policy (already wired via the LiteLLM router): this orchestrator process is
-claude-opus-4-8; ps-coder = qwen3.6-27b (local); ps-judge = claude-opus-4-8.
+claude-opus-4-8; ps-coder = qwen3.6-27b (local); ps-judge = claude-sonnet-4-6-real (real Anthropic
+Sonnet — cheaper than Opus, still a rigorous frontier reviewer).
 EOF
 
 # ---- env (mirrors the documented launch recipe) -----------------------------
