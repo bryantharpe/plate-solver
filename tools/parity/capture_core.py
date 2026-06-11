@@ -239,17 +239,36 @@ def capture_rotation():
     cat = cat / np.linalg.norm(cat, axis=1)[:, None]
     img = (r0 @ cat.T).T
     r_rec = ref._find_rotation_matrix(img, cat)
+    # RA/Dec/Roll from recovered R, using the reference solve formula (degrees).
+    rm = r_rec
+    ra_deg = float(np.rad2deg(np.arctan2(rm[0, 1], rm[0, 0])) % 360)
+    dec_deg = float(np.rad2deg(np.arctan2(rm[0, 2], np.linalg.norm(rm[1:3, 2]))))
+    roll_deg = float(np.rad2deg(np.arctan2(rm[1, 2], rm[2, 2])) % 360)
+    # Reflection case: det < 0, built from diag(1,1,-1) @ catalog.
+    refl_M = np.diag([1.0, 1.0, -1.0])
+    refl_img = (refl_M @ cat.T).T
+    refl_R = ref._find_rotation_matrix(refl_img, cat)
+    refl_det = float(np.linalg.det(refl_R))
     return _write(
         "rotation.json",
         {
             "source": "tetra3._find_rotation_matrix (H=img^T cat; U,S,V=svd; R=U V). "
-            "image_vectors[i] = R0 @ catalog_vectors[i]; recovered R must equal R0.",
+            "image_vectors[i] = R0 @ catalog_vectors[i]; recovered R must equal R0. "
+            "ra/dec/roll extracted from R_recovered via tetra3 solve formula (degrees, "
+            "RA/Roll %360); reflection case = diag(1,1,-1)@cat, recovered det<0.",
             "R0": _mat(r0),
             "det_R0": _f(np.linalg.det(r0)),
             "catalog_vectors": _mat(cat),
             "image_vectors": _mat(img),
             "R_recovered": _mat(r_rec),
             "det_R_recovered": _f(np.linalg.det(r_rec)),
+            "ra_deg": ra_deg,
+            "dec_deg": dec_deg,
+            "roll_deg": roll_deg,
+            "reflection_catalog_vectors": _mat(cat),
+            "reflection_image_vectors": _mat(refl_img),
+            "reflection_R": _mat(refl_R),
+            "reflection_det": refl_det,
         },
     )
 

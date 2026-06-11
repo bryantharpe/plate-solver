@@ -48,6 +48,7 @@
 //! `tools/parity/.venv/bin/python tools/parity/capture_core.py`).
 
 pub mod angle;
+pub mod attitude;
 pub mod celestial;
 pub mod distortion;
 pub mod projection;
