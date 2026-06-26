@@ -27,6 +27,8 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import scipy.stats
+from scipy.spatial.distance import pdist
 
 # Reference math helpers live at module scope in tetra3/tetra3.py.
 import tetra3.tetra3 as ref
@@ -321,6 +323,233 @@ def capture_pattern_hash():
     )
 
 
+# --- FOV estimation & refinement (doc 02 §7) ----------------------------------
+def capture_fov():
+    """Capture FOV estimation and refinement from reference."""
+    size = [480, 640]
+    height, width = size
+
+    # Case 1: Coarse FOV with estimate (Mode 1)
+    catalog_largest_edge = 0.1  # radians
+    image_pattern_largest_edge = 0.095  # chord distance
+    fov_estimate = np.deg2rad(20.0)
+    fov_mode1 = catalog_largest_edge / image_pattern_largest_edge * fov_estimate
+
+    # Case 2: Coarse FOV without estimate (Mode 2)
+    image_pattern_largest_pixel_distance = 200.0
+    f = image_pattern_largest_pixel_distance / 2 / np.tan(catalog_largest_edge / 2)
+    fov_mode2 = 2 * np.arctan(width / 2 / f)
+
+    # Diagonal FOV
+    fov_diag1 = fov_mode1 * np.sqrt(width**2 + height**2) / width
+    fov_diag2 = fov_mode2 * np.sqrt(width**2 + height**2) / width
+
+    # Fine FOV no-distortion: use the rotation fixture vectors
+    r0 = _orthonormal_r0()
+    catalog_vectors = np.array([
+        [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],
+        [0.6, 0.8, 0.0], [0.36, 0.48, 0.8]
+    ], dtype=np.float64)
+    catalog_vectors = catalog_vectors / np.linalg.norm(catalog_vectors, axis=1)[:, None]
+    image_vectors = (r0 @ catalog_vectors.T).T
+
+    fov_coarse = np.deg2rad(20.0)
+    angles_camera = ref._angle_from_distance(pdist(image_vectors))
+    angles_catalogue = ref._angle_from_distance(pdist(catalog_vectors))
+    fov_fine = fov_coarse * np.mean(angles_catalogue / angles_camera)
+
+    k_true = -0.1
+    # Fine FOV with distortion — use stars near boresight so they project in-frame.
+    # Pick camera-frame vectors that are close enough to i-axis (boresight).
+    # Avoid exact center (r=0) to prevent NaN in reference's distort function.
+    fov_for_dist = np.deg2rad(60.0)  # wide FOV so stars are in-frame
+    camera_vectors_d = np.array([
+        [0.995, 0.1, 0.0],        # offset in j
+        [0.98, -0.1, 0.2],        # offset in j,k
+        [0.95, 0.2, -0.15],       # another offset
+        [0.90, -0.2, 0.25],       # further out
+        [0.97, 0.15, 0.15],       # moderate offset
+    ], dtype=np.float64)
+    camera_vectors_d = camera_vectors_d / np.linalg.norm(camera_vectors_d, axis=1)[:, None]
+    # catalog = R^T @ camera (since image = R @ catalog => catalog = R^T @ image)
+    cat_for_dist = (r0.T @ camera_vectors_d.T).T
+
+    centroids_undist_d, keep_d = ref._compute_centroids(camera_vectors_d, size, fov_for_dist)
+    centroids_distorted = ref._distort_centroids(centroids_undist_d[keep_d, :], size, k_true)
+    cat_valid = cat_for_dist[keep_d, :]
+
+    # Derotate catalog vectors by R (matches reference lines 2023-2027)
+    derotated = (r0 @ cat_valid.T).T
+    tangent_matched = np.linalg.norm(derotated[:, 1:], axis=1) / derotated[:, 0]
+    radius_matched = np.linalg.norm(centroids_distorted - [height/2, width/2], axis=1) / width * 2
+    A = np.hstack((tangent_matched[:, None], radius_matched[:, None]**3))
+    b = radius_matched[:, None]
+    f_sol, k_sol = np.linalg.lstsq(A, b, rcond=None)[0].flatten()
+    f_sol = f_sol / (1 - k_sol)
+    fov_with_dist = 2 * np.arctan(1 / f_sol)
+
+    cases = [
+        {
+            "mode": "coarse_with_estimate",
+            "catalog_largest_edge": _f(catalog_largest_edge),
+            "image_pattern_largest_edge": _f(image_pattern_largest_edge),
+            "fov_estimate": _f(fov_estimate),
+            "width": _f(width),
+            "fov": _f(fov_mode1),
+        },
+        {
+            "mode": "coarse_no_estimate",
+            "catalog_largest_edge": _f(catalog_largest_edge),
+            "image_pattern_largest_pixel_distance": _f(image_pattern_largest_pixel_distance),
+            "width": _f(width),
+            "fov": _f(fov_mode2),
+        },
+        {
+            "mode": "diagonal",
+            "fov_horizontal": [_f(fov_mode1), _f(fov_mode2)],
+            "width": _f(width),
+            "height": _f(height),
+            "fov_diagonal": [_f(fov_diag1), _f(fov_diag2)],
+        },
+        {
+            "mode": "fine_no_distortion",
+            "fov_coarse": _f(fov_coarse),
+            "matched_image_vectors": _mat(image_vectors),
+            "matched_catalog_vectors": _mat(catalog_vectors),
+            "fov_fine": _f(fov_fine),
+        },
+        {
+            "mode": "fine_with_distortion",
+            "matched_image_centroids": _mat(centroids_distorted),
+            "matched_catalog_vectors": _mat(cat_valid),
+            "rotation_matrix": _mat(r0),
+            "width": _f(width),
+            "height": _f(height),
+            "fov": _f(fov_with_dist),
+            "k": _f(k_sol),
+        },
+    ]
+    return _write("fov_refinement.json", {
+        "source": "tetra3 fov estimation (lines 1896-1910, 1945) + refinement (lines 2012-2046)",
+        "size": [int(height), int(width)],
+        "cases": cases,
+    })
+
+
+# --- false-alarm test (doc 02 §8) ---------------------------------------------
+def capture_false_alarm():
+    """Capture binomial false-alarm probability from reference."""
+    cases = []
+    test_params = [
+        # (num_extracted_stars, num_nearby_catalog_stars, num_star_matches, match_radius)
+        (50, 100, 10, 0.01),
+        (100, 200, 20, 0.01),
+        (30, 50, 5, 0.01),
+        (80, 150, 15, 0.01),
+        (20, 30, 4, 0.01),    # edge case: minimum meaningful matches
+        (200, 500, 30, 0.01),  # dense field
+        (50, 100, 8, 0.005),   # small match radius
+    ]
+    num_patterns = 1000000  # typical
+
+    for n, nc, m, mr in test_params:
+        prob_single = nc * mr**2
+        k_cdf = n - (m - 2)
+        prob_mismatch = float(scipy.stats.binom.cdf(k_cdf, n, 1 - prob_single))
+        effective_threshold = 1e-5 / num_patterns
+        reported_prob = prob_mismatch * num_patterns
+        cases.append({
+            "num_extracted_stars": n,
+            "num_nearby_catalog_stars": nc,
+            "num_star_matches": m,
+            "match_radius": mr,
+            "prob_single_star_mismatch": _f(prob_single),
+            "cdf_k": k_cdf,
+            "prob_mismatch": prob_mismatch,
+            "num_patterns": num_patterns,
+            "effective_threshold": _f(effective_threshold),
+            "reported_probability": _f(reported_prob),
+            "accepted": prob_mismatch < effective_threshold,
+        })
+    return _write("false_alarm.json", {
+        "source": "tetra3 false-alarm test (lines 1976-1992) + Bonferroni correction",
+        "cases": cases,
+    })
+
+
+# --- residual statistics (doc 02 §9) ------------------------------------------
+def capture_residuals():
+    """Capture residual statistics from reference."""
+    r0 = _orthonormal_r0()
+    catalog_vectors = np.array([
+        [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],
+        [0.6, 0.8, 0.0], [0.36, 0.48, 0.8]
+    ], dtype=np.float64)
+    catalog_vectors = catalog_vectors / np.linalg.norm(catalog_vectors, axis=1)[:, None]
+
+    # Perfect case: final vectors = R^T @ (R @ catalog) = catalog
+    image_vectors = (r0 @ catalog_vectors.T).T
+    final_match_vectors = (r0.T @ image_vectors.T).T  # = catalog_vectors
+
+    distance = np.linalg.norm(final_match_vectors - catalog_vectors, axis=1)
+    distance_sorted = np.sort(distance)
+    p90_index = int(0.9 * (len(distance_sorted) - 1))
+    angle = ref._angle_from_distance(distance_sorted)
+    p90_err_angle = float(np.rad2deg(ref._angle_from_distance(distance_sorted[p90_index])) * 3600)
+    max_err_angle = float(np.rad2deg(ref._angle_from_distance(distance_sorted[-1])) * 3600)
+    rms_err_angle = float(np.rad2deg(np.sqrt(np.mean(angle**2))) * 3600)
+
+    # Case 2: Add small perturbation to simulate real residuals
+    np.random.seed(42)
+    perturbed = final_match_vectors.copy()
+    for i in range(len(perturbed)):
+        perturbed[i] += np.random.normal(0, 1e-4, 3)
+        perturbed[i] /= np.linalg.norm(perturbed[i])
+
+    distance2 = np.linalg.norm(perturbed - catalog_vectors, axis=1)
+    distance_sorted2 = np.sort(distance2)
+    p90_index2 = int(0.9 * (len(distance_sorted2) - 1))
+    angle2 = ref._angle_from_distance(distance_sorted2)
+
+    # Case 3: Single match
+    single_catalog = np.array([[1.0, 0.0, 0.0]], dtype=np.float64)
+    single_final = np.array([[0.999999, 0.0001, 0.001]], dtype=np.float64)
+    single_dist = np.linalg.norm(single_final - single_catalog, axis=1)
+    single_dist_sorted = np.sort(single_dist)
+    single_p90_index = int(0.9 * (len(single_dist_sorted) - 1))
+
+    cases = [
+        {
+            "name": "perfect_match",
+            "final_match_vectors": _mat(final_match_vectors),
+            "matched_catalog_vectors": _mat(catalog_vectors),
+            "rmse_arcsec": rms_err_angle,
+            "p90e_arcsec": p90_err_angle,
+            "maxe_arcsec": max_err_angle,
+        },
+        {
+            "name": "perturbed_match",
+            "final_match_vectors": _mat(perturbed),
+            "matched_catalog_vectors": _mat(catalog_vectors),
+            "rmse_arcsec": float(np.rad2deg(np.sqrt(np.mean(angle2**2))) * 3600),
+            "p90e_arcsec": float(np.rad2deg(ref._angle_from_distance(distance_sorted2[p90_index2])) * 3600),
+            "maxe_arcsec": float(np.rad2deg(ref._angle_from_distance(distance_sorted2[-1])) * 3600),
+        },
+        {
+            "name": "single_match",
+            "final_match_vectors": _mat(single_final),
+            "matched_catalog_vectors": _mat(single_catalog),
+            "rmse_arcsec": float(np.rad2deg(ref._angle_from_distance(single_dist_sorted[0])) * 3600),
+            "p90e_arcsec": float(np.rad2deg(ref._angle_from_distance(single_dist_sorted[single_p90_index])) * 3600),
+            "maxe_arcsec": float(np.rad2deg(ref._angle_from_distance(single_dist_sorted[-1])) * 3600),
+        },
+    ]
+    return _write("residuals.json", {
+        "source": "tetra3 residual computation (lines 2065-2072)",
+        "cases": cases,
+    })
+
+
 def main() -> int:
     print(f"numpy {np.__version__}; capturing ps-core fixtures -> {FIXTURES}")
     capture_celestial_vectors()
@@ -329,6 +558,9 @@ def main() -> int:
     capture_distortion()
     capture_rotation()
     capture_pattern_hash()
+    capture_fov()
+    capture_false_alarm()
+    capture_residuals()
     written = sorted(p.name for p in FIXTURES.glob("*.json"))
     print(f"OK: {len(written)} fixture file(s): {', '.join(written)}")
     return 0

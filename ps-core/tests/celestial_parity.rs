@@ -24,8 +24,8 @@ struct Fixture {
 
 fn load() -> Fixture {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/celestial_vectors.json");
-    let body = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let body =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     serde_json::from_str(&body).expect("parse celestial_vectors.json")
 }
 
@@ -33,10 +33,30 @@ fn load() -> Fixture {
 fn forward_matches_reference_and_is_unit() {
     for c in load().cases {
         let v = radec_to_vector(c.ra, c.dec);
-        assert!((v.x - c.vector[0]).abs() < 1e-9, "x ra={} dec={}", c.ra, c.dec);
-        assert!((v.y - c.vector[1]).abs() < 1e-9, "y ra={} dec={}", c.ra, c.dec);
-        assert!((v.z - c.vector[2]).abs() < 1e-9, "z ra={} dec={}", c.ra, c.dec);
-        assert!((v.norm() - 1.0).abs() < 1e-12, "unit norm ra={} dec={}", c.ra, c.dec);
+        assert!(
+            (v.x - c.vector[0]).abs() < 1e-9,
+            "x ra={} dec={}",
+            c.ra,
+            c.dec
+        );
+        assert!(
+            (v.y - c.vector[1]).abs() < 1e-9,
+            "y ra={} dec={}",
+            c.ra,
+            c.dec
+        );
+        assert!(
+            (v.z - c.vector[2]).abs() < 1e-9,
+            "z ra={} dec={}",
+            c.ra,
+            c.dec
+        );
+        assert!(
+            (v.norm() - 1.0).abs() < 1e-12,
+            "unit norm ra={} dec={}",
+            c.ra,
+            c.dec
+        );
     }
 }
 

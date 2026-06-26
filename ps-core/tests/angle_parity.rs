@@ -20,22 +20,30 @@ struct Fixture {
 
 fn load() -> Fixture {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/angle_distance.json");
-    let body = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let body =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     serde_json::from_str(&body).expect("parse angle_distance.json")
 }
 
 #[test]
 fn distance_from_angle_matches_reference() {
     for c in load().cases {
-        assert!((distance_from_angle(c.angle) - c.distance).abs() < 1e-9, "angle={}", c.angle);
+        assert!(
+            (distance_from_angle(c.angle) - c.distance).abs() < 1e-9,
+            "angle={}",
+            c.angle
+        );
     }
 }
 
 #[test]
 fn angle_from_distance_matches_reference() {
     for c in load().cases {
-        assert!((angle_from_distance(c.distance) - c.angle_back).abs() < 1e-9, "angle={}", c.angle);
+        assert!(
+            (angle_from_distance(c.distance) - c.angle_back).abs() < 1e-9,
+            "angle={}",
+            c.angle
+        );
     }
 }
 

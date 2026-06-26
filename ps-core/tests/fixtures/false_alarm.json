@@ -1,0 +1,96 @@
+{
+  "cases": [
+    {
+      "accepted": false,
+      "cdf_k": 42,
+      "effective_threshold": 1.0000000000000001e-11,
+      "match_radius": 0.01,
+      "num_extracted_stars": 50,
+      "num_nearby_catalog_stars": 100,
+      "num_patterns": 1000000,
+      "num_star_matches": 10,
+      "prob_mismatch": 3.693157558053907e-08,
+      "prob_single_star_mismatch": 0.01,
+      "reported_probability": 0.03693157558053907
+    },
+    {
+      "accepted": true,
+      "cdf_k": 82,
+      "effective_threshold": 1.0000000000000001e-11,
+      "match_radius": 0.01,
+      "num_extracted_stars": 100,
+      "num_nearby_catalog_stars": 200,
+      "num_patterns": 1000000,
+      "num_star_matches": 20,
+      "prob_mismatch": 1.6807841066118442e-12,
+      "prob_single_star_mismatch": 0.02,
+      "reported_probability": 1.6807841066118443e-06
+    },
+    {
+      "accepted": false,
+      "cdf_k": 27,
+      "effective_threshold": 1.0000000000000001e-11,
+      "match_radius": 0.01,
+      "num_extracted_stars": 30,
+      "num_nearby_catalog_stars": 50,
+      "num_patterns": 1000000,
+      "num_star_matches": 5,
+      "prob_mismatch": 0.00045869717361907917,
+      "prob_single_star_mismatch": 0.005,
+      "reported_probability": 458.6971736190792
+    },
+    {
+      "accepted": false,
+      "cdf_k": 67,
+      "effective_threshold": 1.0000000000000001e-11,
+      "match_radius": 0.01,
+      "num_extracted_stars": 80,
+      "num_nearby_catalog_stars": 150,
+      "num_patterns": 1000000,
+      "num_star_matches": 15,
+      "prob_mismatch": 2.4019515417323803e-10,
+      "prob_single_star_mismatch": 0.015000000000000001,
+      "reported_probability": 0.00024019515417323802
+    },
+    {
+      "accepted": false,
+      "cdf_k": 18,
+      "effective_threshold": 1.0000000000000001e-11,
+      "match_radius": 0.01,
+      "num_extracted_stars": 20,
+      "num_nearby_catalog_stars": 30,
+      "num_patterns": 1000000,
+      "num_star_matches": 4,
+      "prob_mismatch": 0.0016496024053807468,
+      "prob_single_star_mismatch": 0.003,
+      "reported_probability": 1649.6024053807469
+    },
+    {
+      "accepted": false,
+      "cdf_k": 172,
+      "effective_threshold": 1.0000000000000001e-11,
+      "match_radius": 0.01,
+      "num_extracted_stars": 200,
+      "num_nearby_catalog_stars": 500,
+      "num_patterns": 1000000,
+      "num_star_matches": 30,
+      "prob_mismatch": 9.601609598102854e-07,
+      "prob_single_star_mismatch": 0.05,
+      "reported_probability": 0.9601609598102854
+    },
+    {
+      "accepted": false,
+      "cdf_k": 44,
+      "effective_threshold": 1.0000000000000001e-11,
+      "match_radius": 0.005,
+      "num_extracted_stars": 50,
+      "num_nearby_catalog_stars": 100,
+      "num_patterns": 1000000,
+      "num_star_matches": 8,
+      "prob_mismatch": 3.5304581839510352e-09,
+      "prob_single_star_mismatch": 0.0025,
+      "reported_probability": 0.003530458183951035
+    }
+  ],
+  "source": "tetra3 false-alarm test (lines 1976-1992) + Bonferroni correction"
+}

@@ -7,9 +7,9 @@
 //!
 //! The math primitives (celestial vectors, angular distance, pinhole
 //! projection, radial distortion, Wahba/SVD attitude, edge-ratio pattern key +
-//! hashing, FOV refinement, false-alarm test, residuals) are implemented in
-//! later tasks (MC2–MC7). This module currently only fixes the binding
-//! conventions every primitive must honour.
+//! hashing, FOV refinement, false-alarm test, residuals) are implemented
+//! across MC2–MC7. This module fixes the binding conventions every primitive
+//! must honour.
 //!
 //! ## Binding conventions
 //!
@@ -51,5 +51,8 @@ pub mod angle;
 pub mod attitude;
 pub mod celestial;
 pub mod distortion;
+pub mod false_alarm;
+pub mod fov;
 pub mod pattern;
 pub mod projection;
+pub mod residuals;

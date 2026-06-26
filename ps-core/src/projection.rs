@@ -13,7 +13,11 @@ use nalgebra::Vector3;
 /// `size = (height, width)` in pixels; `fov` is the horizontal field of view
 /// in radians. Each centroid is the centre of a pixel (row, col) with
 /// `(0.5, 0.5)` being the centre of the top-left pixel.
-pub fn compute_vectors(centroids: &[[f64; 2]], size: (usize, usize), fov: f64) -> Vec<Vector3<f64>> {
+pub fn compute_vectors(
+    centroids: &[[f64; 2]],
+    size: (usize, usize),
+    fov: f64,
+) -> Vec<Vector3<f64>> {
     let height = size.0 as f64;
     let width = size.1 as f64;
     let half_fov_tan = (fov / 2.0).tan();

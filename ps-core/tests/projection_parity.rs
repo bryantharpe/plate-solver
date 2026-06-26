@@ -24,8 +24,8 @@ struct Fixture {
 
 fn load() -> Fixture {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/projection.json");
-    let body = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let body =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     serde_json::from_str(&body).expect("parse projection.json")
 }
 

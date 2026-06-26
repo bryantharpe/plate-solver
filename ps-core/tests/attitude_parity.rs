@@ -29,9 +29,7 @@ struct Fixture {
 
 fn m3_from_arr(m: &[[f64; 3]; 3]) -> Matrix3<f64> {
     Matrix3::new(
-        m[0][0], m[0][1], m[0][2],
-        m[1][0], m[1][1], m[1][2],
-        m[2][0], m[2][1], m[2][2],
+        m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2],
     )
 }
 
@@ -41,8 +39,8 @@ fn vecs_from_arr(arr: &[[f64; 3]]) -> Vec<Vector3<f64>> {
 
 fn load() -> Fixture {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rotation.json");
-    let body = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let body =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     serde_json::from_str(&body).expect("parse rotation.json")
 }
 
@@ -59,7 +57,10 @@ fn find_rotation_matrix_recovers_known_rotation() {
             assert!(
                 (r[(i, j)] - fixture.r0[i][j]).abs() < 1e-9,
                 "R0[{},{}] mismatch: got {}, expected {}",
-                i, j, r[(i, j)], fixture.r0[i][j]
+                i,
+                j,
+                r[(i, j)],
+                fixture.r0[i][j]
             );
         }
     }
@@ -82,17 +83,20 @@ fn extract_radec_roll_matches_reference() {
     assert!(
         (ra_deg - fixture.ra_deg).abs() < 1e-9,
         "RA mismatch: got {}, expected {}",
-        ra_deg, fixture.ra_deg
+        ra_deg,
+        fixture.ra_deg
     );
     assert!(
         (dec_deg - fixture.dec_deg).abs() < 1e-9,
         "Dec mismatch: got {}, expected {}",
-        dec_deg, fixture.dec_deg
+        dec_deg,
+        fixture.dec_deg
     );
     assert!(
         (roll_deg - fixture.roll_deg).abs() < 1e-9,
         "Roll mismatch: got {}, expected {}",
-        roll_deg, fixture.roll_deg
+        roll_deg,
+        fixture.roll_deg
     );
 }
 
@@ -109,12 +113,14 @@ fn extract_boresight_matches_vector_to_radec() {
     assert!(
         (ra - ra2).abs() < 1e-12,
         "boresight RA mismatch: got {}, expected {}",
-        ra, ra2
+        ra,
+        ra2
     );
     assert!(
         (dec - dec2).abs() < 1e-12,
         "boresight Dec mismatch: got {}, expected {}",
-        dec, dec2
+        dec,
+        dec2
     );
 }
 
@@ -126,7 +132,10 @@ fn reflection_is_rejected() {
     let r = find_rotation_matrix(&refl_image, &refl_catalog);
 
     // Must be detected as a reflection
-    assert!(is_reflection(&r), "reflection R should be detected as reflection");
+    assert!(
+        is_reflection(&r),
+        "reflection R should be detected as reflection"
+    );
     assert!(r.determinant() < 0.0, "det(R) = {}", r.determinant());
 
     // Matches the reference's reflection_R within 1e-9
@@ -135,11 +144,18 @@ fn reflection_is_rejected() {
             assert!(
                 (r[(i, j)] - fixture.reflection_r[i][j]).abs() < 1e-9,
                 "reflection_R[{},{}] mismatch: got {}, expected {}",
-                i, j, r[(i, j)], fixture.reflection_r[i][j]
+                i,
+                j,
+                r[(i, j)],
+                fixture.reflection_r[i][j]
             );
         }
     }
 
     // Sanity: the captured golden det is negative
-    assert!(fixture.reflection_det < 0.0, "reflection_det = {}", fixture.reflection_det);
+    assert!(
+        fixture.reflection_det < 0.0,
+        "reflection_det = {}",
+        fixture.reflection_det
+    );
 }
