@@ -1,0 +1,4986 @@
+{
+  "2019-07-29T204726_Alt40_Azi-135_Try1.jpg": {
+    "centroids": [
+      {
+        "brightness": 457.5,
+        "centroid_x": 256.1512605042017,
+        "centroid_y": 298.2995594713656,
+        "num_saturated": 0,
+        "peak_value": 127
+      },
+      {
+        "brightness": 210.25000000000009,
+        "centroid_x": 635.4489795918367,
+        "centroid_y": 4.573770491803279,
+        "num_saturated": 0,
+        "peak_value": 105
+      },
+      {
+        "brightness": 152.25,
+        "centroid_x": 200.58,
+        "centroid_y": 322.2857142857143,
+        "num_saturated": 0,
+        "peak_value": 64
+      },
+      {
+        "brightness": 107.50000000000003,
+        "centroid_x": 219.51546391752578,
+        "centroid_y": 42.90384615384615,
+        "num_saturated": 0,
+        "peak_value": 43
+      },
+      {
+        "brightness": 75.0,
+        "centroid_x": 265.6666666666667,
+        "centroid_y": 229.55072463768116,
+        "num_saturated": 0,
+        "peak_value": 41
+      },
+      {
+        "brightness": 56.00000000000002,
+        "centroid_x": 581.3,
+        "centroid_y": 265.6756756756757,
+        "num_saturated": 0,
+        "peak_value": 32
+      },
+      {
+        "brightness": 56.00000000000002,
+        "centroid_x": 870.2444444444444,
+        "centroid_y": 347.59183673469386,
+        "num_saturated": 0,
+        "peak_value": 34
+      },
+      {
+        "brightness": 53.749999999999986,
+        "centroid_x": 690.5090909090909,
+        "centroid_y": 510.5,
+        "num_saturated": 0,
+        "peak_value": 40
+      },
+      {
+        "brightness": 48.99999999999998,
+        "centroid_x": 216.56,
+        "centroid_y": 122.59183673469387,
+        "num_saturated": 0,
+        "peak_value": 32
+      },
+      {
+        "brightness": 42.66666666666668,
+        "centroid_x": 774.4666666666667,
+        "centroid_y": 455.7142857142857,
+        "num_saturated": 0,
+        "peak_value": 30
+      },
+      {
+        "brightness": 39.0,
+        "centroid_x": 575.5909090909091,
+        "centroid_y": 550.5625,
+        "num_saturated": 0,
+        "peak_value": 27
+      },
+      {
+        "brightness": 37.33333333333332,
+        "centroid_x": 733.2608695652174,
+        "centroid_y": 680.7,
+        "num_saturated": 0,
+        "peak_value": 25
+      },
+      {
+        "brightness": 36.33333333333334,
+        "centroid_x": 248.52777777777777,
+        "centroid_y": 493.0833333333333,
+        "num_saturated": 0,
+        "peak_value": 24
+      },
+      {
+        "brightness": 34.5625,
+        "centroid_x": 140.2941176470588,
+        "centroid_y": 115.57142857142857,
+        "num_saturated": 0,
+        "peak_value": 22
+      },
+      {
+        "brightness": 33.99999999999998,
+        "centroid_x": 563.8235294117648,
+        "centroid_y": 472.625,
+        "num_saturated": 0,
+        "peak_value": 24
+      },
+      {
+        "brightness": 29.666666666666657,
+        "centroid_x": 373.40909090909093,
+        "centroid_y": 569.1428571428571,
+        "num_saturated": 0,
+        "peak_value": 23
+      },
+      {
+        "brightness": 28.0,
+        "centroid_x": 726.6818181818181,
+        "centroid_y": 704.4347826086956,
+        "num_saturated": 0,
+        "peak_value": 25
+      },
+      {
+        "brightness": 27.1875,
+        "centroid_x": 395.7037037037037,
+        "centroid_y": 423.575,
+        "num_saturated": 0,
+        "peak_value": 28
+      },
+      {
+        "brightness": 26.66666666666667,
+        "centroid_x": 181.4090909090909,
+        "centroid_y": 249.75,
+        "num_saturated": 0,
+        "peak_value": 20
+      },
+      {
+        "brightness": 26.3125,
+        "centroid_x": 470.5483870967742,
+        "centroid_y": 160.46428571428572,
+        "num_saturated": 0,
+        "peak_value": 24
+      },
+      {
+        "brightness": 25.66666666666667,
+        "centroid_x": 690.3181818181819,
+        "centroid_y": 558.7857142857143,
+        "num_saturated": 0,
+        "peak_value": 21
+      },
+      {
+        "brightness": 23.6875,
+        "centroid_x": 402.9,
+        "centroid_y": 228.73333333333332,
+        "num_saturated": 0,
+        "peak_value": 20
+      },
+      {
+        "brightness": 22.75,
+        "centroid_x": 442.0833333333333,
+        "centroid_y": 263.64285714285717,
+        "num_saturated": 0,
+        "peak_value": 21
+      },
+      {
+        "brightness": 22.3125,
+        "centroid_x": 468.48,
+        "centroid_y": 365.4782608695652,
+        "num_saturated": 0,
+        "peak_value": 25
+      },
+      {
+        "brightness": 20.125,
+        "centroid_x": 462.0,
+        "centroid_y": 571.8125,
+        "num_saturated": 0,
+        "peak_value": 21
+      },
+      {
+        "brightness": 18.75,
+        "centroid_x": 280.6363636363636,
+        "centroid_y": 132.45454545454547,
+        "num_saturated": 0,
+        "peak_value": 20
+      },
+      {
+        "brightness": 18.5625,
+        "centroid_x": 314.40909090909093,
+        "centroid_y": 285.6111111111111,
+        "num_saturated": 0,
+        "peak_value": 23
+      },
+      {
+        "brightness": 17.6875,
+        "centroid_x": 842.3333333333334,
+        "centroid_y": 408.75,
+        "num_saturated": 0,
+        "peak_value": 20
+      },
+      {
+        "brightness": 17.5,
+        "centroid_x": 612.4090909090909,
+        "centroid_y": 527.8571428571429,
+        "num_saturated": 0,
+        "peak_value": 23
+      },
+      {
+        "brightness": 16.0625,
+        "centroid_x": 263.46666666666664,
+        "centroid_y": 194.41666666666666,
+        "num_saturated": 0,
+        "peak_value": 19
+      },
+      {
+        "brightness": 15.6875,
+        "centroid_x": 181.53333333333333,
+        "centroid_y": 288.42857142857144,
+        "num_saturated": 0,
+        "peak_value": 19
+      },
+      {
+        "brightness": 15.375,
+        "centroid_x": 605.4166666666666,
+        "centroid_y": 197.6153846153846,
+        "num_saturated": 0,
+        "peak_value": 19
+      },
+      {
+        "brightness": 14.8125,
+        "centroid_x": 81.42857142857143,
+        "centroid_y": 329.2857142857143,
+        "num_saturated": 0,
+        "peak_value": 17
+      },
+      {
+        "brightness": 14.25,
+        "centroid_x": 880.578947368421,
+        "centroid_y": 491.54545454545456,
+        "num_saturated": 0,
+        "peak_value": 21
+      },
+      {
+        "brightness": 12.6875,
+        "centroid_x": 98.55555555555556,
+        "centroid_y": 138.4,
+        "num_saturated": 0,
+        "peak_value": 16
+      }
+    ],
+    "hot_pixel_count": 21,
+    "noise_estimate": 0.6660330322138684,
+    "sigma": 8.0
+  },
+  "hale_bopp.jpg": {
+    "centroids": [
+      {
+        "brightness": 2324.23076923077,
+        "centroid_x": 865.749244712991,
+        "centroid_y": 46.329048843187664,
+        "num_saturated": 0,
+        "peak_value": 254
+      },
+      {
+        "brightness": 2252.0,
+        "centroid_x": 132.28157894736842,
+        "centroid_y": 178.76439790575915,
+        "num_saturated": 2,
+        "peak_value": 255
+      },
+      {
+        "brightness": 1840.9999999999993,
+        "centroid_x": 844.9088937093276,
+        "centroid_y": 149.0247678018576,
+        "num_saturated": 0,
+        "peak_value": 248
+      },
+      {
+        "brightness": 1516.4999999999995,
+        "centroid_x": 354.7620192307692,
+        "centroid_y": 115.34633027522936,
+        "num_saturated": 1,
+        "peak_value": 255
+      },
+      {
+        "brightness": 1508.636363636363,
+        "centroid_x": 668.2379862700229,
+        "centroid_y": 296.92,
+        "num_saturated": 0,
+        "peak_value": 253
+      },
+      {
+        "brightness": 1384.4999999999998,
+        "centroid_x": 630.4624746450304,
+        "centroid_y": 59.399132321041215,
+        "num_saturated": 1,
+        "peak_value": 255
+      },
+      {
+        "brightness": 1335.7272727272723,
+        "centroid_x": 16.945799457994582,
+        "centroid_y": 240.02272727272728,
+        "num_saturated": 0,
+        "peak_value": 243
+      },
+      {
+        "brightness": 1190.2500000000005,
+        "centroid_x": 806.4116541353384,
+        "centroid_y": 96.92682926829268,
+        "num_saturated": 0,
+        "peak_value": 250
+      },
+      {
+        "brightness": 1179.2499999999995,
+        "centroid_x": 29.440366972477065,
+        "centroid_y": 412.103982300885,
+        "num_saturated": 0,
+        "peak_value": 251
+      },
+      {
+        "brightness": 1167.5000000000002,
+        "centroid_x": 82.44806517311609,
+        "centroid_y": 300.2673031026253,
+        "num_saturated": 1,
+        "peak_value": 255
+      },
+      {
+        "brightness": 1111.5000000000002,
+        "centroid_x": 870.3502824858757,
+        "centroid_y": 534.4891696750902,
+        "num_saturated": 0,
+        "peak_value": 251
+      },
+      {
+        "brightness": 1102.2500000000002,
+        "centroid_x": 784.5495689655172,
+        "centroid_y": 445.6479166666667,
+        "num_saturated": 0,
+        "peak_value": 253
+      },
+      {
+        "brightness": 1075.2499999999998,
+        "centroid_x": 240.60107334525938,
+        "centroid_y": 7.364729458917836,
+        "num_saturated": 0,
+        "peak_value": 254
+      },
+      {
+        "brightness": 1066.2727272727268,
+        "centroid_x": 513.1198979591836,
+        "centroid_y": 180.455078125,
+        "num_saturated": 0,
+        "peak_value": 236
+      },
+      {
+        "brightness": 1056.5,
+        "centroid_x": 45.813559322033896,
+        "centroid_y": 161.42666666666668,
+        "num_saturated": 0,
+        "peak_value": 247
+      },
+      {
+        "brightness": 992.7499999999999,
+        "centroid_x": 288.5681818181818,
+        "centroid_y": 38.768,
+        "num_saturated": 0,
+        "peak_value": 254
+      },
+      {
+        "brightness": 957.2499999999998,
+        "centroid_x": 773.4311475409836,
+        "centroid_y": 462.0601503759398,
+        "num_saturated": 0,
+        "peak_value": 239
+      },
+      {
+        "brightness": 934.7272727272726,
+        "centroid_x": 645.9088669950739,
+        "centroid_y": 564.5542635658915,
+        "num_saturated": 0,
+        "peak_value": 238
+      },
+      {
+        "brightness": 905.25,
+        "centroid_x": 793.354609929078,
+        "centroid_y": 489.751677852349,
+        "num_saturated": 0,
+        "peak_value": 254
+      },
+      {
+        "brightness": 857.3999999999999,
+        "centroid_x": 517.8947368421053,
+        "centroid_y": 213.0752688172043,
+        "num_saturated": 0,
+        "peak_value": 211
+      },
+      {
+        "brightness": 852.6666666666669,
+        "centroid_x": 512.4149184149185,
+        "centroid_y": 265.1334894613583,
+        "num_saturated": 0,
+        "peak_value": 220
+      },
+      {
+        "brightness": 817.6363636363634,
+        "centroid_x": 158.84160756501183,
+        "centroid_y": 270.55369928400955,
+        "num_saturated": 0,
+        "peak_value": 245
+      },
+      {
+        "brightness": 782.7500000000001,
+        "centroid_x": 587.6019230769231,
+        "centroid_y": 204.45820433436532,
+        "num_saturated": 0,
+        "peak_value": 246
+      },
+      {
+        "brightness": 745.7499999999998,
+        "centroid_x": 20.69247311827957,
+        "centroid_y": 376.65259117082536,
+        "num_saturated": 0,
+        "peak_value": 241
+      },
+      {
+        "brightness": 740.5000000000003,
+        "centroid_x": 538.5079646017699,
+        "centroid_y": 35.55670103092783,
+        "num_saturated": 0,
+        "peak_value": 253
+      },
+      {
+        "brightness": 727.4999999999998,
+        "centroid_x": 368.7872807017544,
+        "centroid_y": 41.66244725738397,
+        "num_saturated": 0,
+        "peak_value": 235
+      },
+      {
+        "brightness": 721.3333333333331,
+        "centroid_x": 793.451242829828,
+        "centroid_y": 419.7995049504951,
+        "num_saturated": 0,
+        "peak_value": 234
+      },
+      {
+        "brightness": 721.2727272727274,
+        "centroid_x": 205.87567567567567,
+        "centroid_y": 86.44147843942505,
+        "num_saturated": 0,
+        "peak_value": 213
+      },
+      {
+        "brightness": 716.6666666666665,
+        "centroid_x": 11.365256124721604,
+        "centroid_y": 91.88654353562005,
+        "num_saturated": 0,
+        "peak_value": 226
+      },
+      {
+        "brightness": 708.3333333333333,
+        "centroid_x": 98.66553480475382,
+        "centroid_y": 557.2286432160804,
+        "num_saturated": 0,
+        "peak_value": 203
+      },
+      {
+        "brightness": 705.3333333333335,
+        "centroid_x": 390.32698412698414,
+        "centroid_y": 381.9805194805195,
+        "num_saturated": 0,
+        "peak_value": 233
+      },
+      {
+        "brightness": 690.5454545454547,
+        "centroid_x": 617.1661631419939,
+        "centroid_y": 324.4531835205992,
+        "num_saturated": 0,
+        "peak_value": 242
+      },
+      {
+        "brightness": 686.2499999999999,
+        "centroid_x": 606.4814814814815,
+        "centroid_y": 222.3653444676409,
+        "num_saturated": 0,
+        "peak_value": 241
+      },
+      {
+        "brightness": 679.5,
+        "centroid_x": 499.7085201793722,
+        "centroid_y": 101.38271604938272,
+        "num_saturated": 0,
+        "peak_value": 226
+      },
+      {
+        "brightness": 677.6666666666665,
+        "centroid_x": 596.3321299638989,
+        "centroid_y": 585.1344086021505,
+        "num_saturated": 0,
+        "peak_value": 223
+      },
+      {
+        "brightness": 676.9999999999998,
+        "centroid_x": 56.593582887700535,
+        "centroid_y": 551.8391420911528,
+        "num_saturated": 0,
+        "peak_value": 215
+      },
+      {
+        "brightness": 672.9999999999998,
+        "centroid_x": 539.5,
+        "centroid_y": 131.57171314741035,
+        "num_saturated": 0,
+        "peak_value": 250
+      },
+      {
+        "brightness": 660.0,
+        "centroid_x": 752.40329218107,
+        "centroid_y": 149.17791411042944,
+        "num_saturated": 0,
+        "peak_value": 216
+      },
+      {
+        "brightness": 657.6000000000001,
+        "centroid_x": 841.1060070671379,
+        "centroid_y": 479.66809421841543,
+        "num_saturated": 0,
+        "peak_value": 178
+      },
+      {
+        "brightness": 645.25,
+        "centroid_x": 514.3116089613035,
+        "centroid_y": 50.44494382022472,
+        "num_saturated": 0,
+        "peak_value": 214
+      },
+      {
+        "brightness": 627.9999999999998,
+        "centroid_x": 524.3763919821827,
+        "centroid_y": 237.7283950617284,
+        "num_saturated": 1,
+        "peak_value": 255
+      },
+      {
+        "brightness": 627.0,
+        "centroid_x": 263.43564356435644,
+        "centroid_y": 305.3634259259259,
+        "num_saturated": 0,
+        "peak_value": 236
+      },
+      {
+        "brightness": 622.7500000000001,
+        "centroid_x": 861.6687631027254,
+        "centroid_y": 157.5218045112782,
+        "num_saturated": 0,
+        "peak_value": 242
+      },
+      {
+        "brightness": 621.7499999999999,
+        "centroid_x": 36.79083094555874,
+        "centroid_y": 560.5853658536586,
+        "num_saturated": 0,
+        "peak_value": 166
+      },
+      {
+        "brightness": 621.3333333333334,
+        "centroid_x": 82.8025078369906,
+        "centroid_y": 84.76211453744493,
+        "num_saturated": 0,
+        "peak_value": 205
+      },
+      {
+        "brightness": 613.3333333333333,
+        "centroid_x": 892.8292011019283,
+        "centroid_y": 428.28391959798995,
+        "num_saturated": 0,
+        "peak_value": 189
+      },
+      {
+        "brightness": 612.6666666666669,
+        "centroid_x": 401.38,
+        "centroid_y": 293.6292134831461,
+        "num_saturated": 0,
+        "peak_value": 240
+      },
+      {
+        "brightness": 604.6363636363634,
+        "centroid_x": 698.2709251101321,
+        "centroid_y": 326.4390243902439,
+        "num_saturated": 0,
+        "peak_value": 245
+      },
+      {
+        "brightness": 593.6666666666666,
+        "centroid_x": 636.8502994011976,
+        "centroid_y": 552.7013574660633,
+        "num_saturated": 0,
+        "peak_value": 197
+      },
+      {
+        "brightness": 585.9999999999999,
+        "centroid_x": 499.5296912114014,
+        "centroid_y": 152.36877828054298,
+        "num_saturated": 0,
+        "peak_value": 227
+      },
+      {
+        "brightness": 573.6666666666669,
+        "centroid_x": 378.54852320675104,
+        "centroid_y": 347.6870026525199,
+        "num_saturated": 0,
+        "peak_value": 246
+      },
+      {
+        "brightness": 565.0,
+        "centroid_x": 783.6035634743876,
+        "centroid_y": 34.746928746928745,
+        "num_saturated": 0,
+        "peak_value": 205
+      },
+      {
+        "brightness": 564.6666666666666,
+        "centroid_x": 721.935593220339,
+        "centroid_y": 44.88923076923077,
+        "num_saturated": 0,
+        "peak_value": 155
+      },
+      {
+        "brightness": 563.3333333333331,
+        "centroid_x": 732.5928853754941,
+        "centroid_y": 529.6567567567567,
+        "num_saturated": 0,
+        "peak_value": 224
+      },
+      {
+        "brightness": 561.6666666666665,
+        "centroid_x": 117.49802371541502,
+        "centroid_y": 214.69677419354838,
+        "num_saturated": 0,
+        "peak_value": 229
+      },
+      {
+        "brightness": 561.0000000000001,
+        "centroid_x": 23.833819241982507,
+        "centroid_y": 323.6595744680851,
+        "num_saturated": 0,
+        "peak_value": 223
+      },
+      {
+        "brightness": 556.0,
+        "centroid_x": 874.4613466334165,
+        "centroid_y": 338.0293159609121,
+        "num_saturated": 0,
+        "peak_value": 179
+      },
+      {
+        "brightness": 547.6666666666669,
+        "centroid_x": 437.320197044335,
+        "centroid_y": 69.09961685823755,
+        "num_saturated": 0,
+        "peak_value": 186
+      },
+      {
+        "brightness": 535.6666666666666,
+        "centroid_x": 752.6242171189979,
+        "centroid_y": 172.57011494252873,
+        "num_saturated": 0,
+        "peak_value": 216
+      },
+      {
+        "brightness": 534.0000000000001,
+        "centroid_x": 204.8096590909091,
+        "centroid_y": 117.83855421686746,
+        "num_saturated": 0,
+        "peak_value": 206
+      },
+      {
+        "brightness": 523.6666666666665,
+        "centroid_x": 68.53463587921847,
+        "centroid_y": 123.26845637583892,
+        "num_saturated": 0,
+        "peak_value": 224
+      },
+      {
+        "brightness": 523.0,
+        "centroid_x": 236.3980343980344,
+        "centroid_y": 333.6363636363636,
+        "num_saturated": 0,
+        "peak_value": 209
+      },
+      {
+        "brightness": 522.3999999999999,
+        "centroid_x": 338.06293706293707,
+        "centroid_y": 161.45892857142857,
+        "num_saturated": 0,
+        "peak_value": 176
+      },
+      {
+        "brightness": 520.0,
+        "centroid_x": 163.49006622516555,
+        "centroid_y": 531.2346041055719,
+        "num_saturated": 0,
+        "peak_value": 218
+      },
+      {
+        "brightness": 519.6666666666667,
+        "centroid_x": 422.6340425531915,
+        "centroid_y": 74.42074363992172,
+        "num_saturated": 0,
+        "peak_value": 242
+      },
+      {
+        "brightness": 517.6666666666666,
+        "centroid_x": 327.492385786802,
+        "centroid_y": 23.227272727272727,
+        "num_saturated": 0,
+        "peak_value": 203
+      },
+      {
+        "brightness": 517.3333333333331,
+        "centroid_x": 622.3055555555555,
+        "centroid_y": 224.71965317919074,
+        "num_saturated": 0,
+        "peak_value": 203
+      },
+      {
+        "brightness": 516.3333333333331,
+        "centroid_x": 743.6367432150313,
+        "centroid_y": 368.59375,
+        "num_saturated": 0,
+        "peak_value": 226
+      },
+      {
+        "brightness": 513.0,
+        "centroid_x": 866.4168618266979,
+        "centroid_y": 166.41237113402062,
+        "num_saturated": 0,
+        "peak_value": 212
+      },
+      {
+        "brightness": 511.1999999999999,
+        "centroid_x": 157.092,
+        "centroid_y": 555.85667752443,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 505.0,
+        "centroid_x": 307.5372807017544,
+        "centroid_y": 492.49547511312215,
+        "num_saturated": 0,
+        "peak_value": 243
+      },
+      {
+        "brightness": 501.3333333333334,
+        "centroid_x": 296.84023668639054,
+        "centroid_y": 168.76136363636363,
+        "num_saturated": 0,
+        "peak_value": 185
+      },
+      {
+        "brightness": 495.6666666666666,
+        "centroid_x": 109.34682080924856,
+        "centroid_y": 588.1489361702128,
+        "num_saturated": 0,
+        "peak_value": 169
+      },
+      {
+        "brightness": 494.66666666666674,
+        "centroid_x": 532.3984962406015,
+        "centroid_y": 334.36383442265793,
+        "num_saturated": 0,
+        "peak_value": 221
+      },
+      {
+        "brightness": 490.3333333333334,
+        "centroid_x": 682.2078651685393,
+        "centroid_y": 586.2897435897436,
+        "num_saturated": 0,
+        "peak_value": 179
+      },
+      {
+        "brightness": 479.6666666666666,
+        "centroid_x": 739.5568720379147,
+        "centroid_y": 574.5787234042554,
+        "num_saturated": 0,
+        "peak_value": 231
+      },
+      {
+        "brightness": 477.0,
+        "centroid_x": 533.7508090614887,
+        "centroid_y": 492.22093023255815,
+        "num_saturated": 0,
+        "peak_value": 190
+      },
+      {
+        "brightness": 476.33333333333326,
+        "centroid_x": 528.5038961038961,
+        "centroid_y": 220.50108459869847,
+        "num_saturated": 0,
+        "peak_value": 221
+      },
+      {
+        "brightness": 475.6666666666667,
+        "centroid_x": 347.2682926829268,
+        "centroid_y": 519.0588235294117,
+        "num_saturated": 0,
+        "peak_value": 154
+      },
+      {
+        "brightness": 469.80000000000007,
+        "centroid_x": 348.9086956521739,
+        "centroid_y": 400.1516393442623,
+        "num_saturated": 0,
+        "peak_value": 189
+      },
+      {
+        "brightness": 469.75000000000006,
+        "centroid_x": 103.25167785234899,
+        "centroid_y": 228.4923076923077,
+        "num_saturated": 0,
+        "peak_value": 178
+      },
+      {
+        "brightness": 469.74999999999983,
+        "centroid_x": 540.4679665738162,
+        "centroid_y": 283.48993288590606,
+        "num_saturated": 0,
+        "peak_value": 225
+      },
+      {
+        "brightness": 469.66666666666674,
+        "centroid_x": 290.4019138755981,
+        "centroid_y": 96.37752161383285,
+        "num_saturated": 0,
+        "peak_value": 204
+      },
+      {
+        "brightness": 469.33333333333337,
+        "centroid_x": 844.512585812357,
+        "centroid_y": 314.42105263157896,
+        "num_saturated": 0,
+        "peak_value": 227
+      },
+      {
+        "brightness": 468.0,
+        "centroid_x": 459.38793103448273,
+        "centroid_y": 49.471774193548384,
+        "num_saturated": 0,
+        "peak_value": 204
+      },
+      {
+        "brightness": 467.66666666666674,
+        "centroid_x": 360.3178294573643,
+        "centroid_y": 95.39841688654353,
+        "num_saturated": 0,
+        "peak_value": 198
+      },
+      {
+        "brightness": 463.75,
+        "centroid_x": 179.2687074829932,
+        "centroid_y": 222.5212765957447,
+        "num_saturated": 0,
+        "peak_value": 178
+      },
+      {
+        "brightness": 462.0,
+        "centroid_x": 653.2962962962963,
+        "centroid_y": 254.6607594936709,
+        "num_saturated": 0,
+        "peak_value": 220
+      },
+      {
+        "brightness": 451.0000000000001,
+        "centroid_x": 28.30886850152905,
+        "centroid_y": 276.63013698630135,
+        "num_saturated": 0,
+        "peak_value": 190
+      },
+      {
+        "brightness": 436.0,
+        "centroid_x": 618.5017605633802,
+        "centroid_y": 14.561181434599156,
+        "num_saturated": 0,
+        "peak_value": 240
+      },
+      {
+        "brightness": 429.9999999999999,
+        "centroid_x": 692.4599627560522,
+        "centroid_y": 558.3610547667342,
+        "num_saturated": 0,
+        "peak_value": 224
+      },
+      {
+        "brightness": 427.5625,
+        "centroid_x": 557.5323590814196,
+        "centroid_y": 460.6182795698925,
+        "num_saturated": 0,
+        "peak_value": 212
+      },
+      {
+        "brightness": 426.9999999999999,
+        "centroid_x": 389.50877192982455,
+        "centroid_y": 420.811320754717,
+        "num_saturated": 0,
+        "peak_value": 191
+      },
+      {
+        "brightness": 422.9999999999999,
+        "centroid_x": 9.349282296650717,
+        "centroid_y": 455.9004524886878,
+        "num_saturated": 0,
+        "peak_value": 160
+      },
+      {
+        "brightness": 422.625,
+        "centroid_x": 549.1328125,
+        "centroid_y": 470.5011600928074,
+        "num_saturated": 0,
+        "peak_value": 193
+      },
+      {
+        "brightness": 417.66666666666686,
+        "centroid_x": 436.47740112994353,
+        "centroid_y": 461.55555555555554,
+        "num_saturated": 0,
+        "peak_value": 222
+      },
+      {
+        "brightness": 413.33333333333326,
+        "centroid_x": 172.371875,
+        "centroid_y": 237.4189189189189,
+        "num_saturated": 0,
+        "peak_value": 173
+      },
+      {
+        "brightness": 411.99999999999994,
+        "centroid_x": 283.61299435028246,
+        "centroid_y": 20.36518771331058,
+        "num_saturated": 0,
+        "peak_value": 180
+      },
+      {
+        "brightness": 411.66666666666674,
+        "centroid_x": 813.7607142857142,
+        "centroid_y": 56.32717678100264,
+        "num_saturated": 0,
+        "peak_value": 157
+      },
+      {
+        "brightness": 411.0,
+        "centroid_x": 287.4869109947644,
+        "centroid_y": 82.12096774193549,
+        "num_saturated": 0,
+        "peak_value": 185
+      },
+      {
+        "brightness": 410.9999999999999,
+        "centroid_x": 757.1384615384616,
+        "centroid_y": 329.0,
+        "num_saturated": 0,
+        "peak_value": 137
+      },
+      {
+        "brightness": 410.33333333333326,
+        "centroid_x": 476.463768115942,
+        "centroid_y": 33.44168734491315,
+        "num_saturated": 0,
+        "peak_value": 225
+      },
+      {
+        "brightness": 408.3333333333334,
+        "centroid_x": 542.7050147492625,
+        "centroid_y": 185.70408163265307,
+        "num_saturated": 0,
+        "peak_value": 176
+      },
+      {
+        "brightness": 408.0,
+        "centroid_x": 826.2887537993921,
+        "centroid_y": 189.11336032388664,
+        "num_saturated": 0,
+        "peak_value": 149
+      },
+      {
+        "brightness": 406.5625,
+        "centroid_x": 202.48757170172084,
+        "centroid_y": 577.6722972972973,
+        "num_saturated": 0,
+        "peak_value": 187
+      },
+      {
+        "brightness": 403.1999999999999,
+        "centroid_x": 549.1077586206897,
+        "centroid_y": 350.45714285714286,
+        "num_saturated": 0,
+        "peak_value": 184
+      },
+      {
+        "brightness": 399.0,
+        "centroid_x": 515.5214953271028,
+        "centroid_y": 33.513134851138354,
+        "num_saturated": 0,
+        "peak_value": 239
+      },
+      {
+        "brightness": 397.9375,
+        "centroid_x": 583.4711246200608,
+        "centroid_y": 353.46726862302484,
+        "num_saturated": 0,
+        "peak_value": 205
+      },
+      {
+        "brightness": 394.66666666666674,
+        "centroid_x": 148.727868852459,
+        "centroid_y": 207.88888888888889,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 393.3333333333334,
+        "centroid_x": 744.4733893557423,
+        "centroid_y": 339.1875,
+        "num_saturated": 0,
+        "peak_value": 176
+      },
+      {
+        "brightness": 392.6875,
+        "centroid_x": 561.4875,
+        "centroid_y": 160.4375,
+        "num_saturated": 0,
+        "peak_value": 184
+      },
+      {
+        "brightness": 389.0909090909089,
+        "centroid_x": 191.17391304347825,
+        "centroid_y": 300.328125,
+        "num_saturated": 0,
+        "peak_value": 142
+      },
+      {
+        "brightness": 384.66666666666674,
+        "centroid_x": 187.4278728606357,
+        "centroid_y": 590.4213197969543,
+        "num_saturated": 0,
+        "peak_value": 196
+      },
+      {
+        "brightness": 384.33333333333314,
+        "centroid_x": 686.5224586288416,
+        "centroid_y": 269.63903743315507,
+        "num_saturated": 0,
+        "peak_value": 209
+      },
+      {
+        "brightness": 384.3125,
+        "centroid_x": 415.4014598540146,
+        "centroid_y": 93.32298136645963,
+        "num_saturated": 0,
+        "peak_value": 178
+      },
+      {
+        "brightness": 377.80000000000007,
+        "centroid_x": 149.5974025974026,
+        "centroid_y": 164.38165680473372,
+        "num_saturated": 0,
+        "peak_value": 189
+      },
+      {
+        "brightness": 376.60000000000014,
+        "centroid_x": 287.03864734299515,
+        "centroid_y": 494.43187660668383,
+        "num_saturated": 0,
+        "peak_value": 160
+      },
+      {
+        "brightness": 368.33333333333326,
+        "centroid_x": 412.4572072072072,
+        "centroid_y": 131.38888888888889,
+        "num_saturated": 0,
+        "peak_value": 203
+      },
+      {
+        "brightness": 367.66666666666674,
+        "centroid_x": 895.6434316353888,
+        "centroid_y": 99.32791327913279,
+        "num_saturated": 0,
+        "peak_value": 162
+      },
+      {
+        "brightness": 367.33333333333337,
+        "centroid_x": 277.716814159292,
+        "centroid_y": 235.12048192771084,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 365.3636363636363,
+        "centroid_x": 184.56675062972292,
+        "centroid_y": 536.4963235294117,
+        "num_saturated": 0,
+        "peak_value": 189
+      },
+      {
+        "brightness": 360.0000000000001,
+        "centroid_x": 884.3547297297297,
+        "centroid_y": 496.3217993079585,
+        "num_saturated": 0,
+        "peak_value": 124
+      },
+      {
+        "brightness": 357.33333333333326,
+        "centroid_x": 584.394495412844,
+        "centroid_y": 210.16326530612244,
+        "num_saturated": 0,
+        "peak_value": 177
+      },
+      {
+        "brightness": 349.99999999999983,
+        "centroid_x": 498.38057742782155,
+        "centroid_y": 497.5151515151515,
+        "num_saturated": 0,
+        "peak_value": 205
+      },
+      {
+        "brightness": 348.33333333333337,
+        "centroid_x": 882.4564564564564,
+        "centroid_y": 268.3854447439353,
+        "num_saturated": 0,
+        "peak_value": 177
+      },
+      {
+        "brightness": 348.0000000000001,
+        "centroid_x": 626.6071428571429,
+        "centroid_y": 515.5136612021857,
+        "num_saturated": 0,
+        "peak_value": 180
+      },
+      {
+        "brightness": 348.0,
+        "centroid_x": 562.629746835443,
+        "centroid_y": 552.75,
+        "num_saturated": 0,
+        "peak_value": 142
+      },
+      {
+        "brightness": 345.8125,
+        "centroid_x": 579.3471337579617,
+        "centroid_y": 217.57244655581948,
+        "num_saturated": 0,
+        "peak_value": 177
+      },
+      {
+        "brightness": 345.0,
+        "centroid_x": 459.0406504065041,
+        "centroid_y": 7.49234693877551,
+        "num_saturated": 0,
+        "peak_value": 165
+      },
+      {
+        "brightness": 344.75,
+        "centroid_x": 799.0903225806452,
+        "centroid_y": 505.47091412742384,
+        "num_saturated": 0,
+        "peak_value": 139
+      },
+      {
+        "brightness": 341.0,
+        "centroid_x": 597.5611940298508,
+        "centroid_y": 252.26208651399492,
+        "num_saturated": 0,
+        "peak_value": 158
+      },
+      {
+        "brightness": 340.0,
+        "centroid_x": 192.12605042016807,
+        "centroid_y": 581.2596899224807,
+        "num_saturated": 0,
+        "peak_value": 152
+      },
+      {
+        "brightness": 338.80000000000007,
+        "centroid_x": 485.8013468013468,
+        "centroid_y": 207.4064039408867,
+        "num_saturated": 0,
+        "peak_value": 181
+      },
+      {
+        "brightness": 334.99999999999994,
+        "centroid_x": 522.5985401459855,
+        "centroid_y": 34.50709219858156,
+        "num_saturated": 0,
+        "peak_value": 163
+      },
+      {
+        "brightness": 333.99999999999994,
+        "centroid_x": 822.3307086614174,
+        "centroid_y": 125.61370716510903,
+        "num_saturated": 0,
+        "peak_value": 98
+      },
+      {
+        "brightness": 332.3333333333334,
+        "centroid_x": 512.7056737588653,
+        "centroid_y": 397.5529411764706,
+        "num_saturated": 0,
+        "peak_value": 164
+      },
+      {
+        "brightness": 331.6666666666666,
+        "centroid_x": 298.609756097561,
+        "centroid_y": 426.79423868312756,
+        "num_saturated": 0,
+        "peak_value": 160
+      },
+      {
+        "brightness": 331.625,
+        "centroid_x": 668.5493230174081,
+        "centroid_y": 174.26143790849673,
+        "num_saturated": 0,
+        "peak_value": 199
+      },
+      {
+        "brightness": 329.9999999999999,
+        "centroid_x": 41.498652291105124,
+        "centroid_y": 8.238907849829351,
+        "num_saturated": 0,
+        "peak_value": 163
+      },
+      {
+        "brightness": 328.33333333333337,
+        "centroid_x": 584.5169902912621,
+        "centroid_y": 564.3287671232877,
+        "num_saturated": 0,
+        "peak_value": 184
+      },
+      {
+        "brightness": 324.5625,
+        "centroid_x": 313.92571428571426,
+        "centroid_y": 86.49220489977728,
+        "num_saturated": 0,
+        "peak_value": 150
+      },
+      {
+        "brightness": 324.0,
+        "centroid_x": 112.05633802816901,
+        "centroid_y": 6.619402985074627,
+        "num_saturated": 0,
+        "peak_value": 131
+      },
+      {
+        "brightness": 321.33333333333326,
+        "centroid_x": 436.5931558935361,
+        "centroid_y": 392.1731843575419,
+        "num_saturated": 0,
+        "peak_value": 161
+      },
+      {
+        "brightness": 318.3333333333333,
+        "centroid_x": 535.295918367347,
+        "centroid_y": 280.4953560371517,
+        "num_saturated": 0,
+        "peak_value": 148
+      },
+      {
+        "brightness": 317.25,
+        "centroid_x": 543.3937007874016,
+        "centroid_y": 341.5139240506329,
+        "num_saturated": 0,
+        "peak_value": 217
+      },
+      {
+        "brightness": 314.1875,
+        "centroid_x": 168.5090909090909,
+        "centroid_y": 170.58942065491183,
+        "num_saturated": 0,
+        "peak_value": 216
+      },
+      {
+        "brightness": 311.3333333333334,
+        "centroid_x": 880.195530726257,
+        "centroid_y": 559.8690476190476,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 311.0,
+        "centroid_x": 149.17391304347825,
+        "centroid_y": 123.42857142857143,
+        "num_saturated": 0,
+        "peak_value": 139
+      },
+      {
+        "brightness": 309.9999999999999,
+        "centroid_x": 422.2758620689655,
+        "centroid_y": 61.652671755725194,
+        "num_saturated": 0,
+        "peak_value": 119
+      },
+      {
+        "brightness": 309.6875,
+        "centroid_x": 538.4348785871965,
+        "centroid_y": 3.403361344537815,
+        "num_saturated": 0,
+        "peak_value": 186
+      },
+      {
+        "brightness": 309.5,
+        "centroid_x": 210.42118226600985,
+        "centroid_y": 55.70566037735849,
+        "num_saturated": 0,
+        "peak_value": 163
+      },
+      {
+        "brightness": 308.0,
+        "centroid_x": 747.5578947368421,
+        "centroid_y": 184.53435114503816,
+        "num_saturated": 0,
+        "peak_value": 158
+      },
+      {
+        "brightness": 306.19999999999993,
+        "centroid_x": 451.0740740740741,
+        "centroid_y": 223.14,
+        "num_saturated": 0,
+        "peak_value": 112
+      },
+      {
+        "brightness": 304.33333333333337,
+        "centroid_x": 602.6304347826087,
+        "centroid_y": 301.3532608695652,
+        "num_saturated": 0,
+        "peak_value": 133
+      },
+      {
+        "brightness": 301.625,
+        "centroid_x": 817.6079136690647,
+        "centroid_y": 177.4987146529563,
+        "num_saturated": 0,
+        "peak_value": 177
+      },
+      {
+        "brightness": 301.3333333333333,
+        "centroid_x": 414.780303030303,
+        "centroid_y": 137.327868852459,
+        "num_saturated": 0,
+        "peak_value": 157
+      },
+      {
+        "brightness": 301.0,
+        "centroid_x": 730.7972350230415,
+        "centroid_y": 488.1675392670157,
+        "num_saturated": 0,
+        "peak_value": 120
+      },
+      {
+        "brightness": 298.6666666666667,
+        "centroid_x": 210.60409556313994,
+        "centroid_y": 540.7916666666666,
+        "num_saturated": 0,
+        "peak_value": 151
+      },
+      {
+        "brightness": 298.0,
+        "centroid_x": 25.12925170068027,
+        "centroid_y": 210.3675889328063,
+        "num_saturated": 0,
+        "peak_value": 133
+      },
+      {
+        "brightness": 295.75,
+        "centroid_x": 329.5718954248366,
+        "centroid_y": 363.6303630363036,
+        "num_saturated": 0,
+        "peak_value": 220
+      },
+      {
+        "brightness": 295.0,
+        "centroid_x": 364.39130434782606,
+        "centroid_y": 239.72289156626505,
+        "num_saturated": 0,
+        "peak_value": 140
+      },
+      {
+        "brightness": 294.33333333333326,
+        "centroid_x": 563.8128078817734,
+        "centroid_y": 278.1340206185567,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 294.33333333333326,
+        "centroid_x": 790.4691780821918,
+        "centroid_y": 535.8932584269663,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 293.0,
+        "centroid_x": 528.9644970414201,
+        "centroid_y": 545.5393518518518,
+        "num_saturated": 0,
+        "peak_value": 138
+      },
+      {
+        "brightness": 292.5,
+        "centroid_x": 377.5457746478873,
+        "centroid_y": 479.4097859327217,
+        "num_saturated": 0,
+        "peak_value": 190
+      },
+      {
+        "brightness": 291.99999999999994,
+        "centroid_x": 612.53125,
+        "centroid_y": 269.6472303206997,
+        "num_saturated": 0,
+        "peak_value": 165
+      },
+      {
+        "brightness": 291.1875,
+        "centroid_x": 115.6423076923077,
+        "centroid_y": 528.4207119741101,
+        "num_saturated": 0,
+        "peak_value": 149
+      },
+      {
+        "brightness": 290.66666666666674,
+        "centroid_x": 549.3641456582633,
+        "centroid_y": 163.4418604651163,
+        "num_saturated": 0,
+        "peak_value": 173
+      },
+      {
+        "brightness": 286.66666666666674,
+        "centroid_x": 337.4675767918089,
+        "centroid_y": 510.55988023952096,
+        "num_saturated": 0,
+        "peak_value": 184
+      },
+      {
+        "brightness": 286.3333333333334,
+        "centroid_x": 373.4983713355049,
+        "centroid_y": 344.6485148514852,
+        "num_saturated": 0,
+        "peak_value": 178
+      },
+      {
+        "brightness": 285.25,
+        "centroid_x": 461.5322128851541,
+        "centroid_y": 352.6787878787879,
+        "num_saturated": 0,
+        "peak_value": 149
+      },
+      {
+        "brightness": 284.66666666666674,
+        "centroid_x": 268.42009132420094,
+        "centroid_y": 299.2276422764228,
+        "num_saturated": 0,
+        "peak_value": 156
+      },
+      {
+        "brightness": 283.6666666666666,
+        "centroid_x": 159.11374407582937,
+        "centroid_y": 34.741573033707866,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 282.5625,
+        "centroid_x": 119.6542750929368,
+        "centroid_y": 265.51194539249144,
+        "num_saturated": 0,
+        "peak_value": 158
+      },
+      {
+        "brightness": 282.3125,
+        "centroid_x": 584.4314381270902,
+        "centroid_y": 220.41744548286604,
+        "num_saturated": 0,
+        "peak_value": 181
+      },
+      {
+        "brightness": 281.66666666666674,
+        "centroid_x": 411.3137254901961,
+        "centroid_y": 292.56277056277054,
+        "num_saturated": 0,
+        "peak_value": 153
+      },
+      {
+        "brightness": 281.66666666666663,
+        "centroid_x": 232.50218340611355,
+        "centroid_y": 453.9935483870968,
+        "num_saturated": 0,
+        "peak_value": 129
+      },
+      {
+        "brightness": 279.25,
+        "centroid_x": 779.5392405063291,
+        "centroid_y": 577.4887005649717,
+        "num_saturated": 0,
+        "peak_value": 164
+      },
+      {
+        "brightness": 278.9375,
+        "centroid_x": 572.3675213675214,
+        "centroid_y": 67.17218543046357,
+        "num_saturated": 0,
+        "peak_value": 116
+      },
+      {
+        "brightness": 278.625,
+        "centroid_x": 324.41472868217056,
+        "centroid_y": 426.53184713375794,
+        "num_saturated": 0,
+        "peak_value": 168
+      },
+      {
+        "brightness": 277.9375,
+        "centroid_x": 268.625641025641,
+        "centroid_y": 294.5247524752475,
+        "num_saturated": 0,
+        "peak_value": 167
+      },
+      {
+        "brightness": 277.8125,
+        "centroid_x": 658.5407854984894,
+        "centroid_y": 248.56069364161849,
+        "num_saturated": 0,
+        "peak_value": 185
+      },
+      {
+        "brightness": 275.9375,
+        "centroid_x": 543.4746835443038,
+        "centroid_y": 536.3041958041958,
+        "num_saturated": 0,
+        "peak_value": 162
+      },
+      {
+        "brightness": 275.0,
+        "centroid_x": 464.5156794425087,
+        "centroid_y": 97.82835820895522,
+        "num_saturated": 0,
+        "peak_value": 125
+      },
+      {
+        "brightness": 274.33333333333326,
+        "centroid_x": 232.45035460992906,
+        "centroid_y": 95.43838862559242,
+        "num_saturated": 0,
+        "peak_value": 179
+      },
+      {
+        "brightness": 274.1875,
+        "centroid_x": 524.6175115207374,
+        "centroid_y": 11.566037735849056,
+        "num_saturated": 0,
+        "peak_value": 188
+      },
+      {
+        "brightness": 273.375,
+        "centroid_x": 385.3523131672598,
+        "centroid_y": 109.6086956521739,
+        "num_saturated": 0,
+        "peak_value": 148
+      },
+      {
+        "brightness": 273.33333333333326,
+        "centroid_x": 906.4502164502164,
+        "centroid_y": 137.85526315789474,
+        "num_saturated": 0,
+        "peak_value": 112
+      },
+      {
+        "brightness": 272.3333333333333,
+        "centroid_x": 617.7130801687764,
+        "centroid_y": 426.31944444444446,
+        "num_saturated": 0,
+        "peak_value": 130
+      },
+      {
+        "brightness": 272.00000000000006,
+        "centroid_x": 471.3717472118959,
+        "centroid_y": 286.1764705882353,
+        "num_saturated": 0,
+        "peak_value": 119
+      },
+      {
+        "brightness": 271.25,
+        "centroid_x": 535.5114942528736,
+        "centroid_y": 468.17391304347825,
+        "num_saturated": 0,
+        "peak_value": 149
+      },
+      {
+        "brightness": 270.6666666666666,
+        "centroid_x": 565.5414012738853,
+        "centroid_y": 14.597523219814242,
+        "num_saturated": 0,
+        "peak_value": 214
+      },
+      {
+        "brightness": 270.3999999999999,
+        "centroid_x": 904.0683760683761,
+        "centroid_y": 378.6265060240964,
+        "num_saturated": 0,
+        "peak_value": 105
+      },
+      {
+        "brightness": 270.33333333333326,
+        "centroid_x": 274.52681388012616,
+        "centroid_y": 52.177033492822964,
+        "num_saturated": 0,
+        "peak_value": 143
+      },
+      {
+        "brightness": 268.00000000000006,
+        "centroid_x": 232.67192429022083,
+        "centroid_y": 433.6048632218845,
+        "num_saturated": 0,
+        "peak_value": 142
+      },
+      {
+        "brightness": 267.9375,
+        "centroid_x": 464.8292682926829,
+        "centroid_y": 588.4754098360655,
+        "num_saturated": 0,
+        "peak_value": 150
+      },
+      {
+        "brightness": 266.6875,
+        "centroid_x": 298.5635593220339,
+        "centroid_y": 39.51298701298701,
+        "num_saturated": 0,
+        "peak_value": 161
+      },
+      {
+        "brightness": 266.6875,
+        "centroid_x": 645.1006289308176,
+        "centroid_y": 95.54158215010142,
+        "num_saturated": 0,
+        "peak_value": 155
+      },
+      {
+        "brightness": 265.1875,
+        "centroid_x": 315.4549549549549,
+        "centroid_y": 331.56224899598396,
+        "num_saturated": 0,
+        "peak_value": 156
+      },
+      {
+        "brightness": 264.3333333333333,
+        "centroid_x": 431.3965517241379,
+        "centroid_y": 78.99038461538461,
+        "num_saturated": 0,
+        "peak_value": 111
+      },
+      {
+        "brightness": 263.5625,
+        "centroid_x": 751.7488372093023,
+        "centroid_y": 229.46567164179103,
+        "num_saturated": 0,
+        "peak_value": 150
+      },
+      {
+        "brightness": 262.125,
+        "centroid_x": 476.50473186119876,
+        "centroid_y": 502.2676056338028,
+        "num_saturated": 0,
+        "peak_value": 159
+      },
+      {
+        "brightness": 259.875,
+        "centroid_x": 156.0700636942675,
+        "centroid_y": 8.615853658536585,
+        "num_saturated": 0,
+        "peak_value": 128
+      },
+      {
+        "brightness": 258.5625,
+        "centroid_x": 565.4931129476583,
+        "centroid_y": 271.85051546391753,
+        "num_saturated": 0,
+        "peak_value": 138
+      },
+      {
+        "brightness": 257.875,
+        "centroid_x": 749.5764075067024,
+        "centroid_y": 59.73076923076923,
+        "num_saturated": 0,
+        "peak_value": 145
+      },
+      {
+        "brightness": 257.1875,
+        "centroid_x": 714.5153846153846,
+        "centroid_y": 386.42123287671234,
+        "num_saturated": 0,
+        "peak_value": 154
+      },
+      {
+        "brightness": 256.2,
+        "centroid_x": 475.6047904191617,
+        "centroid_y": 426.7433155080214,
+        "num_saturated": 0,
+        "peak_value": 139
+      },
+      {
+        "brightness": 254.625,
+        "centroid_x": 286.5479876160991,
+        "centroid_y": 539.6118881118881,
+        "num_saturated": 0,
+        "peak_value": 176
+      },
+      {
+        "brightness": 252.8125,
+        "centroid_x": 404.5135135135135,
+        "centroid_y": 54.509375,
+        "num_saturated": 0,
+        "peak_value": 162
+      },
+      {
+        "brightness": 251.75,
+        "centroid_x": 360.7113402061856,
+        "centroid_y": 12.596296296296297,
+        "num_saturated": 0,
+        "peak_value": 140
+      },
+      {
+        "brightness": 251.0,
+        "centroid_x": 744.939393939394,
+        "centroid_y": 164.22935779816513,
+        "num_saturated": 0,
+        "peak_value": 106
+      },
+      {
+        "brightness": 250.66666666666666,
+        "centroid_x": 711.6013986013986,
+        "centroid_y": 256.26576576576576,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 250.3333333333333,
+        "centroid_x": 393.65,
+        "centroid_y": 429.78,
+        "num_saturated": 0,
+        "peak_value": 138
+      },
+      {
+        "brightness": 249.75,
+        "centroid_x": 559.1764705882352,
+        "centroid_y": 17.7015503875969,
+        "num_saturated": 0,
+        "peak_value": 132
+      },
+      {
+        "brightness": 248.00000000000006,
+        "centroid_x": 770.6384839650145,
+        "centroid_y": 318.6784140969163,
+        "num_saturated": 0,
+        "peak_value": 142
+      },
+      {
+        "brightness": 246.5625,
+        "centroid_x": 227.69858156028369,
+        "centroid_y": 207.82843137254903,
+        "num_saturated": 0,
+        "peak_value": 137
+      },
+      {
+        "brightness": 246.25,
+        "centroid_x": 322.06470588235294,
+        "centroid_y": 61.468879668049794,
+        "num_saturated": 0,
+        "peak_value": 114
+      },
+      {
+        "brightness": 245.8125,
+        "centroid_x": 13.294685990338165,
+        "centroid_y": 141.34389140271495,
+        "num_saturated": 0,
+        "peak_value": 123
+      },
+      {
+        "brightness": 245.4375,
+        "centroid_x": 577.6941747572815,
+        "centroid_y": 141.47560975609755,
+        "num_saturated": 0,
+        "peak_value": 129
+      },
+      {
+        "brightness": 244.40000000000003,
+        "centroid_x": 106.03703703703704,
+        "centroid_y": 543.0,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 244.25,
+        "centroid_x": 528.0413223140496,
+        "centroid_y": 293.6281588447653,
+        "num_saturated": 0,
+        "peak_value": 129
+      },
+      {
+        "brightness": 243.9375,
+        "centroid_x": 569.7772020725389,
+        "centroid_y": 353.3766233766234,
+        "num_saturated": 0,
+        "peak_value": 136
+      },
+      {
+        "brightness": 242.1875,
+        "centroid_x": 814.6189189189189,
+        "centroid_y": 287.98039215686276,
+        "num_saturated": 0,
+        "peak_value": 132
+      },
+      {
+        "brightness": 241.66666666666663,
+        "centroid_x": 225.21463414634147,
+        "centroid_y": 271.4339622641509,
+        "num_saturated": 0,
+        "peak_value": 134
+      },
+      {
+        "brightness": 240.9375,
+        "centroid_x": 346.61509433962266,
+        "centroid_y": 453.52314814814815,
+        "num_saturated": 0,
+        "peak_value": 153
+      },
+      {
+        "brightness": 240.66666666666663,
+        "centroid_x": 9.347826086956522,
+        "centroid_y": 317.0890410958904,
+        "num_saturated": 0,
+        "peak_value": 110
+      },
+      {
+        "brightness": 240.0,
+        "centroid_x": 269.3822222222222,
+        "centroid_y": 165.46060606060607,
+        "num_saturated": 0,
+        "peak_value": 122
+      },
+      {
+        "brightness": 239.1875,
+        "centroid_x": 213.61370716510905,
+        "centroid_y": 299.3876811594203,
+        "num_saturated": 0,
+        "peak_value": 155
+      },
+      {
+        "brightness": 237.6666666666667,
+        "centroid_x": 662.3262032085562,
+        "centroid_y": 21.77956989247312,
+        "num_saturated": 0,
+        "peak_value": 103
+      },
+      {
+        "brightness": 237.625,
+        "centroid_x": 319.62083333333334,
+        "centroid_y": 136.34798534798534,
+        "num_saturated": 0,
+        "peak_value": 141
+      },
+      {
+        "brightness": 237.25,
+        "centroid_x": 328.53465346534654,
+        "centroid_y": 235.5691056910569,
+        "num_saturated": 0,
+        "peak_value": 153
+      },
+      {
+        "brightness": 237.0,
+        "centroid_x": 732.3153846153846,
+        "centroid_y": 534.7307692307693,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 236.80000000000007,
+        "centroid_x": 722.8644067796611,
+        "centroid_y": 491.4223602484472,
+        "num_saturated": 0,
+        "peak_value": 151
+      },
+      {
+        "brightness": 236.75,
+        "centroid_x": 435.1442307692308,
+        "centroid_y": 490.3134328358209,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 235.8125,
+        "centroid_x": 599.5423197492163,
+        "centroid_y": 231.45803357314148,
+        "num_saturated": 0,
+        "peak_value": 183
+      },
+      {
+        "brightness": 235.5625,
+        "centroid_x": 669.8878504672897,
+        "centroid_y": 439.4672897196262,
+        "num_saturated": 0,
+        "peak_value": 99
+      },
+      {
+        "brightness": 233.5625,
+        "centroid_x": 895.6860465116279,
+        "centroid_y": 15.491582491582491,
+        "num_saturated": 0,
+        "peak_value": 125
+      },
+      {
+        "brightness": 232.9375,
+        "centroid_x": 835.3171806167401,
+        "centroid_y": 212.3849557522124,
+        "num_saturated": 0,
+        "peak_value": 111
+      },
+      {
+        "brightness": 232.9375,
+        "centroid_x": 192.74576271186442,
+        "centroid_y": 421.4257703081233,
+        "num_saturated": 0,
+        "peak_value": 144
+      },
+      {
+        "brightness": 232.33333333333343,
+        "centroid_x": 284.4102564102564,
+        "centroid_y": 160.6596638655462,
+        "num_saturated": 0,
+        "peak_value": 144
+      },
+      {
+        "brightness": 232.33333333333337,
+        "centroid_x": 398.5211267605634,
+        "centroid_y": 384.70625,
+        "num_saturated": 0,
+        "peak_value": 150
+      },
+      {
+        "brightness": 232.125,
+        "centroid_x": 634.8862275449102,
+        "centroid_y": 345.507204610951,
+        "num_saturated": 0,
+        "peak_value": 124
+      },
+      {
+        "brightness": 231.1875,
+        "centroid_x": 265.5897435897436,
+        "centroid_y": 64.42857142857143,
+        "num_saturated": 0,
+        "peak_value": 125
+      },
+      {
+        "brightness": 230.6875,
+        "centroid_x": 399.61470588235295,
+        "centroid_y": 529.4181184668989,
+        "num_saturated": 0,
+        "peak_value": 160
+      },
+      {
+        "brightness": 229.6666666666667,
+        "centroid_x": 887.216049382716,
+        "centroid_y": 210.84246575342465,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 228.6666666666667,
+        "centroid_x": 650.1572327044025,
+        "centroid_y": 98.70135746606334,
+        "num_saturated": 0,
+        "peak_value": 120
+      },
+      {
+        "brightness": 228.25,
+        "centroid_x": 590.5664739884393,
+        "centroid_y": 259.4483870967742,
+        "num_saturated": 0,
+        "peak_value": 170
+      },
+      {
+        "brightness": 228.00000000000003,
+        "centroid_x": 298.56774193548387,
+        "centroid_y": 516.3648648648649,
+        "num_saturated": 0,
+        "peak_value": 107
+      },
+      {
+        "brightness": 227.8125,
+        "centroid_x": 429.4225352112676,
+        "centroid_y": 528.4797297297297,
+        "num_saturated": 0,
+        "peak_value": 165
+      },
+      {
+        "brightness": 226.5625,
+        "centroid_x": 760.5381679389313,
+        "centroid_y": 559.1654135338346,
+        "num_saturated": 0,
+        "peak_value": 99
+      },
+      {
+        "brightness": 226.0,
+        "centroid_x": 738.5,
+        "centroid_y": 557.3876651982379,
+        "num_saturated": 0,
+        "peak_value": 119
+      },
+      {
+        "brightness": 223.6875,
+        "centroid_x": 419.2900432900433,
+        "centroid_y": 298.4279475982533,
+        "num_saturated": 0,
+        "peak_value": 130
+      },
+      {
+        "brightness": 223.66666666666663,
+        "centroid_x": 906.4182692307693,
+        "centroid_y": 494.24,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 222.9375,
+        "centroid_x": 464.6637168141593,
+        "centroid_y": 384.5229357798165,
+        "num_saturated": 0,
+        "peak_value": 165
+      },
+      {
+        "brightness": 221.33333333333337,
+        "centroid_x": 663.8231707317074,
+        "centroid_y": 458.61990950226243,
+        "num_saturated": 0,
+        "peak_value": 110
+      },
+      {
+        "brightness": 221.125,
+        "centroid_x": 495.23741007194246,
+        "centroid_y": 203.57439446366783,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 220.3333333333333,
+        "centroid_x": 427.3568075117371,
+        "centroid_y": 66.18713450292398,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 220.1875,
+        "centroid_x": 611.547770700637,
+        "centroid_y": 379.53913043478263,
+        "num_saturated": 0,
+        "peak_value": 113
+      },
+      {
+        "brightness": 219.75,
+        "centroid_x": 150.51263537906138,
+        "centroid_y": 130.98245614035088,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 219.5,
+        "centroid_x": 352.53711790393015,
+        "centroid_y": 366.3954248366013,
+        "num_saturated": 0,
+        "peak_value": 209
+      },
+      {
+        "brightness": 219.4375,
+        "centroid_x": 422.3891402714932,
+        "centroid_y": 432.5255102040816,
+        "num_saturated": 0,
+        "peak_value": 144
+      },
+      {
+        "brightness": 219.0,
+        "centroid_x": 463.54612546125463,
+        "centroid_y": 278.92753623188406,
+        "num_saturated": 0,
+        "peak_value": 132
+      },
+      {
+        "brightness": 218.4375,
+        "centroid_x": 908.4076433121019,
+        "centroid_y": 339.59555555555556,
+        "num_saturated": 0,
+        "peak_value": 107
+      },
+      {
+        "brightness": 218.25,
+        "centroid_x": 741.4964285714286,
+        "centroid_y": 253.54294478527606,
+        "num_saturated": 0,
+        "peak_value": 158
+      },
+      {
+        "brightness": 217.375,
+        "centroid_x": 640.3714285714286,
+        "centroid_y": 328.5137931034483,
+        "num_saturated": 0,
+        "peak_value": 161
+      },
+      {
+        "brightness": 215.125,
+        "centroid_x": 589.565934065934,
+        "centroid_y": 277.3964912280702,
+        "num_saturated": 0,
+        "peak_value": 138
+      },
+      {
+        "brightness": 214.875,
+        "centroid_x": 448.58947368421053,
+        "centroid_y": 340.44444444444446,
+        "num_saturated": 0,
+        "peak_value": 167
+      },
+      {
+        "brightness": 214.6666666666667,
+        "centroid_x": 322.6281407035176,
+        "centroid_y": 540.7883211678832,
+        "num_saturated": 0,
+        "peak_value": 102
+      },
+      {
+        "brightness": 213.8125,
+        "centroid_x": 457.51503759398497,
+        "centroid_y": 44.461794019933556,
+        "num_saturated": 0,
+        "peak_value": 145
+      },
+      {
+        "brightness": 213.8125,
+        "centroid_x": 166.61068702290078,
+        "centroid_y": 228.33333333333334,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 213.625,
+        "centroid_x": 210.52537313432836,
+        "centroid_y": 190.6322869955157,
+        "num_saturated": 0,
+        "peak_value": 152
+      },
+      {
+        "brightness": 212.5,
+        "centroid_x": 646.4623655913979,
+        "centroid_y": 155.71090047393366,
+        "num_saturated": 0,
+        "peak_value": 142
+      },
+      {
+        "brightness": 210.9375,
+        "centroid_x": 545.5494071146245,
+        "centroid_y": 115.16568047337279,
+        "num_saturated": 0,
+        "peak_value": 120
+      },
+      {
+        "brightness": 210.80000000000007,
+        "centroid_x": 532.5808080808081,
+        "centroid_y": 134.3360655737705,
+        "num_saturated": 0,
+        "peak_value": 139
+      },
+      {
+        "brightness": 210.6875,
+        "centroid_x": 730.5115511551155,
+        "centroid_y": 367.6390243902439,
+        "num_saturated": 0,
+        "peak_value": 162
+      },
+      {
+        "brightness": 210.66666666666663,
+        "centroid_x": 400.55763239875387,
+        "centroid_y": 81.78235294117647,
+        "num_saturated": 0,
+        "peak_value": 121
+      },
+      {
+        "brightness": 210.375,
+        "centroid_x": 136.7914110429448,
+        "centroid_y": 140.44610778443115,
+        "num_saturated": 0,
+        "peak_value": 128
+      },
+      {
+        "brightness": 210.0625,
+        "centroid_x": 832.1949152542373,
+        "centroid_y": 179.41639344262296,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 209.1875,
+        "centroid_x": 472.51801801801804,
+        "centroid_y": 376.6045197740113,
+        "num_saturated": 0,
+        "peak_value": 122
+      },
+      {
+        "brightness": 209.0,
+        "centroid_x": 555.6984126984127,
+        "centroid_y": 10.743589743589745,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 209.0,
+        "centroid_x": 334.4657980456026,
+        "centroid_y": 543.3160173160173,
+        "num_saturated": 0,
+        "peak_value": 137
+      },
+      {
+        "brightness": 208.75,
+        "centroid_x": 663.6648044692737,
+        "centroid_y": 469.42970297029706,
+        "num_saturated": 0,
+        "peak_value": 139
+      },
+      {
+        "brightness": 208.125,
+        "centroid_x": 661.7079207920792,
+        "centroid_y": 215.52988047808765,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 206.375,
+        "centroid_x": 280.412017167382,
+        "centroid_y": 522.5376344086021,
+        "num_saturated": 0,
+        "peak_value": 152
+      },
+      {
+        "brightness": 206.0,
+        "centroid_x": 283.5027322404372,
+        "centroid_y": 214.9298245614035,
+        "num_saturated": 0,
+        "peak_value": 95
+      },
+      {
+        "brightness": 205.8125,
+        "centroid_x": 284.96774193548384,
+        "centroid_y": 168.53515625,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 205.75,
+        "centroid_x": 488.5298013245033,
+        "centroid_y": 389.80981595092027,
+        "num_saturated": 0,
+        "peak_value": 147
+      },
+      {
+        "brightness": 205.0625,
+        "centroid_x": 392.37142857142857,
+        "centroid_y": 455.3954545454545,
+        "num_saturated": 0,
+        "peak_value": 118
+      },
+      {
+        "brightness": 204.75,
+        "centroid_x": 479.2742857142857,
+        "centroid_y": 119.4695945945946,
+        "num_saturated": 0,
+        "peak_value": 151
+      },
+      {
+        "brightness": 204.75,
+        "centroid_x": 752.2027027027027,
+        "centroid_y": 369.50152905198775,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 204.33333333333337,
+        "centroid_x": 126.57589285714286,
+        "centroid_y": 161.29268292682926,
+        "num_saturated": 0,
+        "peak_value": 112
+      },
+      {
+        "brightness": 204.33333333333331,
+        "centroid_x": 570.5887445887446,
+        "centroid_y": 206.3719298245614,
+        "num_saturated": 0,
+        "peak_value": 132
+      },
+      {
+        "brightness": 204.0,
+        "centroid_x": 607.6201550387597,
+        "centroid_y": 517.6,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 203.75,
+        "centroid_x": 247.36190476190475,
+        "centroid_y": 64.34101382488478,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 203.33333333333337,
+        "centroid_x": 350.53710247349824,
+        "centroid_y": 511.0,
+        "num_saturated": 0,
+        "peak_value": 119
+      },
+      {
+        "brightness": 202.0,
+        "centroid_x": 412.48467966573816,
+        "centroid_y": 22.2027027027027,
+        "num_saturated": 0,
+        "peak_value": 123
+      },
+      {
+        "brightness": 202.0,
+        "centroid_x": 82.6,
+        "centroid_y": 196.33986928104576,
+        "num_saturated": 0,
+        "peak_value": 118
+      },
+      {
+        "brightness": 201.625,
+        "centroid_x": 540.66015625,
+        "centroid_y": 120.54817275747509,
+        "num_saturated": 0,
+        "peak_value": 167
+      },
+      {
+        "brightness": 199.6875,
+        "centroid_x": 508.1118421052632,
+        "centroid_y": 409.28506787330315,
+        "num_saturated": 0,
+        "peak_value": 111
+      },
+      {
+        "brightness": 199.625,
+        "centroid_x": 816.8299319727892,
+        "centroid_y": 48.51958224543081,
+        "num_saturated": 0,
+        "peak_value": 106
+      },
+      {
+        "brightness": 199.5,
+        "centroid_x": 758.6588235294117,
+        "centroid_y": 573.501326259947,
+        "num_saturated": 0,
+        "peak_value": 133
+      },
+      {
+        "brightness": 198.1875,
+        "centroid_x": 160.4888178913738,
+        "centroid_y": 587.6113360323886,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 198.0625,
+        "centroid_x": 359.331983805668,
+        "centroid_y": 559.0769230769231,
+        "num_saturated": 0,
+        "peak_value": 99
+      },
+      {
+        "brightness": 198.00000000000006,
+        "centroid_x": 510.875,
+        "centroid_y": 444.83620689655174,
+        "num_saturated": 0,
+        "peak_value": 95
+      },
+      {
+        "brightness": 197.6666666666667,
+        "centroid_x": 175.45876288659792,
+        "centroid_y": 424.6079295154185,
+        "num_saturated": 0,
+        "peak_value": 122
+      },
+      {
+        "brightness": 197.25,
+        "centroid_x": 230.06474820143885,
+        "centroid_y": 173.20603015075378,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 196.5625,
+        "centroid_x": 511.0444444444444,
+        "centroid_y": 141.49397590361446,
+        "num_saturated": 0,
+        "peak_value": 119
+      },
+      {
+        "brightness": 196.25,
+        "centroid_x": 212.4731543624161,
+        "centroid_y": 443.4738955823293,
+        "num_saturated": 0,
+        "peak_value": 159
+      },
+      {
+        "brightness": 195.9375,
+        "centroid_x": 435.7951807228916,
+        "centroid_y": 7.5347432024169185,
+        "num_saturated": 0,
+        "peak_value": 91
+      },
+      {
+        "brightness": 195.5625,
+        "centroid_x": 77.35263157894737,
+        "centroid_y": 8.472440944881889,
+        "num_saturated": 0,
+        "peak_value": 128
+      },
+      {
+        "brightness": 195.25,
+        "centroid_x": 151.71428571428572,
+        "centroid_y": 595.5231481481482,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 194.8125,
+        "centroid_x": 500.2578125,
+        "centroid_y": 463.4315789473684,
+        "num_saturated": 0,
+        "peak_value": 120
+      },
+      {
+        "brightness": 194.5,
+        "centroid_x": 791.6526946107784,
+        "centroid_y": 38.48523206751055,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 194.1875,
+        "centroid_x": 648.7119565217391,
+        "centroid_y": 287.5411392405063,
+        "num_saturated": 0,
+        "peak_value": 135
+      },
+      {
+        "brightness": 194.125,
+        "centroid_x": 220.30964467005077,
+        "centroid_y": 354.5660377358491,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 191.75,
+        "centroid_x": 797.2203389830509,
+        "centroid_y": 441.625641025641,
+        "num_saturated": 0,
+        "peak_value": 88
+      },
+      {
+        "brightness": 190.3125,
+        "centroid_x": 692.5258620689655,
+        "centroid_y": 228.0,
+        "num_saturated": 0,
+        "peak_value": 149
+      },
+      {
+        "brightness": 190.3125,
+        "centroid_x": 379.7142857142857,
+        "centroid_y": 240.2377049180328,
+        "num_saturated": 0,
+        "peak_value": 105
+      },
+      {
+        "brightness": 189.1875,
+        "centroid_x": 703.969696969697,
+        "centroid_y": 572.54375,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 188.33333333333337,
+        "centroid_x": 310.74015748031496,
+        "centroid_y": 421.29411764705884,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 188.0,
+        "centroid_x": 436.6811594202899,
+        "centroid_y": 483.3240418118467,
+        "num_saturated": 0,
+        "peak_value": 136
+      },
+      {
+        "brightness": 187.875,
+        "centroid_x": 460.4728033472803,
+        "centroid_y": 91.16666666666667,
+        "num_saturated": 0,
+        "peak_value": 108
+      },
+      {
+        "brightness": 187.625,
+        "centroid_x": 633.8214285714286,
+        "centroid_y": 253.44827586206895,
+        "num_saturated": 0,
+        "peak_value": 96
+      },
+      {
+        "brightness": 187.5,
+        "centroid_x": 491.19354838709677,
+        "centroid_y": 188.57077625570776,
+        "num_saturated": 0,
+        "peak_value": 118
+      },
+      {
+        "brightness": 186.875,
+        "centroid_x": 468.6307692307692,
+        "centroid_y": 536.5371900826447,
+        "num_saturated": 0,
+        "peak_value": 113
+      },
+      {
+        "brightness": 186.8125,
+        "centroid_x": 656.9021739130435,
+        "centroid_y": 259.6200873362445,
+        "num_saturated": 0,
+        "peak_value": 86
+      },
+      {
+        "brightness": 186.3125,
+        "centroid_x": 529.2971698113207,
+        "centroid_y": 110.32589285714286,
+        "num_saturated": 0,
+        "peak_value": 127
+      },
+      {
+        "brightness": 185.875,
+        "centroid_x": 814.4847161572052,
+        "centroid_y": 410.4425087108014,
+        "num_saturated": 0,
+        "peak_value": 137
+      },
+      {
+        "brightness": 185.3125,
+        "centroid_x": 623.5490909090909,
+        "centroid_y": 238.40217391304347,
+        "num_saturated": 0,
+        "peak_value": 128
+      },
+      {
+        "brightness": 185.0,
+        "centroid_x": 90.47540983606558,
+        "centroid_y": 198.21678321678323,
+        "num_saturated": 0,
+        "peak_value": 125
+      },
+      {
+        "brightness": 184.4375,
+        "centroid_x": 438.1842105263158,
+        "centroid_y": 86.30864197530865,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 184.125,
+        "centroid_x": 894.4090909090909,
+        "centroid_y": 480.48339483394835,
+        "num_saturated": 0,
+        "peak_value": 111
+      },
+      {
+        "brightness": 183.875,
+        "centroid_x": 123.40993788819875,
+        "centroid_y": 170.3731884057971,
+        "num_saturated": 0,
+        "peak_value": 135
+      },
+      {
+        "brightness": 183.80000000000007,
+        "centroid_x": 551.0373831775701,
+        "centroid_y": 221.12121212121212,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 183.375,
+        "centroid_x": 149.3304347826087,
+        "centroid_y": 554.3,
+        "num_saturated": 0,
+        "peak_value": 136
+      },
+      {
+        "brightness": 183.0,
+        "centroid_x": 719.8852459016393,
+        "centroid_y": 499.6752136752137,
+        "num_saturated": 0,
+        "peak_value": 83
+      },
+      {
+        "brightness": 182.0,
+        "centroid_x": 732.622641509434,
+        "centroid_y": 325.2549019607843,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 181.9375,
+        "centroid_x": 500.8169934640523,
+        "centroid_y": 110.61352657004831,
+        "num_saturated": 0,
+        "peak_value": 99
+      },
+      {
+        "brightness": 181.5,
+        "centroid_x": 539.295652173913,
+        "centroid_y": 306.5597826086956,
+        "num_saturated": 0,
+        "peak_value": 129
+      },
+      {
+        "brightness": 181.1875,
+        "centroid_x": 455.6407766990291,
+        "centroid_y": 139.2111111111111,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 180.9375,
+        "centroid_x": 321.46445497630333,
+        "centroid_y": 456.58152173913044,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 180.875,
+        "centroid_x": 450.5658536585366,
+        "centroid_y": 143.44623655913978,
+        "num_saturated": 0,
+        "peak_value": 118
+      },
+      {
+        "brightness": 180.375,
+        "centroid_x": 326.4155844155844,
+        "centroid_y": 288.6062992125984,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 180.375,
+        "centroid_x": 843.2534246575342,
+        "centroid_y": 379.6373626373626,
+        "num_saturated": 0,
+        "peak_value": 78
+      },
+      {
+        "brightness": 180.25,
+        "centroid_x": 784.7232704402516,
+        "centroid_y": 396.36138613861385,
+        "num_saturated": 0,
+        "peak_value": 109
+      },
+      {
+        "brightness": 179.5625,
+        "centroid_x": 599.4494949494949,
+        "centroid_y": 277.65555555555557,
+        "num_saturated": 0,
+        "peak_value": 118
+      },
+      {
+        "brightness": 178.66666666666666,
+        "centroid_x": 720.3654822335026,
+        "centroid_y": 437.63592233009706,
+        "num_saturated": 0,
+        "peak_value": 119
+      },
+      {
+        "brightness": 178.3125,
+        "centroid_x": 412.0133333333333,
+        "centroid_y": 587.5492424242424,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 177.8125,
+        "centroid_x": 165.96226415094338,
+        "centroid_y": 80.5619335347432,
+        "num_saturated": 0,
+        "peak_value": 135
+      },
+      {
+        "brightness": 177.4375,
+        "centroid_x": 778.47,
+        "centroid_y": 562.2980769230769,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 177.3333333333333,
+        "centroid_x": 854.6772486772487,
+        "centroid_y": 460.6965517241379,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 177.0625,
+        "centroid_x": 507.512987012987,
+        "centroid_y": 73.51655629139073,
+        "num_saturated": 0,
+        "peak_value": 129
+      },
+      {
+        "brightness": 175.0625,
+        "centroid_x": 876.4382716049382,
+        "centroid_y": 310.241935483871,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 174.875,
+        "centroid_x": 130.39490445859872,
+        "centroid_y": 369.6787878787879,
+        "num_saturated": 0,
+        "peak_value": 109
+      },
+      {
+        "brightness": 174.5625,
+        "centroid_x": 266.55333333333334,
+        "centroid_y": 106.42241379310344,
+        "num_saturated": 0,
+        "peak_value": 129
+      },
+      {
+        "brightness": 174.3125,
+        "centroid_x": 479.57575757575756,
+        "centroid_y": 213.52307692307693,
+        "num_saturated": 0,
+        "peak_value": 146
+      },
+      {
+        "brightness": 174.3125,
+        "centroid_x": 612.5454545454545,
+        "centroid_y": 230.8310810810811,
+        "num_saturated": 0,
+        "peak_value": 105
+      },
+      {
+        "brightness": 173.8125,
+        "centroid_x": 422.23776223776224,
+        "centroid_y": 365.3142857142857,
+        "num_saturated": 0,
+        "peak_value": 108
+      },
+      {
+        "brightness": 173.625,
+        "centroid_x": 907.6972972972973,
+        "centroid_y": 418.3285714285714,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 172.9375,
+        "centroid_x": 468.88235294117646,
+        "centroid_y": 203.66666666666666,
+        "num_saturated": 0,
+        "peak_value": 75
+      },
+      {
+        "brightness": 172.75,
+        "centroid_x": 493.158940397351,
+        "centroid_y": 292.5083333333333,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 172.0625,
+        "centroid_x": 320.44607843137254,
+        "centroid_y": 233.0762711864407,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 171.625,
+        "centroid_x": 623.5978260869565,
+        "centroid_y": 325.65865384615387,
+        "num_saturated": 0,
+        "peak_value": 124
+      },
+      {
+        "brightness": 171.5,
+        "centroid_x": 374.35664335664336,
+        "centroid_y": 314.4931506849315,
+        "num_saturated": 0,
+        "peak_value": 114
+      },
+      {
+        "brightness": 171.3125,
+        "centroid_x": 43.72514619883041,
+        "centroid_y": 183.4896551724138,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 170.5,
+        "centroid_x": 72.3743842364532,
+        "centroid_y": 130.08771929824562,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 170.1875,
+        "centroid_x": 411.0537634408602,
+        "centroid_y": 468.51785714285717,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 170.0,
+        "centroid_x": 585.2604166666666,
+        "centroid_y": 457.68108108108106,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 170.0,
+        "centroid_x": 802.5135135135135,
+        "centroid_y": 571.5380710659898,
+        "num_saturated": 0,
+        "peak_value": 102
+      },
+      {
+        "brightness": 169.8125,
+        "centroid_x": 718.3174603174604,
+        "centroid_y": 517.4082840236687,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 169.625,
+        "centroid_x": 131.0842105263158,
+        "centroid_y": 421.53,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 168.8125,
+        "centroid_x": 631.3015075376884,
+        "centroid_y": 220.6629213483146,
+        "num_saturated": 0,
+        "peak_value": 119
+      },
+      {
+        "brightness": 168.8125,
+        "centroid_x": 225.63131313131314,
+        "centroid_y": 451.7032967032967,
+        "num_saturated": 0,
+        "peak_value": 96
+      },
+      {
+        "brightness": 168.3125,
+        "centroid_x": 334.4056603773585,
+        "centroid_y": 81.4093023255814,
+        "num_saturated": 0,
+        "peak_value": 125
+      },
+      {
+        "brightness": 168.25,
+        "centroid_x": 249.66447368421052,
+        "centroid_y": 226.2445652173913,
+        "num_saturated": 0,
+        "peak_value": 106
+      },
+      {
+        "brightness": 168.125,
+        "centroid_x": 488.39130434782606,
+        "centroid_y": 173.4506172839506,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 167.3333333333333,
+        "centroid_x": 192.4788732394366,
+        "centroid_y": 119.6205533596838,
+        "num_saturated": 0,
+        "peak_value": 144
+      },
+      {
+        "brightness": 166.6875,
+        "centroid_x": 53.25,
+        "centroid_y": 282.6753246753247,
+        "num_saturated": 0,
+        "peak_value": 83
+      },
+      {
+        "brightness": 165.4375,
+        "centroid_x": 818.2971014492754,
+        "centroid_y": 386.406015037594,
+        "num_saturated": 0,
+        "peak_value": 103
+      },
+      {
+        "brightness": 165.125,
+        "centroid_x": 786.675925925926,
+        "centroid_y": 545.5933014354067,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 163.8125,
+        "centroid_x": 453.8048780487805,
+        "centroid_y": 495.47222222222223,
+        "num_saturated": 0,
+        "peak_value": 102
+      },
+      {
+        "brightness": 163.5625,
+        "centroid_x": 569.379746835443,
+        "centroid_y": 328.4642857142857,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 162.9375,
+        "centroid_x": 731.4319526627219,
+        "centroid_y": 346.6079295154185,
+        "num_saturated": 0,
+        "peak_value": 112
+      },
+      {
+        "brightness": 162.8125,
+        "centroid_x": 123.52707581227436,
+        "centroid_y": 393.6279069767442,
+        "num_saturated": 0,
+        "peak_value": 129
+      },
+      {
+        "brightness": 162.75,
+        "centroid_x": 250.64848484848486,
+        "centroid_y": 47.5962441314554,
+        "num_saturated": 0,
+        "peak_value": 107
+      },
+      {
+        "brightness": 162.6875,
+        "centroid_x": 485.986301369863,
+        "centroid_y": 397.51075268817203,
+        "num_saturated": 0,
+        "peak_value": 103
+      },
+      {
+        "brightness": 162.375,
+        "centroid_x": 666.5181818181818,
+        "centroid_y": 165.1764705882353,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 162.33333333333337,
+        "centroid_x": 373.35449735449737,
+        "centroid_y": 544.1206896551724,
+        "num_saturated": 0,
+        "peak_value": 102
+      },
+      {
+        "brightness": 161.0,
+        "centroid_x": 724.5271317829457,
+        "centroid_y": 462.86046511627904,
+        "num_saturated": 0,
+        "peak_value": 82
+      },
+      {
+        "brightness": 160.875,
+        "centroid_x": 79.95604395604396,
+        "centroid_y": 346.42937853107344,
+        "num_saturated": 0,
+        "peak_value": 85
+      },
+      {
+        "brightness": 160.3125,
+        "centroid_x": 295.40425531914894,
+        "centroid_y": 510.53710247349824,
+        "num_saturated": 0,
+        "peak_value": 108
+      },
+      {
+        "brightness": 160.0625,
+        "centroid_x": 205.4934210526316,
+        "centroid_y": 468.57894736842104,
+        "num_saturated": 0,
+        "peak_value": 81
+      },
+      {
+        "brightness": 160.0,
+        "centroid_x": 170.61214953271028,
+        "centroid_y": 10.271028037383179,
+        "num_saturated": 0,
+        "peak_value": 78
+      },
+      {
+        "brightness": 159.375,
+        "centroid_x": 503.76785714285717,
+        "centroid_y": 523.4801762114538,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 159.125,
+        "centroid_x": 795.4875,
+        "centroid_y": 582.6417910447761,
+        "num_saturated": 0,
+        "peak_value": 106
+      },
+      {
+        "brightness": 158.9375,
+        "centroid_x": 750.5945945945946,
+        "centroid_y": 98.4560669456067,
+        "num_saturated": 0,
+        "peak_value": 106
+      },
+      {
+        "brightness": 158.75,
+        "centroid_x": 719.6742857142857,
+        "centroid_y": 266.5425101214575,
+        "num_saturated": 0,
+        "peak_value": 118
+      },
+      {
+        "brightness": 158.3333333333333,
+        "centroid_x": 593.4161073825503,
+        "centroid_y": 123.63057324840764,
+        "num_saturated": 0,
+        "peak_value": 103
+      },
+      {
+        "brightness": 158.1875,
+        "centroid_x": 526.9263157894737,
+        "centroid_y": 81.6376811594203,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 157.875,
+        "centroid_x": 663.4939759036145,
+        "centroid_y": 262.51408450704224,
+        "num_saturated": 0,
+        "peak_value": 81
+      },
+      {
+        "brightness": 157.75,
+        "centroid_x": 42.48351648351648,
+        "centroid_y": 216.3202614379085,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 157.6875,
+        "centroid_x": 681.6693548387096,
+        "centroid_y": 406.4795918367347,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 157.625,
+        "centroid_x": 824.6896551724138,
+        "centroid_y": 388.5284552845528,
+        "num_saturated": 0,
+        "peak_value": 96
+      },
+      {
+        "brightness": 157.33333333333337,
+        "centroid_x": 73.6068376068376,
+        "centroid_y": 123.1937984496124,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 156.9375,
+        "centroid_x": 173.67487684729065,
+        "centroid_y": 375.52225519287833,
+        "num_saturated": 0,
+        "peak_value": 137
+      },
+      {
+        "brightness": 156.875,
+        "centroid_x": 889.8803418803419,
+        "centroid_y": 289.5232558139535,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 156.66666666666663,
+        "centroid_x": 202.6315789473684,
+        "centroid_y": 38.04,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 156.625,
+        "centroid_x": 162.76237623762376,
+        "centroid_y": 142.5767441860465,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 155.4375,
+        "centroid_x": 458.3241758241758,
+        "centroid_y": 291.37966101694917,
+        "num_saturated": 0,
+        "peak_value": 141
+      },
+      {
+        "brightness": 154.6666666666667,
+        "centroid_x": 254.52898550724638,
+        "centroid_y": 511.0,
+        "num_saturated": 0,
+        "peak_value": 102
+      },
+      {
+        "brightness": 154.625,
+        "centroid_x": 531.3452380952381,
+        "centroid_y": 226.62790697674419,
+        "num_saturated": 0,
+        "peak_value": 78
+      },
+      {
+        "brightness": 153.625,
+        "centroid_x": 249.93103448275863,
+        "centroid_y": 174.43069306930693,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 153.375,
+        "centroid_x": 548.1801801801802,
+        "centroid_y": 329.4779411764706,
+        "num_saturated": 0,
+        "peak_value": 109
+      },
+      {
+        "brightness": 153.375,
+        "centroid_x": 397.26582278481015,
+        "centroid_y": 403.5492957746479,
+        "num_saturated": 0,
+        "peak_value": 106
+      },
+      {
+        "brightness": 153.1875,
+        "centroid_x": 662.4503816793894,
+        "centroid_y": 275.60434782608695,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 153.0,
+        "centroid_x": 754.6011904761905,
+        "centroid_y": 315.63957597173146,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 152.9375,
+        "centroid_x": 735.6494845360825,
+        "centroid_y": 282.514598540146,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 152.6875,
+        "centroid_x": 594.2232142857143,
+        "centroid_y": 288.44864864864866,
+        "num_saturated": 0,
+        "peak_value": 109
+      },
+      {
+        "brightness": 152.3125,
+        "centroid_x": 738.4719101123595,
+        "centroid_y": 481.46153846153845,
+        "num_saturated": 0,
+        "peak_value": 106
+      },
+      {
+        "brightness": 152.125,
+        "centroid_x": 591.6185567010309,
+        "centroid_y": 33.48979591836735,
+        "num_saturated": 0,
+        "peak_value": 96
+      },
+      {
+        "brightness": 152.0625,
+        "centroid_x": 553.5568181818181,
+        "centroid_y": 368.4811715481172,
+        "num_saturated": 0,
+        "peak_value": 136
+      },
+      {
+        "brightness": 151.8125,
+        "centroid_x": 453.6203703703704,
+        "centroid_y": 35.01204819277108,
+        "num_saturated": 0,
+        "peak_value": 65
+      },
+      {
+        "brightness": 151.25,
+        "centroid_x": 597.9894736842106,
+        "centroid_y": 265.39800995024876,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 151.1875,
+        "centroid_x": 73.71844660194175,
+        "centroid_y": 387.35064935064935,
+        "num_saturated": 0,
+        "peak_value": 72
+      },
+      {
+        "brightness": 150.9375,
+        "centroid_x": 214.42028985507247,
+        "centroid_y": 532.8380952380952,
+        "num_saturated": 0,
+        "peak_value": 74
+      },
+      {
+        "brightness": 150.25,
+        "centroid_x": 619.6507936507936,
+        "centroid_y": 232.75280898876406,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 149.8125,
+        "centroid_x": 442.4025974025974,
+        "centroid_y": 493.45454545454544,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 148.6875,
+        "centroid_x": 331.5103448275862,
+        "centroid_y": 303.24719101123594,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 148.625,
+        "centroid_x": 824.7247706422019,
+        "centroid_y": 374.46938775510205,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 148.5625,
+        "centroid_x": 338.56060606060606,
+        "centroid_y": 247.6320754716981,
+        "num_saturated": 0,
+        "peak_value": 113
+      },
+      {
+        "brightness": 148.4375,
+        "centroid_x": 293.7720588235294,
+        "centroid_y": 555.4249201277955,
+        "num_saturated": 0,
+        "peak_value": 113
+      },
+      {
+        "brightness": 148.375,
+        "centroid_x": 566.0888888888888,
+        "centroid_y": 429.44117647058823,
+        "num_saturated": 0,
+        "peak_value": 132
+      },
+      {
+        "brightness": 146.8125,
+        "centroid_x": 401.8181818181818,
+        "centroid_y": 137.54871794871795,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 146.8125,
+        "centroid_x": 305.5,
+        "centroid_y": 513.5632911392405,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 146.75,
+        "centroid_x": 567.8571428571429,
+        "centroid_y": 125.33613445378151,
+        "num_saturated": 0,
+        "peak_value": 85
+      },
+      {
+        "brightness": 146.75,
+        "centroid_x": 636.4916201117319,
+        "centroid_y": 571.2380952380952,
+        "num_saturated": 0,
+        "peak_value": 88
+      },
+      {
+        "brightness": 146.4375,
+        "centroid_x": 436.3379310344828,
+        "centroid_y": 307.57978723404256,
+        "num_saturated": 0,
+        "peak_value": 117
+      },
+      {
+        "brightness": 146.3125,
+        "centroid_x": 527.0232558139535,
+        "centroid_y": 443.4065934065934,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 145.9375,
+        "centroid_x": 434.41711229946526,
+        "centroid_y": 473.36871508379886,
+        "num_saturated": 0,
+        "peak_value": 110
+      },
+      {
+        "brightness": 145.5,
+        "centroid_x": 901.4943820224719,
+        "centroid_y": 320.479704797048,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 145.3333333333333,
+        "centroid_x": 163.3111111111111,
+        "centroid_y": 233.125,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 144.6875,
+        "centroid_x": 255.4451219512195,
+        "centroid_y": 290.5657894736842,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 144.375,
+        "centroid_x": 315.52201257861634,
+        "centroid_y": 425.6245614035088,
+        "num_saturated": 0,
+        "peak_value": 147
+      },
+      {
+        "brightness": 144.3125,
+        "centroid_x": 510.77884615384613,
+        "centroid_y": 413.4266211604096,
+        "num_saturated": 0,
+        "peak_value": 107
+      },
+      {
+        "brightness": 143.5,
+        "centroid_x": 121.54430379746836,
+        "centroid_y": 310.8666666666667,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 143.4375,
+        "centroid_x": 232.63803680981596,
+        "centroid_y": 471.078431372549,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 143.375,
+        "centroid_x": 268.921568627451,
+        "centroid_y": 158.5799086757991,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 143.25,
+        "centroid_x": 698.6973684210526,
+        "centroid_y": 449.4975369458128,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 142.8125,
+        "centroid_x": 392.6666666666667,
+        "centroid_y": 205.5187969924812,
+        "num_saturated": 0,
+        "peak_value": 112
+      },
+      {
+        "brightness": 142.75,
+        "centroid_x": 630.5822784810126,
+        "centroid_y": 47.48497854077253,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 142.75,
+        "centroid_x": 58.478873239436616,
+        "centroid_y": 234.5151515151515,
+        "num_saturated": 0,
+        "peak_value": 111
+      },
+      {
+        "brightness": 142.6875,
+        "centroid_x": 332.53465346534654,
+        "centroid_y": 426.55494505494505,
+        "num_saturated": 0,
+        "peak_value": 151
+      },
+      {
+        "brightness": 142.0625,
+        "centroid_x": 333.4492753623188,
+        "centroid_y": 414.3243243243243,
+        "num_saturated": 0,
+        "peak_value": 128
+      },
+      {
+        "brightness": 141.9375,
+        "centroid_x": 376.83673469387753,
+        "centroid_y": 152.55633802816902,
+        "num_saturated": 0,
+        "peak_value": 133
+      },
+      {
+        "brightness": 141.3125,
+        "centroid_x": 359.975,
+        "centroid_y": 498.66990291262135,
+        "num_saturated": 0,
+        "peak_value": 73
+      },
+      {
+        "brightness": 141.3125,
+        "centroid_x": 574.6218905472637,
+        "centroid_y": 515.5123674911661,
+        "num_saturated": 0,
+        "peak_value": 131
+      },
+      {
+        "brightness": 141.0625,
+        "centroid_x": 506.6223776223776,
+        "centroid_y": 255.48502994011977,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 141.0625,
+        "centroid_x": 765.5892857142857,
+        "centroid_y": 497.0882352941176,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 140.6875,
+        "centroid_x": 346.0,
+        "centroid_y": 97.4968944099379,
+        "num_saturated": 0,
+        "peak_value": 75
+      },
+      {
+        "brightness": 140.5625,
+        "centroid_x": 220.66814159292036,
+        "centroid_y": 247.625,
+        "num_saturated": 0,
+        "peak_value": 136
+      },
+      {
+        "brightness": 139.9375,
+        "centroid_x": 44.34862385321101,
+        "centroid_y": 495.45,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 139.875,
+        "centroid_x": 358.890625,
+        "centroid_y": 357.3933333333333,
+        "num_saturated": 0,
+        "peak_value": 132
+      },
+      {
+        "brightness": 139.8125,
+        "centroid_x": 113.15671641791045,
+        "centroid_y": 476.29347826086956,
+        "num_saturated": 0,
+        "peak_value": 76
+      },
+      {
+        "brightness": 139.5,
+        "centroid_x": 142.37777777777777,
+        "centroid_y": 11.664429530201343,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 138.9375,
+        "centroid_x": 887.4759036144578,
+        "centroid_y": 132.2551724137931,
+        "num_saturated": 0,
+        "peak_value": 98
+      },
+      {
+        "brightness": 138.8125,
+        "centroid_x": 669.2068965517242,
+        "centroid_y": 274.36787564766837,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 138.625,
+        "centroid_x": 654.625,
+        "centroid_y": 424.5308056872038,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 138.5625,
+        "centroid_x": 610.7130434782608,
+        "centroid_y": 586.7529411764706,
+        "num_saturated": 0,
+        "peak_value": 61
+      },
+      {
+        "brightness": 138.25,
+        "centroid_x": 345.4805825242718,
+        "centroid_y": 156.56903765690376,
+        "num_saturated": 0,
+        "peak_value": 143
+      },
+      {
+        "brightness": 138.25,
+        "centroid_x": 443.7972972972973,
+        "centroid_y": 254.6225165562914,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 138.1875,
+        "centroid_x": 284.4600760456274,
+        "centroid_y": 314.44573643410854,
+        "num_saturated": 0,
+        "peak_value": 160
+      },
+      {
+        "brightness": 138.125,
+        "centroid_x": 719.28125,
+        "centroid_y": 88.65354330708661,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 137.9375,
+        "centroid_x": 825.5159574468086,
+        "centroid_y": 448.55967078189303,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 137.6875,
+        "centroid_x": 616.5668449197861,
+        "centroid_y": 118.46774193548387,
+        "num_saturated": 0,
+        "peak_value": 82
+      },
+      {
+        "brightness": 136.66666666666663,
+        "centroid_x": 621.3612903225807,
+        "centroid_y": 198.08849557522123,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 136.25,
+        "centroid_x": 747.6011560693642,
+        "centroid_y": 89.54545454545455,
+        "num_saturated": 0,
+        "peak_value": 95
+      },
+      {
+        "brightness": 136.0625,
+        "centroid_x": 654.4351145038167,
+        "centroid_y": 192.4011976047904,
+        "num_saturated": 0,
+        "peak_value": 95
+      },
+      {
+        "brightness": 135.8125,
+        "centroid_x": 827.0736842105263,
+        "centroid_y": 221.4536082474227,
+        "num_saturated": 0,
+        "peak_value": 107
+      },
+      {
+        "brightness": 135.5,
+        "centroid_x": 37.18840579710145,
+        "centroid_y": 84.51470588235294,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 135.0625,
+        "centroid_x": 73.24770642201835,
+        "centroid_y": 306.6025641025641,
+        "num_saturated": 0,
+        "peak_value": 78
+      },
+      {
+        "brightness": 134.9375,
+        "centroid_x": 831.2638888888889,
+        "centroid_y": 222.59259259259258,
+        "num_saturated": 0,
+        "peak_value": 70
+      },
+      {
+        "brightness": 134.8125,
+        "centroid_x": 609.4811320754717,
+        "centroid_y": 384.3779069767442,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 134.75,
+        "centroid_x": 812.2376237623762,
+        "centroid_y": 203.69473684210527,
+        "num_saturated": 0,
+        "peak_value": 66
+      },
+      {
+        "brightness": 134.4375,
+        "centroid_x": 623.3470588235294,
+        "centroid_y": 332.46666666666664,
+        "num_saturated": 0,
+        "peak_value": 110
+      },
+      {
+        "brightness": 134.0625,
+        "centroid_x": 106.50980392156863,
+        "centroid_y": 423.73214285714283,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 133.75,
+        "centroid_x": 218.51739130434783,
+        "centroid_y": 7.4958677685950414,
+        "num_saturated": 0,
+        "peak_value": 110
+      },
+      {
+        "brightness": 133.0,
+        "centroid_x": 96.46575342465754,
+        "centroid_y": 212.6829268292683,
+        "num_saturated": 0,
+        "peak_value": 82
+      },
+      {
+        "brightness": 133.0,
+        "centroid_x": 313.8285714285714,
+        "centroid_y": 258.6137566137566,
+        "num_saturated": 0,
+        "peak_value": 110
+      },
+      {
+        "brightness": 132.625,
+        "centroid_x": 564.75,
+        "centroid_y": 364.49717514124296,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 132.375,
+        "centroid_x": 621.7083333333334,
+        "centroid_y": 178.37301587301587,
+        "num_saturated": 0,
+        "peak_value": 83
+      },
+      {
+        "brightness": 131.375,
+        "centroid_x": 670.216,
+        "centroid_y": 136.54040404040404,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 131.25,
+        "centroid_x": 198.44,
+        "centroid_y": 21.609649122807017,
+        "num_saturated": 0,
+        "peak_value": 98
+      },
+      {
+        "brightness": 131.125,
+        "centroid_x": 285.17241379310343,
+        "centroid_y": 479.36551724137934,
+        "num_saturated": 0,
+        "peak_value": 86
+      },
+      {
+        "brightness": 130.9375,
+        "centroid_x": 172.5586592178771,
+        "centroid_y": 148.61271676300578,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 130.8125,
+        "centroid_x": 87.10891089108911,
+        "centroid_y": 441.472049689441,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 130.6875,
+        "centroid_x": 588.5,
+        "centroid_y": 122.5925925925926,
+        "num_saturated": 0,
+        "peak_value": 116
+      },
+      {
+        "brightness": 130.5,
+        "centroid_x": 517.7956989247311,
+        "centroid_y": 529.4285714285714,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 129.9375,
+        "centroid_x": 780.3333333333334,
+        "centroid_y": 150.5181347150259,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 129.0625,
+        "centroid_x": 569.811320754717,
+        "centroid_y": 192.44444444444446,
+        "num_saturated": 0,
+        "peak_value": 78
+      },
+      {
+        "brightness": 128.5625,
+        "centroid_x": 297.56716417910445,
+        "centroid_y": 334.5776397515528,
+        "num_saturated": 0,
+        "peak_value": 109
+      },
+      {
+        "brightness": 128.0,
+        "centroid_x": 725.7333333333333,
+        "centroid_y": 372.48387096774195,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 127.8125,
+        "centroid_x": 597.8229166666666,
+        "centroid_y": 32.78823529411765,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 127.4375,
+        "centroid_x": 299.7,
+        "centroid_y": 451.6101694915254,
+        "num_saturated": 0,
+        "peak_value": 102
+      },
+      {
+        "brightness": 127.0,
+        "centroid_x": 728.6987951807229,
+        "centroid_y": 152.47150259067357,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 126.6875,
+        "centroid_x": 336.3181818181818,
+        "centroid_y": 305.531746031746,
+        "num_saturated": 0,
+        "peak_value": 105
+      },
+      {
+        "brightness": 126.625,
+        "centroid_x": 152.88636363636363,
+        "centroid_y": 126.44559585492227,
+        "num_saturated": 0,
+        "peak_value": 91
+      },
+      {
+        "brightness": 126.5,
+        "centroid_x": 310.80582524271847,
+        "centroid_y": 46.36190476190476,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 126.4375,
+        "centroid_x": 777.5673758865248,
+        "centroid_y": 431.4140625,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 126.3125,
+        "centroid_x": 309.3191489361702,
+        "centroid_y": 583.5605095541401,
+        "num_saturated": 0,
+        "peak_value": 91
+      },
+      {
+        "brightness": 125.5,
+        "centroid_x": 579.5279187817259,
+        "centroid_y": 347.59358288770056,
+        "num_saturated": 0,
+        "peak_value": 116
+      },
+      {
+        "brightness": 125.3125,
+        "centroid_x": 561.640350877193,
+        "centroid_y": 330.27272727272725,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 125.1875,
+        "centroid_x": 723.2517985611511,
+        "centroid_y": 275.6619718309859,
+        "num_saturated": 0,
+        "peak_value": 82
+      },
+      {
+        "brightness": 125.0625,
+        "centroid_x": 461.58620689655174,
+        "centroid_y": 236.12612612612614,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 124.8125,
+        "centroid_x": 162.54705882352943,
+        "centroid_y": 384.4230769230769,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 124.625,
+        "centroid_x": 439.1682242990654,
+        "centroid_y": 106.41772151898734,
+        "num_saturated": 0,
+        "peak_value": 85
+      },
+      {
+        "brightness": 124.5,
+        "centroid_x": 343.34507042253523,
+        "centroid_y": 476.4512195121951,
+        "num_saturated": 0,
+        "peak_value": 102
+      },
+      {
+        "brightness": 124.125,
+        "centroid_x": 477.7916666666667,
+        "centroid_y": 74.73972602739725,
+        "num_saturated": 0,
+        "peak_value": 69
+      },
+      {
+        "brightness": 123.875,
+        "centroid_x": 396.72727272727275,
+        "centroid_y": 409.66901408450707,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 123.8125,
+        "centroid_x": 508.0405405405405,
+        "centroid_y": 158.53631284916202,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 123.6875,
+        "centroid_x": 516.7394366197183,
+        "centroid_y": 319.50837988826817,
+        "num_saturated": 0,
+        "peak_value": 109
+      },
+      {
+        "brightness": 123.66666666666666,
+        "centroid_x": 172.6096256684492,
+        "centroid_y": 416.0762711864407,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 123.4375,
+        "centroid_x": 60.450450450450454,
+        "centroid_y": 66.35761589403974,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 123.125,
+        "centroid_x": 734.3604060913706,
+        "centroid_y": 431.16748768472905,
+        "num_saturated": 0,
+        "peak_value": 132
+      },
+      {
+        "brightness": 122.0625,
+        "centroid_x": 696.454054054054,
+        "centroid_y": 487.8034188034188,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 122.0625,
+        "centroid_x": 714.575,
+        "centroid_y": 489.65909090909093,
+        "num_saturated": 0,
+        "peak_value": 83
+      },
+      {
+        "brightness": 121.75,
+        "centroid_x": 650.4206896551724,
+        "centroid_y": 342.62420382165607,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 121.625,
+        "centroid_x": 529.231884057971,
+        "centroid_y": 208.6058394160584,
+        "num_saturated": 0,
+        "peak_value": 76
+      },
+      {
+        "brightness": 121.25,
+        "centroid_x": 238.7051282051282,
+        "centroid_y": 487.43037974683546,
+        "num_saturated": 0,
+        "peak_value": 86
+      },
+      {
+        "brightness": 120.8125,
+        "centroid_x": 551.1159420289855,
+        "centroid_y": 233.6014492753623,
+        "num_saturated": 0,
+        "peak_value": 76
+      },
+      {
+        "brightness": 120.625,
+        "centroid_x": 508.50396825396825,
+        "centroid_y": 508.5,
+        "num_saturated": 0,
+        "peak_value": 123
+      },
+      {
+        "brightness": 120.5625,
+        "centroid_x": 240.86486486486487,
+        "centroid_y": 280.48387096774195,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 120.5,
+        "centroid_x": 548.5530973451328,
+        "centroid_y": 269.5086705202312,
+        "num_saturated": 0,
+        "peak_value": 120
+      },
+      {
+        "brightness": 120.3125,
+        "centroid_x": 569.7363636363636,
+        "centroid_y": 83.51231527093596,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 120.25,
+        "centroid_x": 711.4507042253521,
+        "centroid_y": 18.358974358974358,
+        "num_saturated": 0,
+        "peak_value": 95
+      },
+      {
+        "brightness": 119.4375,
+        "centroid_x": 657.4965986394558,
+        "centroid_y": 493.55135135135134,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 119.3125,
+        "centroid_x": 552.431654676259,
+        "centroid_y": 290.42944785276075,
+        "num_saturated": 0,
+        "peak_value": 110
+      },
+      {
+        "brightness": 117.875,
+        "centroid_x": 864.4083333333333,
+        "centroid_y": 178.41044776119404,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 117.3125,
+        "centroid_x": 727.4662162162163,
+        "centroid_y": 308.6363636363636,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 117.0625,
+        "centroid_x": 637.3513513513514,
+        "centroid_y": 301.5232558139535,
+        "num_saturated": 0,
+        "peak_value": 86
+      },
+      {
+        "brightness": 116.75,
+        "centroid_x": 657.35,
+        "centroid_y": 357.72222222222223,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 116.6875,
+        "centroid_x": 472.4850746268657,
+        "centroid_y": 381.47081712062254,
+        "num_saturated": 0,
+        "peak_value": 123
+      },
+      {
+        "brightness": 116.5,
+        "centroid_x": 235.6386554621849,
+        "centroid_y": 207.43529411764706,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 115.8125,
+        "centroid_x": 326.6363636363636,
+        "centroid_y": 160.46759259259258,
+        "num_saturated": 0,
+        "peak_value": 105
+      },
+      {
+        "brightness": 115.6875,
+        "centroid_x": 784.6470588235294,
+        "centroid_y": 451.8615384615385,
+        "num_saturated": 0,
+        "peak_value": 61
+      },
+      {
+        "brightness": 115.5625,
+        "centroid_x": 233.68085106382978,
+        "centroid_y": 235.55862068965519,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 115.5625,
+        "centroid_x": 439.35036496350364,
+        "centroid_y": 444.58156028368796,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 114.9375,
+        "centroid_x": 379.8333333333333,
+        "centroid_y": 120.40944881889764,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 114.875,
+        "centroid_x": 31.621951219512194,
+        "centroid_y": 475.4318181818182,
+        "num_saturated": 0,
+        "peak_value": 63
+      },
+      {
+        "brightness": 114.6875,
+        "centroid_x": 609.5754716981132,
+        "centroid_y": 202.51497005988023,
+        "num_saturated": 0,
+        "peak_value": 85
+      },
+      {
+        "brightness": 114.4375,
+        "centroid_x": 741.5326633165829,
+        "centroid_y": 77.535,
+        "num_saturated": 0,
+        "peak_value": 106
+      },
+      {
+        "brightness": 114.375,
+        "centroid_x": 550.2424242424242,
+        "centroid_y": 313.2880434782609,
+        "num_saturated": 0,
+        "peak_value": 99
+      },
+      {
+        "brightness": 114.3125,
+        "centroid_x": 475.51006711409394,
+        "centroid_y": 314.0133333333333,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 113.125,
+        "centroid_x": 106.31007751937985,
+        "centroid_y": 4.661157024793388,
+        "num_saturated": 0,
+        "peak_value": 71
+      },
+      {
+        "brightness": 112.25,
+        "centroid_x": 489.93333333333334,
+        "centroid_y": 44.538860103626945,
+        "num_saturated": 0,
+        "peak_value": 71
+      },
+      {
+        "brightness": 111.5,
+        "centroid_x": 571.7545454545455,
+        "centroid_y": 419.3818181818182,
+        "num_saturated": 0,
+        "peak_value": 95
+      },
+      {
+        "brightness": 111.5,
+        "centroid_x": 576.1666666666666,
+        "centroid_y": 527.2615384615384,
+        "num_saturated": 0,
+        "peak_value": 76
+      },
+      {
+        "brightness": 111.125,
+        "centroid_x": 691.6449704142012,
+        "centroid_y": 392.425702811245,
+        "num_saturated": 0,
+        "peak_value": 119
+      },
+      {
+        "brightness": 110.1875,
+        "centroid_x": 146.53170731707317,
+        "centroid_y": 271.8775510204082,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 110.0625,
+        "centroid_x": 636.4662162162163,
+        "centroid_y": 340.42335766423355,
+        "num_saturated": 0,
+        "peak_value": 101
+      },
+      {
+        "brightness": 110.0625,
+        "centroid_x": 754.5187969924812,
+        "centroid_y": 380.5421686746988,
+        "num_saturated": 0,
+        "peak_value": 91
+      },
+      {
+        "brightness": 109.6875,
+        "centroid_x": 182.50763358778627,
+        "centroid_y": 268.5674157303371,
+        "num_saturated": 0,
+        "peak_value": 115
+      },
+      {
+        "brightness": 109.6875,
+        "centroid_x": 375.58579881656806,
+        "centroid_y": 465.2162162162162,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 109.125,
+        "centroid_x": 205.91549295774647,
+        "centroid_y": 229.51381215469613,
+        "num_saturated": 0,
+        "peak_value": 85
+      },
+      {
+        "brightness": 108.9375,
+        "centroid_x": 661.6287878787879,
+        "centroid_y": 340.0,
+        "num_saturated": 0,
+        "peak_value": 80
+      },
+      {
+        "brightness": 108.6875,
+        "centroid_x": 600.431693989071,
+        "centroid_y": 271.34375,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 108.5625,
+        "centroid_x": 384.38260869565215,
+        "centroid_y": 427.4339622641509,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 108.4375,
+        "centroid_x": 560.4930555555555,
+        "centroid_y": 517.4723618090452,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 108.1875,
+        "centroid_x": 458.77906976744185,
+        "centroid_y": 100.23655913978494,
+        "num_saturated": 0,
+        "peak_value": 78
+      },
+      {
+        "brightness": 108.0625,
+        "centroid_x": 746.6541353383459,
+        "centroid_y": 517.8735632183908,
+        "num_saturated": 0,
+        "peak_value": 63
+      },
+      {
+        "brightness": 108.0,
+        "centroid_x": 750.6917808219179,
+        "centroid_y": 351.3489583333333,
+        "num_saturated": 0,
+        "peak_value": 91
+      },
+      {
+        "brightness": 107.3125,
+        "centroid_x": 571.5197368421053,
+        "centroid_y": 241.61194029850748,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 107.25,
+        "centroid_x": 770.7575757575758,
+        "centroid_y": 314.4973821989529,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 107.125,
+        "centroid_x": 777.4692307692308,
+        "centroid_y": 422.93650793650795,
+        "num_saturated": 0,
+        "peak_value": 67
+      },
+      {
+        "brightness": 106.8125,
+        "centroid_x": 558.0886075949367,
+        "centroid_y": 143.67226890756302,
+        "num_saturated": 0,
+        "peak_value": 81
+      },
+      {
+        "brightness": 106.5,
+        "centroid_x": 775.5,
+        "centroid_y": 27.364779874213838,
+        "num_saturated": 0,
+        "peak_value": 69
+      },
+      {
+        "brightness": 106.5,
+        "centroid_x": 500.54375,
+        "centroid_y": 29.60655737704918,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 106.0625,
+        "centroid_x": 478.6060606060606,
+        "centroid_y": 469.5857142857143,
+        "num_saturated": 0,
+        "peak_value": 105
+      },
+      {
+        "brightness": 105.625,
+        "centroid_x": 148.48554913294797,
+        "centroid_y": 336.45360824742266,
+        "num_saturated": 0,
+        "peak_value": 110
+      },
+      {
+        "brightness": 105.1875,
+        "centroid_x": 390.53061224489795,
+        "centroid_y": 196.4093567251462,
+        "num_saturated": 0,
+        "peak_value": 98
+      },
+      {
+        "brightness": 104.6875,
+        "centroid_x": 670.0,
+        "centroid_y": 159.46031746031747,
+        "num_saturated": 0,
+        "peak_value": 82
+      },
+      {
+        "brightness": 104.6875,
+        "centroid_x": 527.5714285714286,
+        "centroid_y": 358.27941176470586,
+        "num_saturated": 0,
+        "peak_value": 92
+      },
+      {
+        "brightness": 104.625,
+        "centroid_x": 751.5571428571428,
+        "centroid_y": 14.515418502202643,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 104.5625,
+        "centroid_x": 566.6060606060606,
+        "centroid_y": 266.42051282051284,
+        "num_saturated": 0,
+        "peak_value": 82
+      },
+      {
+        "brightness": 103.8125,
+        "centroid_x": 675.3375,
+        "centroid_y": 452.4890510948905,
+        "num_saturated": 0,
+        "peak_value": 80
+      },
+      {
+        "brightness": 103.375,
+        "centroid_x": 335.8958333333333,
+        "centroid_y": 220.50314465408806,
+        "num_saturated": 0,
+        "peak_value": 81
+      },
+      {
+        "brightness": 101.8125,
+        "centroid_x": 433.6545454545454,
+        "centroid_y": 314.546875,
+        "num_saturated": 0,
+        "peak_value": 111
+      },
+      {
+        "brightness": 101.75,
+        "centroid_x": 138.35766423357666,
+        "centroid_y": 282.38961038961037,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 100.5625,
+        "centroid_x": 493.52694610778445,
+        "centroid_y": 333.68,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 100.5625,
+        "centroid_x": 6.247619047619048,
+        "centroid_y": 460.75,
+        "num_saturated": 0,
+        "peak_value": 64
+      },
+      {
+        "brightness": 100.4375,
+        "centroid_x": 545.0181818181818,
+        "centroid_y": 455.31775700934577,
+        "num_saturated": 0,
+        "peak_value": 76
+      },
+      {
+        "brightness": 99.3125,
+        "centroid_x": 359.39473684210526,
+        "centroid_y": 263.39285714285717,
+        "num_saturated": 0,
+        "peak_value": 95
+      },
+      {
+        "brightness": 99.1875,
+        "centroid_x": 630.7926829268292,
+        "centroid_y": 409.4569536423841,
+        "num_saturated": 0,
+        "peak_value": 86
+      },
+      {
+        "brightness": 98.75,
+        "centroid_x": 28.345323741007196,
+        "centroid_y": 346.6,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 98.375,
+        "centroid_x": 594.63,
+        "centroid_y": 101.49416342412451,
+        "num_saturated": 0,
+        "peak_value": 83
+      },
+      {
+        "brightness": 98.3125,
+        "centroid_x": 903.6120689655172,
+        "centroid_y": 406.3833333333333,
+        "num_saturated": 0,
+        "peak_value": 61
+      },
+      {
+        "brightness": 98.1875,
+        "centroid_x": 758.4649122807018,
+        "centroid_y": 463.5268817204301,
+        "num_saturated": 0,
+        "peak_value": 65
+      },
+      {
+        "brightness": 97.9375,
+        "centroid_x": 525.3984375,
+        "centroid_y": 402.67832167832165,
+        "num_saturated": 0,
+        "peak_value": 91
+      },
+      {
+        "brightness": 96.6875,
+        "centroid_x": 408.6304347826087,
+        "centroid_y": 318.56643356643355,
+        "num_saturated": 0,
+        "peak_value": 103
+      },
+      {
+        "brightness": 96.5625,
+        "centroid_x": 422.3267326732673,
+        "centroid_y": 318.6505376344086,
+        "num_saturated": 0,
+        "peak_value": 114
+      },
+      {
+        "brightness": 96.25,
+        "centroid_x": 562.5540540540541,
+        "centroid_y": 129.45299145299145,
+        "num_saturated": 0,
+        "peak_value": 95
+      },
+      {
+        "brightness": 96.125,
+        "centroid_x": 529.5401459854014,
+        "centroid_y": 329.4557823129252,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 95.6875,
+        "centroid_x": 500.62831858407077,
+        "centroid_y": 233.2054794520548,
+        "num_saturated": 0,
+        "peak_value": 74
+      },
+      {
+        "brightness": 95.0625,
+        "centroid_x": 844.7663551401869,
+        "centroid_y": 116.47894736842105,
+        "num_saturated": 0,
+        "peak_value": 70
+      },
+      {
+        "brightness": 94.9375,
+        "centroid_x": 752.8059701492538,
+        "centroid_y": 129.51633986928104,
+        "num_saturated": 0,
+        "peak_value": 62
+      },
+      {
+        "brightness": 94.25,
+        "centroid_x": 651.457627118644,
+        "centroid_y": 159.39354838709679,
+        "num_saturated": 0,
+        "peak_value": 82
+      },
+      {
+        "brightness": 94.125,
+        "centroid_x": 339.515923566879,
+        "centroid_y": 94.39597315436242,
+        "num_saturated": 0,
+        "peak_value": 97
+      },
+      {
+        "brightness": 94.0625,
+        "centroid_x": 702.5266666666666,
+        "centroid_y": 357.5777777777778,
+        "num_saturated": 0,
+        "peak_value": 100
+      },
+      {
+        "brightness": 93.9375,
+        "centroid_x": 17.511904761904763,
+        "centroid_y": 95.58510638297872,
+        "num_saturated": 0,
+        "peak_value": 69
+      },
+      {
+        "brightness": 93.9375,
+        "centroid_x": 729.4552845528456,
+        "centroid_y": 340.6641791044776,
+        "num_saturated": 0,
+        "peak_value": 74
+      },
+      {
+        "brightness": 93.625,
+        "centroid_x": 184.37912087912088,
+        "centroid_y": 222.73529411764707,
+        "num_saturated": 0,
+        "peak_value": 90
+      },
+      {
+        "brightness": 93.5,
+        "centroid_x": 819.6086956521739,
+        "centroid_y": 268.3909090909091,
+        "num_saturated": 0,
+        "peak_value": 69
+      },
+      {
+        "brightness": 92.9375,
+        "centroid_x": 516.5164835164835,
+        "centroid_y": 246.50950570342206,
+        "num_saturated": 0,
+        "peak_value": 91
+      },
+      {
+        "brightness": 92.75,
+        "centroid_x": 544.5176470588235,
+        "centroid_y": 516.469696969697,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 92.3125,
+        "centroid_x": 39.595238095238095,
+        "centroid_y": 140.5,
+        "num_saturated": 0,
+        "peak_value": 71
+      },
+      {
+        "brightness": 91.75,
+        "centroid_x": 861.5480769230769,
+        "centroid_y": 408.640243902439,
+        "num_saturated": 0,
+        "peak_value": 77
+      },
+      {
+        "brightness": 91.6875,
+        "centroid_x": 341.2300884955752,
+        "centroid_y": 38.660919540229884,
+        "num_saturated": 0,
+        "peak_value": 89
+      },
+      {
+        "brightness": 90.625,
+        "centroid_x": 458.51973684210526,
+        "centroid_y": 258.6114285714286,
+        "num_saturated": 0,
+        "peak_value": 105
+      },
+      {
+        "brightness": 90.25,
+        "centroid_x": 544.4233576642335,
+        "centroid_y": 591.3947368421053,
+        "num_saturated": 0,
+        "peak_value": 69
+      },
+      {
+        "brightness": 89.4375,
+        "centroid_x": 246.53684210526316,
+        "centroid_y": 271.39814814814815,
+        "num_saturated": 0,
+        "peak_value": 76
+      },
+      {
+        "brightness": 89.3125,
+        "centroid_x": 67.5691056910569,
+        "centroid_y": 266.5744680851064,
+        "num_saturated": 0,
+        "peak_value": 98
+      },
+      {
+        "brightness": 88.9375,
+        "centroid_x": 528.3559322033898,
+        "centroid_y": 180.53333333333333,
+        "num_saturated": 0,
+        "peak_value": 71
+      },
+      {
+        "brightness": 88.5,
+        "centroid_x": 558.4795918367347,
+        "centroid_y": 319.6470588235294,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 88.0,
+        "centroid_x": 628.4557823129252,
+        "centroid_y": 206.2,
+        "num_saturated": 0,
+        "peak_value": 72
+      },
+      {
+        "brightness": 87.6875,
+        "centroid_x": 338.8452380952381,
+        "centroid_y": 76.33103448275862,
+        "num_saturated": 0,
+        "peak_value": 86
+      },
+      {
+        "brightness": 87.0,
+        "centroid_x": 163.3089430894309,
+        "centroid_y": 187.53773584905662,
+        "num_saturated": 0,
+        "peak_value": 70
+      },
+      {
+        "brightness": 86.875,
+        "centroid_x": 711.8333333333334,
+        "centroid_y": 457.489898989899,
+        "num_saturated": 0,
+        "peak_value": 64
+      },
+      {
+        "brightness": 86.6875,
+        "centroid_x": 489.25,
+        "centroid_y": 17.52112676056338,
+        "num_saturated": 0,
+        "peak_value": 80
+      },
+      {
+        "brightness": 86.6875,
+        "centroid_x": 179.39814814814815,
+        "centroid_y": 147.52906976744185,
+        "num_saturated": 0,
+        "peak_value": 88
+      },
+      {
+        "brightness": 86.5625,
+        "centroid_x": 300.3925925925926,
+        "centroid_y": 131.47787610619469,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 86.375,
+        "centroid_x": 493.656,
+        "centroid_y": 544.607476635514,
+        "num_saturated": 0,
+        "peak_value": 84
+      },
+      {
+        "brightness": 84.1875,
+        "centroid_x": 353.5617283950617,
+        "centroid_y": 371.44262295081967,
+        "num_saturated": 0,
+        "peak_value": 152
+      },
+      {
+        "brightness": 83.875,
+        "centroid_x": 644.8777777777777,
+        "centroid_y": 114.5607476635514,
+        "num_saturated": 0,
+        "peak_value": 73
+      },
+      {
+        "brightness": 81.375,
+        "centroid_x": 359.56481481481484,
+        "centroid_y": 287.6461538461538,
+        "num_saturated": 0,
+        "peak_value": 99
+      },
+      {
+        "brightness": 79.9375,
+        "centroid_x": 447.0,
+        "centroid_y": 373.1937984496124,
+        "num_saturated": 0,
+        "peak_value": 99
+      },
+      {
+        "brightness": 79.9375,
+        "centroid_x": 695.1789473684211,
+        "centroid_y": 593.6580310880829,
+        "num_saturated": 0,
+        "peak_value": 63
+      },
+      {
+        "brightness": 79.6875,
+        "centroid_x": 510.53846153846155,
+        "centroid_y": 426.4904761904762,
+        "num_saturated": 0,
+        "peak_value": 111
+      },
+      {
+        "brightness": 79.3125,
+        "centroid_x": 723.6267605633802,
+        "centroid_y": 92.54010695187166,
+        "num_saturated": 0,
+        "peak_value": 76
+      },
+      {
+        "brightness": 77.9375,
+        "centroid_x": 311.6,
+        "centroid_y": 562.4933333333333,
+        "num_saturated": 0,
+        "peak_value": 83
+      },
+      {
+        "brightness": 77.3125,
+        "centroid_x": 559.4553571428571,
+        "centroid_y": 452.47159090909093,
+        "num_saturated": 0,
+        "peak_value": 87
+      },
+      {
+        "brightness": 77.0625,
+        "centroid_x": 154.5,
+        "centroid_y": 344.51908396946567,
+        "num_saturated": 0,
+        "peak_value": 85
+      },
+      {
+        "brightness": 76.9375,
+        "centroid_x": 32.613861386138616,
+        "centroid_y": 337.53846153846155,
+        "num_saturated": 0,
+        "peak_value": 80
+      },
+      {
+        "brightness": 76.9375,
+        "centroid_x": 749.4888888888889,
+        "centroid_y": 412.3222222222222,
+        "num_saturated": 0,
+        "peak_value": 67
+      },
+      {
+        "brightness": 76.5625,
+        "centroid_x": 427.4436090225564,
+        "centroid_y": 225.4968152866242,
+        "num_saturated": 0,
+        "peak_value": 104
+      },
+      {
+        "brightness": 75.5,
+        "centroid_x": 448.3958333333333,
+        "centroid_y": 78.43604651162791,
+        "num_saturated": 0,
+        "peak_value": 102
+      },
+      {
+        "brightness": 74.9375,
+        "centroid_x": 673.3703703703703,
+        "centroid_y": 291.5448275862069,
+        "num_saturated": 0,
+        "peak_value": 80
+      },
+      {
+        "brightness": 74.75,
+        "centroid_x": 177.66981132075472,
+        "centroid_y": 307.325,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 74.4375,
+        "centroid_x": 577.2794117647059,
+        "centroid_y": 470.44632768361583,
+        "num_saturated": 0,
+        "peak_value": 74
+      },
+      {
+        "brightness": 74.0625,
+        "centroid_x": 722.5934959349594,
+        "centroid_y": 254.44252873563218,
+        "num_saturated": 0,
+        "peak_value": 64
+      },
+      {
+        "brightness": 72.75,
+        "centroid_x": 761.3277310924369,
+        "centroid_y": 74.86021505376344,
+        "num_saturated": 0,
+        "peak_value": 70
+      },
+      {
+        "brightness": 72.4375,
+        "centroid_x": 137.64893617021278,
+        "centroid_y": 274.47133757961785,
+        "num_saturated": 0,
+        "peak_value": 79
+      },
+      {
+        "brightness": 72.0625,
+        "centroid_x": 596.41875,
+        "centroid_y": 315.5890410958904,
+        "num_saturated": 0,
+        "peak_value": 91
+      },
+      {
+        "brightness": 71.75,
+        "centroid_x": 846.3909090909091,
+        "centroid_y": 297.4113924050633,
+        "num_saturated": 0,
+        "peak_value": 70
+      },
+      {
+        "brightness": 71.5,
+        "centroid_x": 307.6044776119403,
+        "centroid_y": 276.6222222222222,
+        "num_saturated": 0,
+        "peak_value": 114
+      },
+      {
+        "brightness": 70.1875,
+        "centroid_x": 621.202380952381,
+        "centroid_y": 250.42962962962963,
+        "num_saturated": 0,
+        "peak_value": 69
+      },
+      {
+        "brightness": 69.625,
+        "centroid_x": 351.5462962962963,
+        "centroid_y": 323.5076923076923,
+        "num_saturated": 0,
+        "peak_value": 103
+      },
+      {
+        "brightness": 69.4375,
+        "centroid_x": 140.77142857142857,
+        "centroid_y": 18.220338983050848,
+        "num_saturated": 0,
+        "peak_value": 66
+      },
+      {
+        "brightness": 69.25,
+        "centroid_x": 127.76470588235294,
+        "centroid_y": 99.39393939393939,
+        "num_saturated": 0,
+        "peak_value": 75
+      },
+      {
+        "brightness": 68.125,
+        "centroid_x": 560.25,
+        "centroid_y": 290.47926267281105,
+        "num_saturated": 0,
+        "peak_value": 94
+      },
+      {
+        "brightness": 67.875,
+        "centroid_x": 408.36470588235295,
+        "centroid_y": 170.46218487394958,
+        "num_saturated": 0,
+        "peak_value": 88
+      },
+      {
+        "brightness": 66.625,
+        "centroid_x": 570.4455445544554,
+        "centroid_y": 3.4558823529411766,
+        "num_saturated": 0,
+        "peak_value": 71
+      },
+      {
+        "brightness": 64.6875,
+        "centroid_x": 118.56923076923077,
+        "centroid_y": 158.59047619047618,
+        "num_saturated": 0,
+        "peak_value": 67
+      },
+      {
+        "brightness": 62.5,
+        "centroid_x": 540.349593495935,
+        "centroid_y": 274.65656565656565,
+        "num_saturated": 0,
+        "peak_value": 80
+      },
+      {
+        "brightness": 61.875,
+        "centroid_x": 300.4,
+        "centroid_y": 367.3628318584071,
+        "num_saturated": 0,
+        "peak_value": 147
+      },
+      {
+        "brightness": 61.3125,
+        "centroid_x": 529.528735632184,
+        "centroid_y": 422.6144578313253,
+        "num_saturated": 0,
+        "peak_value": 78
+      },
+      {
+        "brightness": 60.3125,
+        "centroid_x": 706.4864864864865,
+        "centroid_y": 439.35714285714283,
+        "num_saturated": 0,
+        "peak_value": 74
+      },
+      {
+        "brightness": 59.3125,
+        "centroid_x": 564.4903846153846,
+        "centroid_y": 438.59139784946234,
+        "num_saturated": 0,
+        "peak_value": 85
+      },
+      {
+        "brightness": 58.75,
+        "centroid_x": 708.392523364486,
+        "centroid_y": 147.42156862745097,
+        "num_saturated": 0,
+        "peak_value": 64
+      },
+      {
+        "brightness": 57.3125,
+        "centroid_x": 728.5196078431372,
+        "centroid_y": 498.5139664804469,
+        "num_saturated": 0,
+        "peak_value": 68
+      },
+      {
+        "brightness": 56.8125,
+        "centroid_x": 31.57894736842105,
+        "centroid_y": 175.5133689839572,
+        "num_saturated": 0,
+        "peak_value": 72
+      },
+      {
+        "brightness": 56.3125,
+        "centroid_x": 268.14516129032256,
+        "centroid_y": 35.58273381294964,
+        "num_saturated": 0,
+        "peak_value": 62
+      },
+      {
+        "brightness": 53.3125,
+        "centroid_x": 139.45901639344262,
+        "centroid_y": 181.53591160220995,
+        "num_saturated": 0,
+        "peak_value": 76
+      },
+      {
+        "brightness": 50.6875,
+        "centroid_x": 528.31,
+        "centroid_y": 231.55172413793105,
+        "num_saturated": 0,
+        "peak_value": 93
+      },
+      {
+        "brightness": 46.375,
+        "centroid_x": 857.5636363636364,
+        "centroid_y": 394.6810344827586,
+        "num_saturated": 0,
+        "peak_value": 60
+      },
+      {
+        "brightness": 40.25,
+        "centroid_x": 624.6231884057971,
+        "centroid_y": 295.4935897435897,
+        "num_saturated": 0,
+        "peak_value": 74
+      },
+      {
+        "brightness": 21.8125,
+        "centroid_x": 499.4,
+        "centroid_y": 328.6592592592593,
+        "num_saturated": 0,
+        "peak_value": 87
+      }
+    ],
+    "hot_pixel_count": 584,
+    "noise_estimate": 5.318984865554705,
+    "sigma": 8.0
+  }
+}

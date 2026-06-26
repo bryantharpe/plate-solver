@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["ps-core"]
+members = ["ps-core", "ps-detect"]
 
 [workspace.dependencies]
 # Math
@@ -12,8 +12,10 @@ kiddo = "5.0"
 # Memory mapping
 memmap2 = "0.9"
 
-# Image processing
-image = "0.25"
+# Image processing (pinned to cedar-detect compat versions)
+# default-features disabled to avoid edition2024 transitive deps on Rust 1.83
+image = { version = "=0.25.1", default-features = false, features = ["jpeg"] }
+imageproc = { version = "=0.25.0", default-features = false }
 
 # Numeric types
 half = "2.4"
