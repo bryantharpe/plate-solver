@@ -51,4 +51,5 @@ pub mod angle;
 pub mod attitude;
 pub mod celestial;
 pub mod distortion;
+pub mod pattern;
 pub mod projection;
