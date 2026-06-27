@@ -9,9 +9,15 @@
 //! - `(0.5, 0.5)` = center of the top-left pixel
 //! - Integer floor of a centroid gives the pixel index
 
+pub mod histogram;
 pub mod io;
+pub mod noise;
 
 pub use image::GrayImage;
+pub use histogram::HistogramStats;
+
+/// Noise floor applied to the estimated noise value.
+pub const NOISE_FLOOR: f64 = 0.2;
 
 /// A detected star description.
 ///
