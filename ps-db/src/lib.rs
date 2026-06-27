@@ -155,6 +155,49 @@ impl Database {
     pub fn num_stars(&self) -> usize {
         self.star_table.len()
     }
+
+    /// Build a KD-tree index from the star unit vectors (columns 2, 3, 4).
+    ///
+    /// Each star's (x, y, z) unit vector is inserted with its row index in
+    /// `star_table` as the item identifier.
+    #[cfg(feature = "kd-tree")]
+    pub fn build_kd_tree(&mut self) {
+        use kiddo::KdTree;
+        let mut tree: KdTree<f32, 3> = KdTree::with_capacity(self.star_table.len());
+        for (i, row) in self.star_table.iter().enumerate() {
+            // columns 2,3,4 are the unit vector (x, y, z)
+            tree.add(&[row[2], row[3], row[4]], i as u64);
+        }
+        self.star_kd_tree = Some(tree);
+    }
+}
+
+/// Find all stars within a given angular radius of a query unit vector.
+///
+/// The `radius` is in radians. Internally the chord distance threshold is
+/// computed as `2 * sin(radius / 2)` and compared against squared Euclidean
+/// distance in the KD-tree.
+///
+/// Returns star-table indices sorted ascending (brightest-first, since
+/// `star_table` is pre-sorted by magnitude).
+#[cfg(feature = "kd-tree")]
+pub fn nearby_stars(db: &Database, vector: &[f32; 3], radius: f32) -> Vec<usize> {
+    use kiddo::SquaredEuclidean;
+
+    // chord distance: 2 * sin(radius / 2)
+    let max_dist = 2.0_f32 * (radius / 2.0).sin();
+    let max_dist_sq = max_dist * max_dist;
+
+    if let Some(tree) = &db.star_kd_tree {
+        let results = tree.within_unsorted::<SquaredEuclidean>(vector, max_dist_sq);
+        let mut inds: Vec<usize> = results.iter().map(|r| r.item as usize).collect();
+        // star_table is sorted brightest-first (ascending magnitude = index order)
+        // Return indices sorted by index (= brightness order, since star_table is pre-sorted)
+        inds.sort_unstable();
+        inds
+    } else {
+        vec![]
+    }
 }
 
 impl DatabaseProperties {
