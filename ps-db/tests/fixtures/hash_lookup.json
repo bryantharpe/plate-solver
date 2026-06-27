@@ -1,0 +1,170 @@
+[
+  {
+    "slot": 0,
+    "star_indices": [
+      2752,
+      2462,
+      1994,
+      2229
+    ],
+    "pattern_key": [
+      48,
+      57,
+      67,
+      186,
+      200
+    ],
+    "largest_edge_rad": 0.15978238335546371,
+    "full_hash": 784160451798,
+    "low16": 60630,
+    "hash_index": 0,
+    "candidates_no_fov": [
+      0
+    ],
+    "candidates_with_fov": [
+      0
+    ],
+    "fov_estimate_rad": 0.15978238335546371,
+    "fov_max_error_rad": 0.00015978239094471968
+  },
+  {
+    "slot": 758838,
+    "star_indices": [
+      1393,
+      2619,
+      1323,
+      2597
+    ],
+    "pattern_key": [
+      71,
+      154,
+      198,
+      215,
+      242
+    ],
+    "largest_edge_rad": 0.2059927302155004,
+    "full_hash": 948684288571,
+    "low16": 29243,
+    "hash_index": 758838,
+    "candidates_no_fov": [
+      758838
+    ],
+    "candidates_with_fov": [
+      758838
+    ],
+    "fov_estimate_rad": 0.2059927302155004,
+    "fov_max_error_rad": 0.00020599273999963007
+  },
+  {
+    "slot": 1516141,
+    "star_indices": [
+      128,
+      342,
+      103,
+      59
+    ],
+    "pattern_key": [
+      80,
+      107,
+      159,
+      167,
+      237
+    ],
+    "largest_edge_rad": 0.4877718537993785,
+    "full_hash": 928400589330,
+    "low16": 49682,
+    "hash_index": 1516141,
+    "candidates_no_fov": [
+      1516141
+    ],
+    "candidates_with_fov": [
+      1516141
+    ],
+    "fov_estimate_rad": 0.4877718537993785,
+    "fov_max_error_rad": 0.0004877718769672984
+  },
+  {
+    "slot": 2272852,
+    "star_indices": [
+      1812,
+      3984,
+      3398,
+      599
+    ],
+    "pattern_key": [
+      78,
+      103,
+      127,
+      169,
+      184
+    ],
+    "largest_edge_rad": 0.10391618270460294,
+    "full_hash": 721398588328,
+    "low16": 58280,
+    "hash_index": 2272852,
+    "candidates_no_fov": [
+      2272852
+    ],
+    "candidates_with_fov": [
+      2272852
+    ],
+    "fov_estimate_rad": 0.10391618270460294,
+    "fov_max_error_rad": 0.00010391618764035677
+  },
+  {
+    "slot": 3032962,
+    "star_indices": [
+      1108,
+      326,
+      911,
+      1627
+    ],
+    "pattern_key": [
+      68,
+      111,
+      120,
+      169,
+      237
+    ],
+    "largest_edge_rad": 0.15474287455871533,
+    "full_hash": 928429402818,
+    "low16": 27330,
+    "hash_index": 3032962,
+    "candidates_no_fov": [
+      3032962
+    ],
+    "candidates_with_fov": [
+      3032962
+    ],
+    "fov_estimate_rad": 0.15474287455871533,
+    "fov_max_error_rad": 0.00015474288190860748
+  },
+  {
+    "slot": 97,
+    "star_indices": [
+      9137,
+      2311,
+      10577,
+      2798
+    ],
+    "pattern_key": [
+      45,
+      126,
+      131,
+      141,
+      222
+    ],
+    "largest_edge_rad": 0.14107525499109147,
+    "full_hash": 869398844045,
+    "low16": 37517,
+    "hash_index": 95,
+    "candidates_no_fov": [
+      97
+    ],
+    "candidates_with_fov": [
+      97
+    ],
+    "fov_estimate_rad": 0.14107525499109147,
+    "fov_max_error_rad": 0.00014107526169180652
+  }
+]

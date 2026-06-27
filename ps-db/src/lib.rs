@@ -60,6 +60,9 @@ use half::f16;
 pub mod importer;
 pub mod layout;
 pub mod loader;
+pub mod lookup;
+
+pub use lookup::lookup_pattern;
 
 /// Properties stored in the database header.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

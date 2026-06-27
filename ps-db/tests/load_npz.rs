@@ -115,3 +115,62 @@ fn test_nearby_stars() {
         );
     }
 }
+
+#[test]
+fn test_hash_lookup_parity() {
+    let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/hash_lookup.json");
+    let fixture: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
+
+    let db = importer::import_npz(&npz_path()).unwrap();
+
+    for entry in fixture.as_array().expect("fixture should be an array") {
+        let key: [u32; 5] = entry["pattern_key"]
+            .as_array()
+            .expect("missing pattern_key")
+            .iter()
+            .map(|v| v.as_u64().expect("not u64") as u32)
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("pattern_key should have 5 elements");
+
+        let largest_edge_rad: f64 = entry["largest_edge_rad"]
+            .as_f64()
+            .expect("missing largest_edge_rad");
+
+        let expected_no_fov: Vec<usize> = entry["candidates_no_fov"]
+            .as_array()
+            .expect("missing candidates_no_fov")
+            .iter()
+            .map(|v| v.as_u64().expect("not u64") as usize)
+            .collect();
+
+        let expected_with_fov: Vec<usize> = entry["candidates_with_fov"]
+            .as_array()
+            .expect("missing candidates_with_fov")
+            .iter()
+            .map(|v| v.as_u64().expect("not u64") as usize)
+            .collect();
+
+        let fov_estimate_rad: f64 = entry["fov_estimate_rad"]
+            .as_f64()
+            .expect("missing fov_estimate_rad");
+
+        // Test without FOV filter (coarse_fov_rad = None)
+        let got_no_fov = ps_db::lookup_pattern(&db, &key, largest_edge_rad, None);
+        assert_eq!(
+            got_no_fov, expected_no_fov,
+            "slot {}: candidates_no_fov mismatch: expected {:?}, got {:?}",
+            entry["slot"], expected_no_fov, got_no_fov
+        );
+
+        // Test with FOV filter (coarse_fov_rad = Some(fov_estimate))
+        let got_with_fov = ps_db::lookup_pattern(&db, &key, largest_edge_rad, Some(fov_estimate_rad));
+        assert_eq!(
+            got_with_fov, expected_with_fov,
+            "slot {}: candidates_with_fov mismatch: expected {:?}, got {:?}",
+            entry["slot"], expected_with_fov, got_with_fov
+        );
+    }
+}
