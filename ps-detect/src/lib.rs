@@ -9,14 +9,16 @@
 //! - `(0.5, 0.5)` = center of the top-left pixel
 //! - Integer floor of a centroid gives the pixel index
 
+pub mod blob;
 pub mod binning;
 pub mod gate;
 pub mod histogram;
 pub mod io;
 pub mod noise;
 
+pub use blob::{Blob, form_blobs_from_candidates, gate_star_2d};
 pub use binning::{set_binner, Binned2x2Result};
-pub use gate::{CandidateFrom1D, GateResult, PixelHotType};
+pub use gate::{CandidateFrom1D, GateResult, PixelHotType, reject_hot_pixels, scan_image_for_candidates};
 pub use histogram::HistogramStats;
 pub use image::GrayImage;
 
