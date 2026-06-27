@@ -11,7 +11,7 @@
 #   the single cold-restart source of truth), so a fresh context each task is lossless.
 #
 # WHAT EACH ITERATION DOES:
-#   one fresh Opus orchestrator process -> read plan.md -> do exactly ONE unblocked task to
+#   one fresh Sonnet orchestrator process -> read plan.md -> do exactly ONE unblocked task to
 #   completion (delegate Rust to ps-coder/Qwen, review via ps-judge/Sonnet, run the gate, check
 #   the box, append the Run Log, commit work+plan) -> exit. The bash loop then relaunches for
 #   the next task until the plan is done / all-blocked / no progress / max iterations.
@@ -23,14 +23,14 @@
 #   * Do NOT run this while an interactive `grind` session is also working this repo — two
 #     loops will collide on plan.md and git. Stop the interactive session first.
 #   * Models/routing match memory `grind-orchestrator-model` + `llm-routing-litellm`:
-#     orchestrator = claude-opus-4-8 (real Anthropic), ps-coder = qwen3.6-27b (local, $0),
+#     orchestrator = claude-sonnet-4-6-real (real Anthropic Sonnet), ps-coder = qwen3.6-27b (local, $0),
 #     ps-judge = claude-sonnet-4-6-real (real Anthropic Sonnet), small/background -> local qwen.
 
 set -uo pipefail
 
 # ---- config -----------------------------------------------------------------
 REPO="/Users/bryant/code/plate-solver"
-ORCH_MODEL="claude-opus-4-8"
+ORCH_MODEL="claude-sonnet-4-6-real"
 LOG_DIR="${RALPH_LOG_DIR:-$HOME/.cache/ralph-grind/plate-solver}"
 
 # ---- arg parse: optional --detach to run the loop in a detached tmux session ----
@@ -95,8 +95,8 @@ process will exit and a fresh one will start for the next task. Concretely:
 6. STOP.
 
 Model policy (already wired via the LiteLLM router): this orchestrator process is
-claude-opus-4-8; ps-coder = qwen3.6-27b (local); ps-judge = claude-sonnet-4-6-real (real Anthropic
-Sonnet — cheaper than Opus, still a rigorous frontier reviewer).
+claude-sonnet-4-6-real (real Anthropic Sonnet); ps-coder = qwen3.6-27b (local); ps-judge =
+claude-sonnet-4-6-real (real Anthropic Sonnet — a rigorous frontier reviewer).
 EOF
 
 # ---- env (mirrors the documented launch recipe) -----------------------------
@@ -136,7 +136,7 @@ for ((i=1; i<=MAX_ITERS; i++)); do
   log="$LOG_DIR/iter-$(printf '%03d' "$i").log"
   echo "── iteration $i  $(stamp)  ($d_before done) → $log"
 
-  # Fresh process == fresh context. Headless, autonomous, Opus orchestrator.
+  # Fresh process == fresh context. Headless, autonomous, Sonnet orchestrator.
   claude -p "$PROMPT" \
       --model "$ORCH_MODEL" \
       --dangerously-skip-permissions \

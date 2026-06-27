@@ -31,23 +31,35 @@ fn test_data_path() -> std::path::PathBuf {
 fn binning_2x2_parity() {
     let body = std::fs::read_to_string(fixture_path("binning_parity.json"))
         .expect("read binning_parity.json");
-    let data: serde_json::Value = serde_json::from_str(&body)
-        .expect("parse binning_parity.json");
+    let data: serde_json::Value = serde_json::from_str(&body).expect("parse binning_parity.json");
 
-    let filename = data.get("image")
+    let filename = data
+        .get("image")
         .expect("missing image field")
         .as_str()
         .expect("image is a string");
 
     let region = data.get("region").expect("missing region field");
-    let rw = region.get("w").expect("missing w").as_u64().expect("w is u64") as usize;
-    let rh = region.get("h").expect("missing h").as_u64().expect("h is u64") as usize;
+    let rw = region
+        .get("w")
+        .expect("missing w")
+        .as_u64()
+        .expect("w is u64") as usize;
+    let rh = region
+        .get("h")
+        .expect("missing h")
+        .as_u64()
+        .expect("h is u64") as usize;
 
-    let golden: Vec<Vec<u8>> = data.get("pixels").expect("missing pixels field")
-        .as_array().expect("pixels is an array")
+    let golden: Vec<Vec<u8>> = data
+        .get("pixels")
+        .expect("missing pixels field")
+        .as_array()
+        .expect("pixels is an array")
         .iter()
         .map(|row| {
-            row.as_array().expect("each row is an array")
+            row.as_array()
+                .expect("each row is an array")
                 .iter()
                 .map(|v| v.as_u64().expect("pixel is u64") as u8)
                 .collect()
@@ -61,13 +73,18 @@ fn binning_2x2_parity() {
 
     let test_data = test_data_path();
     let img_path = test_data.join(filename);
-    let img = load_grayscale(&img_path)
-        .unwrap_or_else(|e| panic!("load {}: {}", img_path.display(), e));
+    let img =
+        load_grayscale(&img_path).unwrap_or_else(|e| panic!("load {}: {}", img_path.display(), e));
 
     let binned = bin_2x2(&img);
     let (bw, bh) = binned.dimensions();
     assert!(bw >= rw as u32, "binned width {} < region width {}", bw, rw);
-    assert!(bh >= rh as u32, "binned height {} < region height {}", bh, rh);
+    assert!(
+        bh >= rh as u32,
+        "binned height {} < region height {}",
+        bh,
+        rh
+    );
 
     for y in 0..rh {
         for x in 0..rw {

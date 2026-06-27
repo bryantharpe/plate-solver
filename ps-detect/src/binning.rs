@@ -3,8 +3,8 @@
 //! Supports binning factors 1, 2, 4, 8 via repeated 2x2 box filtering.
 //! Detection runs on the most-binned image; centroiding uses one level less binned.
 
-use crate::GrayImage;
 use crate::histogram::estimate_dark_level;
+use crate::GrayImage;
 use std::sync::OnceLock;
 
 /// Result of a 2x2 binning operation including a pixel histogram.
@@ -107,7 +107,10 @@ fn bin_and_histogram_2x2_default(image: &GrayImage, normalize_rows: bool) -> Bin
     }
 
     let output_image = GrayImage::from_raw(new_width, new_height, resized_image).unwrap();
-    Binned2x2Result { binned: output_image, histogram }
+    Binned2x2Result {
+        binned: output_image,
+        histogram,
+    }
 }
 
 /// Apply per-row dark-level normalization to an image.
@@ -315,8 +318,8 @@ mod tests {
 
         // binning>1: width / 100 / binning + 1
         assert_eq!(compute_max_size(2048, 2), 11); // 2048/100=20, 20/2=10, +1=11
-        assert_eq!(compute_max_size(2048, 4), 6);  // 2048/100=20, 20/4=5, +1=6
-        assert_eq!(compute_max_size(2048, 8), 3);  // 2048/100=20, 20/8=2, +1=3
+        assert_eq!(compute_max_size(2048, 4), 6); // 2048/100=20, 20/4=5, +1=6
+        assert_eq!(compute_max_size(2048, 8), 3); // 2048/100=20, 20/8=2, +1=3
     }
 
     #[test]

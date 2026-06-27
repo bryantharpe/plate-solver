@@ -41,7 +41,11 @@ pub fn stats_for_histogram(histogram: &[u32; 256]) -> HistogramStats {
         }
     }
     let stddev = (second_moment / count as f64).sqrt();
-    HistogramStats { mean, median, stddev }
+    HistogramStats {
+        mean,
+        median,
+        stddev,
+    }
 }
 
 /// Trim a histogram to keep only the first `count_to_keep` pixels

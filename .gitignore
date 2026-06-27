@@ -7,5 +7,9 @@
 # Rust
 /target
 
+# Standalone parity-capture helper crate (workspace-excluded; builds its own target)
+tools/parity/_capture_binning/target/
+tools/parity/_capture_binning/Cargo.lock
+
 # Parity venv
 tools/parity/.venv

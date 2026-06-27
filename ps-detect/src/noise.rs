@@ -3,8 +3,8 @@
 //! Estimates RMS noise robustly using three de-starred midline cuts.
 //! The darkest cut (lowest mean) is selected to avoid bright interlopers.
 
+use crate::histogram::{remove_stars_from_histogram, stats_for_histogram, HistogramStats};
 use crate::GrayImage;
-use crate::histogram::{HistogramStats, stats_for_histogram, remove_stars_from_histogram};
 use imageproc::rect::Rect;
 
 /// Build a 256-bin histogram of all pixels in the given ROI.
@@ -24,7 +24,7 @@ fn histogram_for_roi(image: &GrayImage, roi: &Rect) -> [u32; 256] {
     }
     for y in top..=bottom {
         let row_start = y * width;
-        let row_slice = &raw[row_start + left .. row_start + left + w];
+        let row_slice = &raw[row_start + left..row_start + left + w];
         for &pixel in row_slice.iter() {
             histogram[pixel as usize] += 1;
         }
@@ -51,15 +51,27 @@ pub fn estimate_noise_from_image(image: &GrayImage) -> f64 {
 
     // Sample three areas across the horizontal midline of the image.
     let mut stats_arr = [
-        stats_for_roi(image, &Rect::at(
-            (width / 4 - cut_size / 2) as i32, (height / 2) as i32).of_size(cut_size, 1)),
-        stats_for_roi(image, &Rect::at(
-            (width * 2 / 4 - cut_size / 2) as i32, (height / 2) as i32).of_size(cut_size, 1)),
-        stats_for_roi(image, &Rect::at(
-            (width * 3 / 4 - cut_size / 2) as i32, (height / 2) as i32).of_size(cut_size, 1))
+        stats_for_roi(
+            image,
+            &Rect::at((width / 4 - cut_size / 2) as i32, (height / 2) as i32).of_size(cut_size, 1),
+        ),
+        stats_for_roi(
+            image,
+            &Rect::at((width * 2 / 4 - cut_size / 2) as i32, (height / 2) as i32)
+                .of_size(cut_size, 1),
+        ),
+        stats_for_roi(
+            image,
+            &Rect::at((width * 3 / 4 - cut_size / 2) as i32, (height / 2) as i32)
+                .of_size(cut_size, 1),
+        ),
     ];
     // Pick the darkest cut by mean value.
-    stats_arr.sort_by(|a, b| a.mean.partial_cmp(&b.mean).unwrap_or(std::cmp::Ordering::Equal));
+    stats_arr.sort_by(|a, b| {
+        a.mean
+            .partial_cmp(&b.mean)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     stats_arr[0].stddev
 }
 
@@ -128,5 +140,4 @@ mod tests {
         assert_eq!(mean, 50.0);
         assert_eq!(stddev, 0.0);
     }
-
-  }
+}
