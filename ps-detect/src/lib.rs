@@ -10,13 +10,15 @@
 //! - Integer floor of a centroid gives the pixel index
 
 pub mod binning;
+pub mod gate;
 pub mod histogram;
 pub mod io;
 pub mod noise;
 
-pub use image::GrayImage;
-pub use binning::{Binned2x2Result, set_binner};
+pub use binning::{set_binner, Binned2x2Result};
+pub use gate::{CandidateFrom1D, GateResult, PixelHotType};
 pub use histogram::HistogramStats;
+pub use image::GrayImage;
 
 /// Noise floor applied to the estimated noise value.
 pub const NOISE_FLOOR: f64 = 0.2;
