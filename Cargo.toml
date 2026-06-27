@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["ps-core", "ps-detect"]
+exclude = ["tools/parity/_capture_binning"]
 
 [workspace.dependencies]
 # Math
