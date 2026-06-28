@@ -16,10 +16,12 @@ ps-core = { path = "../ps-core" }
 ps-db = { path = "../ps-db" }
 clap = { workspace = true, features = ["derive"] }
 byteorder = { workspace = true }
+half = { workspace = true }
 kiddo = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+tempfile = { workspace = true }
 
 [features]
 default = []

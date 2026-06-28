@@ -781,10 +781,12 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "clap",
+ "half",
  "kiddo",
  "ps-core",
  "ps-db",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

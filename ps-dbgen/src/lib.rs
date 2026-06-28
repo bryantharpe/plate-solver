@@ -3,5 +3,8 @@ pub mod cleanup;
 #[cfg(feature = "kd-tree")]
 pub mod fov;
 #[cfg(feature = "kd-tree")]
+pub mod hash_insert;
+#[cfg(feature = "kd-tree")]
 pub mod patterns;
+pub mod prime;
 pub mod vectors;
