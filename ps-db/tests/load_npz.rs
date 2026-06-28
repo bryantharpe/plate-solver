@@ -174,3 +174,115 @@ fn test_hash_lookup_parity() {
         );
     }
 }
+
+#[test]
+fn test_mmap_lookup_parity() {
+    // 1. Import NPZ -> save_native -> path on disk
+    let db = importer::import_npz(&npz_path()).unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    loader::save_native(&db, tmp.path()).unwrap();
+
+    // 2. load_native(path) -> db_ram
+    let db_ram = loader::load_native(tmp.path()).unwrap();
+
+    // 3. load_native_mmap(path) -> db_mmap
+    let db_mmap = ps_db::load_native_mmap(tmp.path()).unwrap();
+
+    // Verify shapes match
+    assert_eq!(db_ram.num_stars(), db_mmap.num_stars());
+    assert_eq!(db_ram.num_slots(), db_mmap.num_slots());
+
+    // 4. For the fixture patterns in hash_lookup.json:
+    //    assert_eq!(lookup results from db_ram, lookup results from db_mmap)
+    let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/hash_lookup.json");
+    let fixture: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
+
+    for entry in fixture.as_array().expect("fixture should be an array") {
+        let key: [u32; 5] = entry["pattern_key"]
+            .as_array()
+            .expect("missing pattern_key")
+            .iter()
+            .map(|v| v.as_u64().expect("not u64") as u32)
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("pattern_key should have 5 elements");
+
+        let largest_edge_rad: f64 = entry["largest_edge_rad"]
+            .as_f64()
+            .expect("missing largest_edge_rad");
+
+        let fov_estimate_rad: f64 = entry["fov_estimate_rad"]
+            .as_f64()
+            .expect("missing fov_estimate_rad");
+
+        // Test without FOV filter
+        let got_ram_no_fov = ps_db::lookup_pattern(&db_ram, &key, largest_edge_rad, None);
+        let got_mmap_no_fov = ps_db::mmap::lookup_pattern_mmap(&db_mmap, &key, largest_edge_rad, None);
+        assert_eq!(
+            got_ram_no_fov, got_mmap_no_fov,
+            "slot {}: candidates_no_fov mismatch: RAM {:?} vs mmap {:?}",
+            entry["slot"], got_ram_no_fov, got_mmap_no_fov
+        );
+
+        // Test with FOV filter
+        let got_ram_with_fov = ps_db::lookup_pattern(&db_ram, &key, largest_edge_rad, Some(fov_estimate_rad));
+        let got_mmap_with_fov = ps_db::mmap::lookup_pattern_mmap(&db_mmap, &key, largest_edge_rad, Some(fov_estimate_rad));
+        assert_eq!(
+            got_ram_with_fov, got_mmap_with_fov,
+            "slot {}: candidates_with_fov mismatch: RAM {:?} vs mmap {:?}",
+            entry["slot"], got_ram_with_fov, got_mmap_with_fov
+        );
+    }
+}
+
+#[cfg(feature = "kd-tree")]
+#[test]
+fn test_mmap_nearby_stars_parity() {
+    // 1. Import NPZ -> save_native -> path on disk
+    let db = importer::import_npz(&npz_path()).unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    loader::save_native(&db, tmp.path()).unwrap();
+
+    // 2. load_native(path) -> db_ram, build kd-tree
+    let mut db_ram = loader::load_native(tmp.path()).unwrap();
+    db_ram.build_kd_tree();
+
+    // 3. load_native_mmap(path) -> db_mmap, build kd-tree
+    let mut db_mmap = ps_db::load_native_mmap(tmp.path()).unwrap();
+    db_mmap.build_kd_tree();
+
+    // 4. For the queries in nearby_stars.json:
+    //    assert_eq!(db_ram.nearby_stars(v, r), db_mmap.nearby_stars(v, r))
+    let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/nearby_stars.json");
+    let fixture: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
+
+    let queries = fixture["queries"].as_array().expect("queries should be an array");
+    for query in queries {
+        let label = query["label"].as_str().expect("missing label");
+        let q_vec: Vec<f64> = query["query_vector"]
+            .as_array()
+            .expect(&format!("{}: missing query_vector", label))
+            .iter()
+            .map(|v| v.as_f64().expect("not f64"))
+            .collect();
+        assert_eq!(q_vec.len(), 3, "{}: query_vector should have 3 elements", label);
+        let vector = [q_vec[0] as f32, q_vec[1] as f32, q_vec[2] as f32];
+
+        let radius = query["radius_rad"]
+            .as_f64()
+            .expect(&format!("{}: missing radius_rad", label)) as f32;
+
+        let result_ram = nearby_stars(&db_ram, &vector, radius);
+        let result_mmap = db_mmap.nearby_stars(vector, radius);
+
+        assert_eq!(
+            result_ram, result_mmap,
+            "{}: nearby_stars mismatch: RAM {:?} vs mmap {:?}",
+            label, result_ram, result_mmap
+        );
+    }
+}

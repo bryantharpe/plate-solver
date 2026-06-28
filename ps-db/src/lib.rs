@@ -61,8 +61,10 @@ pub mod importer;
 pub mod layout;
 pub mod loader;
 pub mod lookup;
+pub mod mmap;
 
 pub use lookup::lookup_pattern;
+pub use mmap::{load_native_mmap, MmappedDatabase, PatternCatalogKind};
 
 /// Properties stored in the database header.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
