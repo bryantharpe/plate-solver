@@ -781,6 +781,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "clap",
+ "kiddo",
  "ps-core",
  "ps-db",
  "serde_json",
