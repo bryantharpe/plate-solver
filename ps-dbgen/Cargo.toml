@@ -1,0 +1,21 @@
+[package]
+name = "ps-dbgen"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ps-dbgen"
+path = "src/main.rs"
+
+[lib]
+name = "ps_dbgen"
+path = "src/lib.rs"
+
+[dependencies]
+ps-core = { path = "../ps-core" }
+ps-db = { path = "../ps-db" }
+clap = { workspace = true, features = ["derive"] }
+byteorder = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
