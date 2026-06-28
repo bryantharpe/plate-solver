@@ -222,6 +222,10 @@ else
 fi
 
 stamp() { date "+%Y-%m-%d %H:%M:%S"; }
+# Run-id: timestamp-based suffix so concurrent/sequential runs don't overwrite each other's logs.
+# Format: run-2026-06-28T08-01-11 — collides only if you start two runs in the same second.
+RUN_ID="run-$(date '+%Y-%m-%dT%H-%M-%S')"
+LOG_DIR="$LOG_DIR/$RUN_ID"
 # NB: `grep -c` prints "0" AND exits 1 on no match, so `grep -c ... || echo 0` would double-print
 # ("0\n0") and break arithmetic. Capture into a var and default-if-empty instead (empty only if
 # plan.md is unreadable). pending_count is legitimately 0 in normal online runs — the hot path.
