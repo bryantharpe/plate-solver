@@ -23,6 +23,11 @@ kiddo = { workspace = true, optional = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 
+[[test]]
+name = "e2e"
+path = "tests/e2e.rs"
+required-features = ["kd-tree"]
+
 [features]
 default = ["kd-tree"]
 kd-tree = ["kiddo"]
