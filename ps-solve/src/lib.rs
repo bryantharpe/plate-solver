@@ -7,6 +7,7 @@ pub use ps_db::Database;
 pub use ps_detect::StarDescription;
 use image::GrayImage;
 use std::f64::consts::PI;
+use std::time::Instant;
 
 /// Status codes for a solve attempt.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,6 +94,8 @@ pub struct SolveParams {
     pub fov_estimate: Option<f64>,
     /// FOV max error (degrees). None → no constraint.
     pub fov_max_error: Option<f64>,
+    /// Optional cancel flag. Set to true from another thread to cancel the solve.
+    pub cancel_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl Default for SolveParams {
@@ -105,6 +108,7 @@ impl Default for SolveParams {
             distortion: Some(0.0),
             fov_estimate: None,
             fov_max_error: None,
+            cancel_flag: None,
         }
     }
 }
@@ -137,10 +141,8 @@ pub fn solve_from_centroids(
 
     // SV2 step 4: Cluster-bust on ALL raw star_centroids
     let vsfov = db.properties.verification_stars_per_fov as f64;
-    let _ = fov_initial;
     let separation_pixels = width as f64 * 0.6 / vsfov.sqrt();
-    let pattern_centroids = cluster_bust_centroids(star_centroids, separation_pixels);
-    let _pattern_centroids = pattern_centroids;
+    let cluster_bust_result = cluster_bust_centroids(star_centroids, separation_pixels);
 
     // SV2 step 5: Slice to verification_stars_per_fov (brightest-first already)
     let vsfov_usize = db.properties.verification_stars_per_fov as usize;
@@ -157,15 +159,110 @@ pub fn solve_from_centroids(
         image_centroids.to_vec()
     };
 
-    // SV2 step 7: Compute vectors
-    let _image_centroids_vectors = ps_core::projection::compute_vectors(
+    // SV2 step 7: Compute vectors (returns Vec<Vector3<f64>>, convert to [f64;3])
+    let raw_vectors = ps_core::projection::compute_vectors(
         &image_centroids_undist,
         (height, width),
         fov_initial,
     );
+    let image_centroids_vectors: Vec<[f64; 3]> = raw_vectors
+        .iter()
+        .map(|v| [v.x, v.y, v.z])
+        .collect();
 
-    // SV3-SV5 stub: return NoMatch after preparation
-    Solution::failure(SolveStatus::NoMatch, 0.0)
+    // ---- SV3: Breadth-first candidate generation and key search ----
+
+    // Filter cluster-bust result to only indices within the vsfov slice.
+    let pattern_centroids_inds: Vec<usize> = cluster_bust_result
+        .iter()
+        .copied()
+        .filter(|&i| i < vsfov_usize)
+        .collect();
+    let num_pattern_centroids = pattern_centroids_inds.len();
+
+    // Timing and tolerance
+    let t0 = Instant::now();
+    let p_max_err = params.match_max_error.max(db.properties.pattern_max_error as f64);
+    let p_bins = db.properties.pattern_bins as u32;
+    let solve_timeout_secs: Option<f64> = params.solve_timeout.map(|ms| ms as f64 / 1000.0);
+    let cancel_flag = params.cancel_flag.clone();
+
+    let mut status = SolveStatus::NoMatch;
+
+    'outer: for combo in combinations_4(num_pattern_centroids) {
+        // Timeout check
+        if let Some(tmax) = solve_timeout_secs {
+            if t0.elapsed().as_secs_f64() > tmax {
+                status = SolveStatus::Timeout;
+                break 'outer;
+            }
+        }
+
+        // Cancel check
+        if cancel_flag.as_ref().map(|f| f.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false) {
+            status = SolveStatus::Cancelled;
+            break 'outer;
+        }
+
+        // Map combination indices (into pattern_centroids_inds) to actual
+        // indices into image_centroids_vectors.
+        let img_idx: [usize; 4] = combo.map(|c| pattern_centroids_inds[c]);
+        let img_vecs: [[f64; 3]; 4] = std::array::from_fn(|i| image_centroids_vectors[img_idx[i]]);
+
+        // Compute image pattern key.
+        let (image_pattern_key, image_pattern_largest_edge) =
+            ps_core::pattern::compute_pattern_key(&img_vecs, p_bins);
+
+        // Tolerance band: each key dimension ± ceil(p_max_err * p_bins) bins.
+        let band = (p_max_err * p_bins as f64).ceil() as i32;
+        let key_ranges: [[u32; 2]; 5] = std::array::from_fn(|i| {
+            let center = image_pattern_key[i] as i32;
+            let lo = (center - band).max(0) as u32;
+            let hi = (center + band).min(p_bins as i32) as u32;
+            [lo, hi]
+        });
+
+        // Enumerate all candidate keys in the tolerance band, sorted nearest-first.
+        let candidate_keys: Vec<([u32; 5], i64)> = {
+            let mut keys = Vec::new();
+            for k0 in key_ranges[0][0]..=key_ranges[0][1] {
+                for k1 in key_ranges[1][0]..=key_ranges[1][1] {
+                    for k2 in key_ranges[2][0]..=key_ranges[2][1] {
+                        for k3 in key_ranges[3][0]..=key_ranges[3][1] {
+                            for k4 in key_ranges[4][0]..=key_ranges[4][1] {
+                                let key = [k0, k1, k2, k3, k4];
+                                let dist: i64 = key
+                                    .iter()
+                                    .zip(image_pattern_key.iter())
+                                    .map(|(&k, &c)| {
+                                        let d = k as i64 - c as i64;
+                                        d * d
+                                    })
+                                    .sum();
+                                keys.push((key, dist));
+                            }
+                        }
+                    }
+                }
+            }
+            keys.sort_by_key(|&(_, d)| d);
+            keys
+        };
+
+        // Inner loop: DB lookup per candidate key.
+        for (cand_key, _dist) in &candidate_keys {
+            let candidates = ps_db::lookup::lookup_pattern(
+                db,
+                cand_key,
+                image_pattern_largest_edge,
+                Some(fov_initial),
+            );
+            // SV4 stub: verification not yet implemented.
+            let _ = candidates;
+        }
+    }
+
+    Solution::failure(status, t0.elapsed().as_secs_f64())
 }
 
 /// Cluster-bust centroids: greedy O(n^2) pass keeping stars separated
@@ -196,6 +293,21 @@ pub fn cluster_bust_centroids(
         }
     }
     kept
+}
+
+/// Generate all 4-element combinations of indices [0..n) in lexicographic order.
+fn combinations_4(n: usize) -> Vec<[usize; 4]> {
+    let mut result = Vec::new();
+    for a in 0..n {
+        for b in (a + 1)..n {
+            for c in (b + 1)..n {
+                for d in (c + 1)..n {
+                    result.push([a, b, c, d]);
+                }
+            }
+        }
+    }
+    result
 }
 
 /// Solve from a raw grayscale image (detects stars then solves).
@@ -298,5 +410,62 @@ mod tests {
         assert!((sep - expected).abs() < 1e-10);
         // Check concrete value ~93.9 px at width=1920, vsfov=150
         assert!(sep > 90.0 && sep < 100.0);
+    }
+
+    #[test]
+    fn timeout_reachable() {
+        use ps_db::{Database, DatabaseProperties};
+        let props = DatabaseProperties::apply_legacy_fallbacks(
+            None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        );
+        let db = Database::empty(props);
+        // 5 centroids spread out (no cluster-bust issue), 0ms timeout → Timeout
+        let centroids: Vec<[f64; 2]> = vec![
+            [100.0, 100.0], [200.0, 300.0], [400.0, 150.0], [350.0, 400.0], [150.0, 350.0],
+        ];
+        let params = SolveParams { solve_timeout: Some(0), ..Default::default() };
+        let sol = solve_from_centroids(&db, &centroids, (500, 500), &params);
+        assert_eq!(sol.status, SolveStatus::Timeout);
+    }
+
+    #[test]
+    fn cancelled_reachable() {
+        use ps_db::{Database, DatabaseProperties};
+        use std::sync::{Arc, atomic::AtomicBool};
+        let props = DatabaseProperties::apply_legacy_fallbacks(
+            None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        );
+        let db = Database::empty(props);
+        let centroids: Vec<[f64; 2]> = vec![
+            [100.0, 100.0], [200.0, 300.0], [400.0, 150.0], [350.0, 400.0], [150.0, 350.0],
+        ];
+        let flag = Arc::new(AtomicBool::new(true)); // pre-cancelled
+        let params = SolveParams {
+            cancel_flag: Some(flag.clone()),
+            ..Default::default()
+        };
+        let sol = solve_from_centroids(&db, &centroids, (500, 500), &params);
+        assert_eq!(sol.status, SolveStatus::Cancelled);
+    }
+
+    #[test]
+    fn combinations_4_basic() {
+        assert_eq!(combinations_4(0), Vec::<[usize; 4]>::new());
+        assert_eq!(combinations_4(3), Vec::<[usize; 4]>::new());
+        let combos = combinations_4(4);
+        assert_eq!(combos.len(), 1);
+        assert_eq!(combos[0], [0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn combinations_4_five_elements() {
+        // C(5,4) = 5 combinations
+        let combos = combinations_4(5);
+        assert_eq!(combos.len(), 5);
+        assert_eq!(combos[0], [0, 1, 2, 3]);
+        assert_eq!(combos[1], [0, 1, 2, 4]);
+        assert_eq!(combos[2], [0, 1, 3, 4]);
+        assert_eq!(combos[3], [0, 2, 3, 4]);
+        assert_eq!(combos[4], [1, 2, 3, 4]);
     }
 }
