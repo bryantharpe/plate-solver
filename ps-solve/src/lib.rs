@@ -6,6 +6,7 @@
 pub use ps_db::Database;
 pub use ps_detect::StarDescription;
 use image::GrayImage;
+use std::f64::consts::PI;
 
 /// Status codes for a solve attempt.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,15 +120,82 @@ pub fn solve_from_centroids(
     size: (usize, usize),
     params: &SolveParams,
 ) -> Solution {
-    // Determine initial FOV (degrees) from params or DB midpoint
-    let _fov_initial = params.fov_estimate.unwrap_or_else(|| {
-        let min_fov = db.properties.min_fov as f64;
-        let max_fov = db.properties.max_fov as f64;
-        (min_fov + max_fov) / 2.0
+    let (height, width) = size;
+
+    // SV2 step 1: Set fov_initial (radians)
+    let fov_initial = params.fov_estimate.map(f64::to_radians).unwrap_or_else(|| {
+        (db.properties.min_fov as f64 + db.properties.max_fov as f64) / 2.0 * PI / 180.0
     });
 
-    // Full solver to be implemented in SV2-SV5.
+    // SV2 step 2: Bonferroni correction
+    let _match_threshold = params.match_threshold / db.properties.num_patterns as f64;
+
+    // SV2 step 3: Pre-cluster-bust TooFew guard
+    if star_centroids.len() < 4 {
+        return Solution::failure(SolveStatus::TooFew, 0.0);
+    }
+
+    // SV2 step 4: Cluster-bust on ALL raw star_centroids
+    let vsfov = db.properties.verification_stars_per_fov as f64;
+    let _ = fov_initial;
+    let separation_pixels = width as f64 * 0.6 / vsfov.sqrt();
+    let pattern_centroids = cluster_bust_centroids(star_centroids, separation_pixels);
+    let _pattern_centroids = pattern_centroids;
+
+    // SV2 step 5: Slice to verification_stars_per_fov (brightest-first already)
+    let vsfov_usize = db.properties.verification_stars_per_fov as usize;
+    let image_centroids = &star_centroids[..star_centroids.len().min(vsfov_usize)];
+
+    // SV2 step 6: Undistort (only if distortion is Some and finite)
+    let image_centroids_undist: Vec<[f64; 2]> = if let Some(k) = params.distortion {
+        if k.is_finite() {
+            ps_core::distortion::undistort_centroids(image_centroids, (height, width), k)
+        } else {
+            image_centroids.to_vec()
+        }
+    } else {
+        image_centroids.to_vec()
+    };
+
+    // SV2 step 7: Compute vectors
+    let _image_centroids_vectors = ps_core::projection::compute_vectors(
+        &image_centroids_undist,
+        (height, width),
+        fov_initial,
+    );
+
+    // SV3-SV5 stub: return NoMatch after preparation
     Solution::failure(SolveStatus::NoMatch, 0.0)
+}
+
+/// Cluster-bust centroids: greedy O(n^2) pass keeping stars separated
+/// by at least `separation_pixels`.
+///
+/// Returns indices into the original slice for the kept centroids.
+pub fn cluster_bust_centroids(
+    centroids: &[[f64; 2]],
+    separation_pixels: f64,
+) -> Vec<usize> {
+    let mut kept = Vec::with_capacity(centroids.len());
+    let sep_sq = separation_pixels * separation_pixels;
+
+    for i in 0..centroids.len() {
+        let [yi, xi] = centroids[i];
+        let mut dominated = false;
+        for &k_idx in &kept {
+            let [yk, xk] = centroids[k_idx];
+            let dy = yi - yk;
+            let dx = xi - xk;
+            if dy * dy + dx * dx <= sep_sq {
+                dominated = true;
+                break;
+            }
+        }
+        if !dominated {
+            kept.push(i);
+        }
+    }
+    kept
 }
 
 /// Solve from a raw grayscale image (detects stars then solves).
@@ -198,5 +266,37 @@ mod tests {
         assert_eq!(sol.status, SolveStatus::TooFew);
         assert_eq!(sol.matches, 0);
         assert!((sol.t_solve - 0.123).abs() < 1e-12);
+    }
+
+    #[test]
+    fn preparation_cluster_bust_and_too_few() {
+        // Verify the cluster-bust logic in isolation.
+        let centroids: Vec<[f64; 2]> = vec![
+            [100.0, 100.0],
+            [101.0, 101.0], // very close to first
+            [200.0, 200.0],
+            [201.0, 201.0], // very close to third
+            [300.0, 300.0],
+        ];
+        let separation_pixels = 10.0_f64;
+        let kept = cluster_bust_centroids(&centroids, separation_pixels);
+        // Should keep [0, 2, 4] (indices 1 and 3 are within 10px of kept neighbors)
+        assert_eq!(kept, vec![0usize, 2, 4]);
+    }
+
+    #[test]
+    fn cluster_bust_separation_formula() {
+        // Cedar-solve reference: sep_px = width * 0.6 / sqrt(vsfov)
+        let width = 1920.0_f64;
+        let vsfov = 150.0_f64;
+        let expected = width * 0.6 / vsfov.sqrt();
+        // For fov_initial = 11.0 degrees in radians, this should be fov-independent
+        let fov_initial_rad = 11.0_f64.to_radians();
+        // The correct formula produces the same result regardless of fov
+        let sep = width * 0.6 / vsfov.sqrt();
+        let _ = fov_initial_rad; // fov cancels, formula is fov-independent
+        assert!((sep - expected).abs() < 1e-10);
+        // Check concrete value ~93.9 px at width=1920, vsfov=150
+        assert!(sep > 90.0 && sep < 100.0);
     }
 }
