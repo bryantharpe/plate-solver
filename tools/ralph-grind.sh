@@ -17,7 +17,7 @@
 #   the next task until the plan is done / all-blocked / no progress / max iterations.
 #
 # USAGE:
-#   tools/ralph-grind.sh [--detach] [--offline|--online] [MAX_ITERATIONS]   # default 60
+#   tools/ralph-grind.sh [--detach] [--offline|--online] [--judge-model <id>] [MAX_ITERATIONS]   # default 60
 #
 # OFFLINE MODE (e.g. on a plane, no connectivity):
 #   The orchestrator AND ps-judge normally run on real Anthropic Sonnet, which needs the network.
@@ -30,11 +30,21 @@
 #   task's committed diff vs its AC, promoting `[~]`->`[x]` on PASS (or opening a fix task on FAIL),
 #   before any new task is started. So offline work is never un-reviewed — only review-deferred.
 #
+# JUDGE MODEL (--judge-model <id>):
+#   ps-judge (the frontier reviewer) is pinned by model in .claude/agents/ps-judge.md frontmatter.
+#   Default = claude-sonnet-4-6-real (real Anthropic Sonnet, billed to the work account). Pass
+#   --judge-model glm-5.2 to route judging to a personal Ollama-Cloud (glm-5.2) sub instead — e.g. for
+#   personal projects on a work machine, so judge tokens don't hit the work Anthropic account. The
+#   script REWRITES the ps-judge frontmatter at launch and RESTORES it on exit (a fresh `claude -p` per
+#   iteration re-reads the agent file, so every iteration this run judges on the chosen model). A bare
+#   run (no --judge-model) normalizes the frontmatter back to the default, so a killed --judge-model
+#   run can't leave judging silently on the wrong model. Ignored in --offline mode (judge is deferred).
+#
 # IMPORTANT:
 #   * Do NOT run this while an interactive `grind` session is also working this repo — two
 #     loops will collide on plan.md and git. Stop the interactive session first.
 #   * Models/routing match memory `grind-orchestrator-model` + `llm-routing-litellm`:
-#     ONLINE: orchestrator = claude-sonnet-4-6-real, ps-coder = qwen3.6-27b, ps-judge = claude-sonnet-4-6-real.
+#     ONLINE: orchestrator = claude-sonnet-4-6-real, ps-coder = qwen3.6-27b, ps-judge = claude-sonnet-4-6-real (or --judge-model <id>).
 #     OFFLINE: orchestrator = qwen3.6-27b, ps-coder = qwen3.6-27b, ps-judge = deferred; small/background -> local qwen.
 
 set -uo pipefail
@@ -45,6 +55,15 @@ ORCH_MODEL_ONLINE="claude-sonnet-4-6-real"   # real Anthropic Sonnet (needs conn
 ORCH_MODEL_OFFLINE="qwen3.6-27b"             # local Qwen via LiteLLM (works on a plane)
 LOG_DIR="${RALPH_LOG_DIR:-$HOME/.cache/ralph-grind/plate-solver}"
 
+# ps-judge model handling: its model is pinned in .claude/agents/ps-judge.md frontmatter (not
+# controllable from the `claude -p` CLI). --judge-model rewrites that pin at launch; see the
+# JUDGE MODEL section in the header + the functions below.
+JUDGE_DEFAULT_MODEL="claude-sonnet-4-6-real"  # default ps-judge model (real Anthropic Sonnet)
+JUDGE_AGENT_FILE="$REPO/.claude/agents/ps-judge.md"
+JUDGE_REWRITE=0   # 1 once the judge frontmatter has been rewritten (gates the restore trap)
+JUDGE_RESTORED=0
+RESTORE_JUDGE=""
+
 # ---- arg parse --------------------------------------------------------------
 #   --detach          run the loop in a detached tmux session, then exit
 #   --offline         force OFFLINE mode (local Qwen orchestrator, defer all ps-judge review)
@@ -53,22 +72,82 @@ LOG_DIR="${RALPH_LOG_DIR:-$HOME/.cache/ralph-grind/plate-solver}"
 # Flags may appear in any order before the optional MAX_ITERATIONS positional arg.
 DETACH=0
 MODE="auto"
+JUDGE_MODEL_ARG=""   # ps-judge model id from --judge-model (empty -> default Sonnet)
 while [ $# -gt 0 ]; do
   case "${1:-}" in
     --detach)  DETACH=1; shift ;;
     --offline) MODE="offline"; shift ;;
     --online)  MODE="online"; shift ;;
+    --judge-model)
+      [ $# -ge 2 ] || { echo "FATAL: --judge-model requires a model id argument"; exit 1; }
+      JUDGE_MODEL_ARG="$2"; shift 2 ;;
     --*) echo "FATAL: unknown flag $1"; exit 1 ;;
     *) break ;;
   esac
 done
 MAX_ITERS="${1:-60}"
-# flag string to forward to the detached re-launch (preserves the chosen mode)
+# flag strings to forward to the detached re-launch (preserves the chosen mode + judge model)
 MODE_FLAG=""; [ "$MODE" = "offline" ] && MODE_FLAG="--offline"; [ "$MODE" = "online" ] && MODE_FLAG="--online"
+JUDGE_FLAG=""; [ -n "$JUDGE_MODEL_ARG" ] && JUDGE_FLAG="--judge-model $JUDGE_MODEL_ARG"
 
 # connectivity probe: 0 (online) if real Anthropic answers within 4s, else 1 (offline).
 # curl exit 0 == got an HTTP response (even 401/405 ⇒ reachable); 6/7/28 == DNS/connect/timeout.
 connectivity() { curl -m4 -sS -o /dev/null https://api.anthropic.com/v1/messages >/dev/null 2>&1; }
+
+# ---- ps-judge model handling ------------------------------------------------
+# ps-judge's model is pinned in .claude/agents/ps-judge.md frontmatter (NOT controllable from the
+# `claude -p` CLI, which only sets the orchestrator model). --judge-model routes judging to a
+# different account by REWRITING that frontmatter at launch and RESTORING it on exit. A fresh
+# `claude -p` per iteration re-reads the agent file at startup, so the rewrite takes effect for
+# every iteration this run. The file is never committed by the loop (the guardrail forbids
+# `git add -A` and ps-judge.md is never an in-scope task path), so the dirty frontmatter stays
+# local to this run.
+#
+# Dirty-state guard: a run killed before restore can leave ps-judge.md pinned to a non-default
+# model. A BARE run (no --judge-model) rewrites to the default at launch AND restores to the
+# default on exit -> it normalizes any prior dirty exit. A --judge-model run captures the pre-run
+# model id and restores to THAT (one-shot: judge on the chosen model this run, then back).
+
+# $1 = model id -> the "Runs on ... ." prose used in the ps-judge description line.
+judge_desc_fragment() {
+  if [ "$1" = "$JUDGE_DEFAULT_MODEL" ]; then
+    printf 'Runs on real Anthropic Sonnet 4.6 (frontier).'
+  else
+    printf 'Runs on %s (frontier reviewer, personal account).' "$1"
+  fi
+}
+
+# Rewrite ps-judge.md in place: set the `model:` line and the "Runs on ... ." description fragment
+# to the given model id. Idempotent (safe to call twice with the same id). macOS sed needs `-i ''`;
+# `|` delimiter avoids clashes with periods/parens in the values.
+apply_judge_model_to_file() {   # $1 = model id
+  local id="$1" desc
+  desc="$(judge_desc_fragment "$id")"
+  sed -i '' -E \
+    -e "s|^model: .*|model: $id|" \
+    -e "s|Runs on [^)]*\\)\\.|$desc|" \
+    "$JUDGE_AGENT_FILE"
+}
+
+# Validate --judge-model against the LiteLLM router allowlist, so a typo doesn't silently 400 every
+# ps-judge subagent call (the haiku-gap failure mode in memory llm-routing-litellm). Fails fast.
+# Uses $ANTHROPIC_AUTH_TOKEN (the LiteLLM master key, set by claude-code-env.sh sourced above) —
+# /v1/models 401's without it, which would otherwise look like "not registered".
+validate_judge_model() {   # $1 = model id
+  local id="$1" list
+  list="$(curl -s -m4 -H "Authorization: Bearer ${ANTHROPIC_AUTH_TOKEN:-}" http://localhost:4000/v1/models 2>/dev/null)" || true
+  if [ -z "$list" ] || printf '%s' "$list" | grep -q '"auth_error"'; then
+    echo "FATAL: --judge-model '$id' could not be validated — LiteLLM router at localhost:4000 is"
+    echo "       unreachable or refused auth. Start it (see ~/mac-llm-env) or drop --judge-model."
+    exit 1
+  fi
+  if ! printf '%s' "$list" | grep -q "\"id\":\"$id\""; then
+    echo "FATAL: --judge-model '$id' is not registered in the LiteLLM router (localhost:4000/v1/models)."
+    echo "       A typo here makes every ps-judge subagent call 400 and silently die. Fix config.yaml"
+    echo "       or use a known id (e.g. glm-5.2, $JUDGE_DEFAULT_MODEL)."
+    exit 1
+  fi
+}
 
 # --detach: relaunch this script inside a detached tmux session, then exit. The tmux server is
 # independent of the launching shell, so the loop SURVIVES killing any Claude session or closing
@@ -85,8 +164,8 @@ if [ "$DETACH" = 1 ]; then
     exit 1
   fi
   mkdir -p "$LOG_DIR"
-  tmux new-session -d -s ralph-grind "cd '$REPO' && '$REPO/tools/ralph-grind.sh' $MODE_FLAG $MAX_ITERS"
-  echo "✅ Detached grind loop in tmux session 'ralph-grind' (mode=$MODE, max $MAX_ITERS)."
+  tmux new-session -d -s ralph-grind "cd '$REPO' && '$REPO/tools/ralph-grind.sh' $MODE_FLAG $JUDGE_FLAG $MAX_ITERS"
+  echo "✅ Detached grind loop in tmux session 'ralph-grind' (mode=$MODE, judge=${JUDGE_MODEL_ARG:-default}, max $MAX_ITERS)."
   echo "   Survives killing any Claude session / closing this terminal."
   echo "   watch  : tmux attach -t ralph-grind        (then detach with: Ctrl-b, then d)"
   echo "   tail   : tail -f $LOG_DIR/iter-*.log"
@@ -144,7 +223,7 @@ process will exit and a fresh one will start next. Concretely:
 
 Model policy (already wired via the LiteLLM router): this orchestrator process is
 claude-sonnet-4-6-real (real Anthropic Sonnet); ps-coder = qwen3.6-27b (local); ps-judge =
-claude-sonnet-4-6-real (real Anthropic Sonnet — a rigorous frontier reviewer).
+__JUDGE_CLAUSE__
 EOF
 
 # ---- OFFLINE one-iteration prompt -------------------------------------------
@@ -216,9 +295,37 @@ if [ "$MODE" = "offline" ]; then
   PROMPT="$PROMPT_OFFLINE"
   export ANTHROPIC_SMALL_FAST_MODEL="qwen3.6-27b"   # keep all background/small calls local offline
   echo "✈️  OFFLINE: orchestrator=$ORCH_MODEL, ps-judge DEFERRED (tasks land as [~] JUDGE-PENDING)."
+  if [ -n "$JUDGE_MODEL_ARG" ]; then
+    echo "⚠️  --judge-model '$JUDGE_MODEL_ARG' ignored in OFFLINE mode (ps-judge deferred; frontmatter"
+    echo "    stays $JUDGE_DEFAULT_MODEL). Re-run ONLINE with --judge-model to drain the Judge Queue on it."
+  fi
+  JUDGE_TARGET="$JUDGE_DEFAULT_MODEL"
 else
   ORCH_MODEL="$ORCH_MODEL_ONLINE"
   PROMPT="$PROMPT_ONLINE"
+
+  # Resolve + apply the ps-judge model (rewrite its agent frontmatter; restore on exit). See the
+  # judge-handling functions above for the dirty-state guard.
+  if [ -n "$JUDGE_MODEL_ARG" ]; then
+    validate_judge_model "$JUDGE_MODEL_ARG"
+    ORIG_JUDGE_MODEL="$(grep -E '^model:' "$JUDGE_AGENT_FILE" | sed -E 's/^model: *//')"
+    JUDGE_TARGET="$JUDGE_MODEL_ARG"
+    RESTORE_JUDGE="$ORIG_JUDGE_MODEL"          # one-shot: restore pre-run state after this run
+  else
+    JUDGE_TARGET="$JUDGE_DEFAULT_MODEL"
+    RESTORE_JUDGE="$JUDGE_DEFAULT_MODEL"       # bare run normalizes any prior dirty exit -> default
+  fi
+  apply_judge_model_to_file "$JUDGE_TARGET"
+  JUDGE_REWRITE=1
+  trap '[ "$JUDGE_REWRITE" = 1 ] && [ "$JUDGE_RESTORED" = 0 ] && { JUDGE_RESTORED=1; apply_judge_model_to_file "$RESTORE_JUDGE"; }' EXIT INT TERM
+
+  # Reflect the actual judge model in the orchestrator prompt (placeholder set in PROMPT_ONLINE).
+  if [ "$JUDGE_TARGET" = "$JUDGE_DEFAULT_MODEL" ]; then
+    JUDGE_CLAUSE="$JUDGE_DEFAULT_MODEL (real Anthropic Sonnet — a rigorous frontier reviewer)."
+  else
+    JUDGE_CLAUSE="$JUDGE_TARGET (frontier reviewer via personal account — a rigorous reviewer)."
+  fi
+  PROMPT="${PROMPT//__JUDGE_CLAUSE__/$JUDGE_CLAUSE}"
 fi
 
 stamp() { date "+%Y-%m-%d %H:%M:%S"; }
@@ -235,7 +342,7 @@ open_count()    { _count '^- \[ \]'; }
 pending_count() { _count '^- \[~\]'; }   # coded, gate-green, judge-deferred
 commit_count()  { local n; n=$(git rev-list --count HEAD 2>/dev/null) || true; echo "${n:-0}"; }
 
-echo "=== ralph-grind start $(stamp) | mode=$MODE | model=$ORCH_MODEL | max=$MAX_ITERS | logs=$LOG_DIR ==="
+echo "=== ralph-grind start $(stamp) | mode=$MODE | model=$ORCH_MODEL | judge=$JUDGE_TARGET | max=$MAX_ITERS | logs=$LOG_DIR ==="
 echo "    tasks: $(done_count) done / $(pending_count) judge-pending / $(open_count) open"
 
 # ---- the loop ---------------------------------------------------------------
