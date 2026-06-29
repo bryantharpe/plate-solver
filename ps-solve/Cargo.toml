@@ -9,3 +9,6 @@ ps-db = { path = "../ps-db", features = ["kd-tree"] }
 ps-detect = { path = "../ps-detect" }
 nalgebra = { workspace = true }
 image = { workspace = true }
+
+[dev-dependencies]
+half = { workspace = true }
