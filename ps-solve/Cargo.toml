@@ -1,0 +1,11 @@
+[package]
+name = "ps-solve"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ps-core = { path = "../ps-core" }
+ps-db = { path = "../ps-db", features = ["kd-tree"] }
+ps-detect = { path = "../ps-detect" }
+nalgebra = { workspace = true }
+image = { workspace = true }
