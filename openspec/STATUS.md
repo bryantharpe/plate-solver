@@ -1,39 +1,89 @@
 # Documentation Status — Plate Solver (Rust)
 
-_Generated 2026-06-09 for the OpenSpec documentation milestone (M0). This is a review index for
-the spec set; it is not itself an OpenSpec artifact._
+_Originally generated 2026-06-09 for the OpenSpec documentation milestone (M0).
+Updated 2026-06-30 after implementation: feat-01–06 are implemented, their tasks checked off, and
+the changes archived into `openspec/specs/`. feat-07 (mobile runtime) remains an active, un-started
+change. This is a review index for the spec set; it is not itself an OpenSpec artifact._
 
 ## What this is
 
 A complete, validated OpenSpec documentation set specifying a from-scratch **Rust**
 reimplementation of the tetra3/cedar "lost-in-space" plate solver — star detection → pattern-
 database lookup → attitude (RA/Dec/Roll/FOV/distortion) recovery — delivered over **gRPC** and
-embeddable on **mobile**. No implementation code is written yet; this is the contract to build
-against. The product "why/what" is in [`PRD.md`](./PRD.md); shared context, conventions, and the
-glossary are in [`project.md`](./project.md).
+embeddable on **mobile**. The product "why/what" is in [`PRD.md`](./PRD.md); shared context,
+conventions, and the glossary are in [`project.md`](./project.md). Implementation status (test
+counts, parity outcomes, deferred items) is tracked in
+[`IMPLEMENTATION-STATUS.md`](./IMPLEMENTATION-STATUS.md); a defects/positives audit of the
+implemented crates is in [`../CODEBASE-REVIEW.md`](../CODEBASE-REVIEW.md).
 
-## Definition of done — met
+## Current state (post-implementation)
 
-- `openspec/` contains `project.md`, `PRD.md`, `STATUS.md`, and **7 active changes**.
-- **Every** change passes `openspec validate <change> --strict` (exit 0) and shows **4/4
-  artifacts** (proposal, specs, design, tasks) under `openspec status`.
-- Totals: **77 requirements / 122 scenarios** across the 7 capabilities.
+The implementation milestone landed feat-01 through feat-06: six crates (`ps-core`, `ps-detect`,
+`ps-db`, `ps-dbgen`, `ps-solve`, `ps-grpc`), **182 tests pass / 0 fail / 1 ignored**, with the
+numerical-parity gates held (sv6 RA/Dec within 10 arcsec, 19/19 matched catalog IDs, cedar-detect
+interop). Each completed change's `tasks.md` was checked off and the change archived with
+`openspec archive`, moving its `spec.md` into `openspec/specs/<capability>/spec.md` and the change
+folder into `openspec/changes/archive/<date>-<change>/`.
 
-## Feature map (dependency / implementation order)
+**feat-07 (mobile-runtime)** is genuinely not implemented (deferred — no Xcode/Android NDK in CI)
+and remains an active change with 0/12 tasks.
 
-| # | Change | Capability | Crate | Reference doc | Reqs/Scenarios |
-|---|---|---|---|---|---|
-| 1 | `feat-01-foundation-math-core` | `math-core` | `ps-core` | doc 02 (+01) | 19 / 31 |
-| 2 | `feat-02-star-detection` | `star-detection` | `ps-detect` | doc 04 | 11 / 18 |
-| 3 | `feat-03-pattern-database` | `pattern-database` | `ps-db` | doc 05 §6–7, doc 02 §6 | 10 / 14 |
-| 4 | `feat-04-database-generation` | `database-generation` | `ps-dbgen` | doc 05 | 10 / 15 |
-| 5 | `feat-05-plate-solver` | `plate-solver` | `ps-solve` | doc 06 (+02 §8–10) | 11 / 19 |
-| 6 | `feat-06-grpc-service` | `grpc-service` | `ps-grpc` | doc 07 | 8 / 13 |
-| 7 | `feat-07-mobile-runtime` | `mobile-runtime` | `ps-mobile` | docs 04/06/08 perf | 8 / 12 |
+### Archived specs (implemented capabilities)
+
+| Capability | Change (archived) | Crate | Reqs | Tasks |
+|---|---|---|---|---|
+| `math-core` | feat-01-foundation-math-core | `ps-core` | 19 | 18/18 ✅ |
+| `star-detection` | feat-02-star-detection | `ps-detect` | 11 | 17/18 ⚠️ |
+| `pattern-database` | feat-03-pattern-database | `ps-db` | 10 | 14/14 ✅ |
+| `database-generation` | feat-04-database-generation | `ps-dbgen` | 10 | 15/16 ⚠️ |
+| `plate-solver` | feat-05-plate-solver | `ps-solve` | 11 | 19/19 ✅ |
+| `grpc-service` | feat-06-grpc-service | `ps-grpc` | 8 | 13/14 ⚠️ |
+
+### Active changes (not yet implemented)
+
+| Capability | Change | Crate | Reqs/Scenarios | Tasks |
+|---|---|---|---|---|
+| `mobile-runtime` | feat-07-mobile-runtime | `ps-mobile` | 8 / 12 | 0/12 |
 
 Build order: `math-core` → `star-detection` → `pattern-database` → `database-generation` →
-`plate-solver` → `grpc-service` → `mobile-runtime`. Each change carries its own `proposal.md`,
-`specs/<capability>/spec.md`, `design.md`, and `tasks.md`.
+`plate-solver` → `grpc-service` → `mobile-runtime`.
+
+## Carried-forward gaps (incomplete tasks in archived changes)
+
+Three tasks were left unchecked because the work is genuinely incomplete or deferred. They
+survive in the archived `tasks.md` as known gaps; resolving them is the work that closes each
+capability fully.
+
+- **feat-02 / star-detection — 7.2 `summarize_region_of_interest`**: the auto-exposure/focus
+  helper was not ported from cedar-detect (it exists only in `reference-solutions/`). Non-core;
+  intentionally skipped.
+- **feat-04 / database-generation — 5.3 pattern-count parity vs `default_database.npz`**:
+  DEFERRED — the Hipparcos/Tycho source catalogs are not in-repo, so `ps-dbgen` has never been
+  checked to reproduce the reference pattern count (1,010,981). Structural validity and
+  determinism are tested; count parity is logged via `eprintln!` in `ps-dbgen/tests/e2e.rs` for
+  post-catalog-download verification. See [`IMPLEMENTATION-STATUS.md`](./IMPLEMENTATION-STATUS.md).
+- **feat-06 / grpc-service — 4.2 gRPC-Web over HTTP/1**: TCP serving with a configurable address
+  is done (`ps-grpc/src/main.rs`), and `accept_http1(true)` is set, but the `tonic-web` layer is
+  not wired (`tonic-web` is a workspace dep but not a `ps-grpc` dependency; no `GrpcWebLayer` is
+  added). gRPC-Web transcoding is therefore not actually active. Untested.
+
+These are separate from the code-quality/robustness findings in
+[`../CODEBASE-REVIEW.md`](../CODEBASE-REVIEW.md) (C1–C10), which are defects in *implemented* code
+against these specs' own acceptance scenarios — most notably C1 (~618 MiB eager-combinations
+allocation in the solver, a mobile blocker; fix plan saved at
+`../notes/C1-lazy-combinations-fix.md`), C2 (`solve_from_image` hardcodes detection params and
+ignores the request's), and C3 (`debug_assert!`-guarded `unsafe` slice in `ps-db` mmap = potential
+UB in release). "Implemented and passing parity" does not yet mean "meets every spec scenario" —
+the parity gates hold, but the mobile-readiness and boundary-robustness scenarios do not all hold
+until those are resolved or explicitly waived.
+
+## Definition of done (documentation milestone, met 2026-06-09)
+
+- `openspec/` contains `project.md`, `PRD.md`, `STATUS.md`, and **7 changes** (now 1 active + 6
+  archived).
+- Every change/spec passes `openspec validate <name> --strict` (exit 0). Archived changes show
+  4/4 artifacts; the six archived specs are strict-valid.
+- Totals: **77 requirements / 122 scenarios** across the 7 capabilities.
 
 ## Scope decisions (from review)
 
@@ -50,19 +100,24 @@ Build order: `math-core` → `star-detection` → `pattern-database` → `databa
 ## How to review
 
 ```sh
-openspec list                                  # the 7 changes
-openspec show feat-05-plate-solver             # a change (proposal + specs + design + tasks)
-openspec validate feat-05-plate-solver --strict
-openspec status --change feat-05-plate-solver  # 4/4 artifacts
-openspec view                                  # interactive dashboard
+openspec list                    # 1 active change (feat-07)
+openspec list --specs            # 6 archived specs
+openspec show feat-07-mobile-runtime        # the remaining active change
+openspec validate math-core --strict        # validate an archived spec
+openspec status --change feat-07-mobile-runtime
+openspec view                                 # interactive dashboard
 ```
 
-Read order for a reviewer: [`PRD.md`](./PRD.md) → [`project.md`](./project.md) → the changes in
-the dependency order above. Each `spec.md` requirement cites the reference doc it derives from.
+Read order for a reviewer: [`PRD.md`](./PRD.md) → [`project.md`](./project.md) →
+[`IMPLEMENTATION-STATUS.md`](./IMPLEMENTATION-STATUS.md) → the archived specs in dependency order
+above → [`../CODEBASE-REVIEW.md`](../CODEBASE-REVIEW.md) for the defect list.
 
-## Next steps (post-documentation)
+## Next steps
 
-Implement the crates in dependency order, turning each change's `tasks.md` into code and each
-`#### Scenario:` into a test, holding the parity tolerances as the correctness gate. Archive a
-change with `openspec archive <change>` once its capability is implemented and its specs move to
-`openspec/specs/`.
+1. Resolve the three carried-forward gaps above (port `summarize_region_of_interest`; stand up a
+   `ps-dbgen` count-parity check once HIP/TYC catalogs are available; wire the `tonic-web` layer
+   and add a gRPC-Web interop test).
+2. Address the `CODEBASE-REVIEW.md` C1–C10 findings in severity order (C1 fix plan already saved
+   at `notes/C1-lazy-combinations-fix.md`).
+3. Implement feat-07 (mobile runtime) when iOS/Android tooling is available, then archive it the
+   same way.
