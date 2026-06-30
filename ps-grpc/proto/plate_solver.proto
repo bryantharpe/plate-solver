@@ -1,0 +1,124 @@
+syntax = "proto3";
+package plate_solver;
+
+service PlateSolver {
+  rpc ExtractCentroids(CentroidsRequest) returns (CentroidsResult);
+  rpc SolveFromCentroids(SolveFromCentroidsRequest) returns (Solution);
+  rpc SolveFromImage(SolveFromImageRequest) returns (Solution);
+  rpc GetInfo(InfoRequest) returns (ServerInfo);
+}
+
+message Image {
+  int32 width = 1;
+  int32 height = 2;
+  bytes image_data = 3;
+  optional string shmem_name = 4;
+  bool reopen_shmem = 5;
+}
+
+message ImageCoord {
+  double x = 1;
+  double y = 2;
+}
+
+message StarCentroid {
+  ImageCoord centroid_position = 1;
+  double brightness = 4;
+  int32 num_saturated = 6;
+}
+
+message Rectangle {
+  int32 origin_x = 1;
+  int32 origin_y = 2;
+  int32 width = 3;
+  int32 height = 4;
+}
+
+message CentroidsRequest {
+  Image input_image = 1;
+  double sigma = 2;
+  optional int32 binning = 8;
+  bool return_binned = 4;
+  bool use_binned_for_star_candidates = 5;
+  bool detect_hot_pixels = 6;
+  bool normalize_rows = 9;
+  optional Rectangle estimate_background_region = 7;
+}
+
+message CentroidsResult {
+  double noise_estimate = 1;
+  optional double background_estimate = 7;
+  int32 hot_pixel_count = 2;
+  int32 peak_star_pixel = 6;
+  repeated StarCentroid star_candidates = 3;
+  optional Image binned_image = 4;
+  int64 algorithm_time_us = 5;
+}
+
+message SolveParams {
+  optional double fov_estimate = 1;
+  optional double fov_max_error = 2;
+  optional double match_radius = 3;
+  optional double match_threshold = 4;
+  optional int32 solve_timeout_ms = 5;
+  optional double distortion = 6;
+  bool return_matches = 7;
+  bool return_catalog = 8;
+}
+
+message SolveFromCentroidsRequest {
+  repeated ImageCoord centroids = 1;
+  int32 width = 2;
+  int32 height = 3;
+  SolveParams params = 4;
+}
+
+message SolveFromImageRequest {
+  CentroidsRequest extract = 1;
+  SolveParams params = 2;
+}
+
+enum SolveStatus {
+  MATCH_FOUND = 0;
+  NO_MATCH = 1;
+  TIMEOUT = 2;
+  CANCELLED = 3;
+  TOO_FEW = 4;
+}
+
+message MatchedStar {
+  ImageCoord centroid = 1;
+  double ra = 2;
+  double dec = 3;
+  double mag = 4;
+  int64 cat_id = 5;
+}
+
+message Solution {
+  SolveStatus status = 1;
+  double ra = 2;
+  double dec = 3;
+  double roll = 4;
+  double fov = 5;
+  double distortion = 6;
+  double rmse = 7;
+  double p90e = 8;
+  double maxe = 9;
+  int32 matches = 10;
+  double prob = 11;
+  double t_extract_ms = 12;
+  double t_solve_ms = 13;
+  repeated MatchedStar matched = 14;
+}
+
+message InfoRequest {}
+
+message ServerInfo {
+  string version = 1;
+  string star_catalog = 2;
+  double min_fov = 3;
+  double max_fov = 4;
+  int64 num_patterns = 5;
+  double epoch_equinox = 6;
+  double epoch_proper_motion = 7;
+}

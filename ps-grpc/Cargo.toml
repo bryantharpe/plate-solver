@@ -1,0 +1,20 @@
+[package]
+name = "ps-grpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ps-detect = { path = "../ps-detect" }
+ps-solve = { path = "../ps-solve" }
+ps-db = { path = "../ps-db" }
+tonic = { workspace = true }
+prost = { workspace = true }
+tonic-web = { workspace = true }
+prost-types = { workspace = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "test-util"] }

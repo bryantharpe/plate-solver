@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["ps-core", "ps-detect", "ps-db", "ps-dbgen", "ps-solve"]
+members = ["ps-core", "ps-detect", "ps-db", "ps-dbgen", "ps-solve", "ps-grpc"]
 exclude = ["tools/parity/_capture_binning"]
 
 [workspace.dependencies]
