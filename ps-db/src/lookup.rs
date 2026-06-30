@@ -6,9 +6,7 @@
 //! 2. 16-bit key hash pre-filter
 //! 3. Largest-edge / FOV pre-filter (when coarse_fov_rad is provided)
 
-use ps_core::pattern::{
-    compute_pattern_key_hash, key_hash_low16, pattern_key_hash_to_index, probe_slots,
-};
+use ps_core::pattern::{compute_pattern_key_hash, key_hash_low16, pattern_key_hash_to_index};
 
 use crate::Database;
 
@@ -46,9 +44,6 @@ pub fn lookup_pattern(
     // Map to initial table index.
     let hash_index = pattern_key_hash_to_index(full_hash, table_size, linear_probe);
 
-    // Generate probe slots (walk the entire table if needed).
-    let probe_indices = probe_slots(hash_index, table_size, linear_probe, db.num_slots());
-
     // Determine FOV pre-filter parameters.
     // The reference uses: fov2 = largest_edge / image_pattern_largest_edge * fov_estimate / 1000
     // keep if abs(fov2 - fov_estimate) < fov_max_error
@@ -62,8 +57,14 @@ pub fn lookup_pattern(
 
     let mut candidates = Vec::new();
 
-    for &slot in probe_indices.iter() {
-        let slot = slot as usize;
+    // Generate probe slots lazily (stop at first empty slot).
+    for c in 0..db.num_slots() {
+        let offset = if linear_probe {
+            c as u64
+        } else {
+            (c as u64).wrapping_mul(c as u64)
+        };
+        let slot = ((hash_index + offset) % table_size) as usize;
 
         // Empty-slot check: key_hashes[slot] == 0 AND largest_edge[slot] == 0
         // The reference checks `all(table[i, :] == 0)` on pattern_catalog.

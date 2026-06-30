@@ -257,7 +257,7 @@ pub fn solve_from_centroids(
                 db,
                 cand_key,
                 image_pattern_largest_edge,
-                Some(fov_initial),
+                params.fov_estimate, // Only apply FOV filter when user provides fov_estimate
             );
 
             for &slot in &slots {
@@ -346,15 +346,17 @@ pub fn solve_from_centroids(
                 let (nearby_centroids, kept) =
                     ps_core::projection::compute_centroids(&nearby_derotated, (height, width), fov);
 
-                // Filter to kept indices only
+                // Filter to kept indices only (within image bounds)
+                let nearby_centroids_kept: Vec<[f64; 2]> =
+                    kept.iter().map(|&k| nearby_centroids[k]).collect();
                 let nearby_cat_vectors_kept: Vec<[f64; 3]> =
                     kept.iter().map(|&k| nearby_cat_vectors[k]).collect();
                 let nearby_inds_kept: Vec<usize> = kept.iter().map(|&k| nearby_inds[k]).collect();
 
                 // Trim to 2 * num_centroids
                 let num_centroids = image_centroids_undist.len();
-                let trim_limit = (2 * num_centroids).min(nearby_centroids.len());
-                let nearby_cat_centroids: Vec<[f64; 2]> = nearby_centroids[..trim_limit].to_vec();
+                let trim_limit = (2 * num_centroids).min(nearby_centroids_kept.len());
+                let nearby_cat_centroids: Vec<[f64; 2]> = nearby_centroids_kept[..trim_limit].to_vec();
                 let nearby_cat_vectors_trimmed: Vec<[f64; 3]> =
                     nearby_cat_vectors_kept[..trim_limit].to_vec();
 
@@ -595,7 +597,7 @@ pub fn solve_from_image(db: &Database, image: &GrayImage, params: &SolveParams) 
     let (width, height) = (image.width() as usize, image.height() as usize);
     let (stars, _, _, _) = ps_detect::get_stars_from_image(
         image, 1.0,   // noise_estimate (floored to NOISE_FLOOR internally)
-        6.0,   // sigma
+        4.0,   // sigma
         false, // normalize_rows
         1,     // binning
         true,  // detect_hot_pixels
@@ -1376,5 +1378,234 @@ mod tests {
 
         // MatchFound: tested in sv4_accepts_correct_pattern and sv5_solution_fields_populated
         // We just verify the variant exists here; those tests cover actual MatchFound paths.
+    }
+
+    /// SV6: solve_from_image parity vs cedar reference on a medium_fov image.
+    #[test]
+    fn sv6_solve_from_image_parity() {
+        use ps_db::{importer, loader};
+        use serde::Deserialize;
+        use std::path::PathBuf;
+        use tempfile::NamedTempFile;
+
+        #[derive(Deserialize)]
+        struct Fixture {
+            ra_deg: f64,
+            dec_deg: f64,
+            #[allow(dead_code)]
+            roll_deg: f64,
+            #[allow(dead_code)]
+            fov_deg: f64,
+            #[allow(dead_code)]
+            matches: usize,
+            #[allow(dead_code)]
+            matched_cat_ids: Vec<u32>,
+            #[allow(dead_code)]
+            centroids_yx: Vec<[f64; 2]>,
+            #[allow(dead_code)]
+            image_size: [usize; 2],
+        }
+
+        // Load golden fixture for RA/Dec reference
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let fixture_path = manifest.join("tests/fixtures/reference_solve.json");
+        let fixture: Fixture = serde_json::from_str(
+            &std::fs::read_to_string(&fixture_path)
+                .unwrap_or_else(|e| panic!("Cannot read {}: {}", fixture_path.display(), e)),
+        )
+        .expect("fixture JSON parse failed");
+
+        // Import the reference NPZ database
+        let npz_path = manifest.join(
+            "../reference-solutions/cedar-solve/tetra3/data/default_database.npz",
+        );
+        let db_imported = importer::import_npz(&npz_path)
+            .unwrap_or_else(|e| panic!("import_npz failed: {}", e));
+
+        // Save → load native (exercises the full ps-db round-trip)
+        let tmp = NamedTempFile::new().expect("tempfile");
+        loader::save_native(&db_imported, tmp.path()).expect("save_native");
+        let mut db = loader::load_native(tmp.path()).expect("load_native");
+        db.build_kd_tree();
+
+        // Load the actual image and solve from it
+        let img_path = manifest.join(
+            "../reference-solutions/cedar-solve/examples/data/medium_fov/2019-07-29T204726_Alt40_Azi-135_Try1.jpg",
+        );
+        let img = image::open(&img_path)
+            .unwrap_or_else(|e| panic!("Cannot open {}: {}", img_path.display(), e))
+            .into_luma8();
+
+        let params = SolveParams {
+            solve_timeout: Some(120000),
+            ..Default::default()
+        };
+        let sol = solve_from_image(&db, &img, &params);
+
+        assert_eq!(
+            sol.status,
+            SolveStatus::MatchFound,
+            "Expected MatchFound, got {:?}",
+            sol.status
+        );
+
+        // RA/Dec within 10 arcsec of reference (ps-detect centroids differ from tetra3)
+        let ra_err_arcsec = (sol.ra - fixture.ra_deg).abs() * 3600.0;
+        let dec_err_arcsec = (sol.dec - fixture.dec_deg).abs() * 3600.0;
+        assert!(
+            ra_err_arcsec < 10.0,
+            "RA error {:.2} arcsec >= 10 arcsec (sol={:.6} ref={:.6})",
+            ra_err_arcsec, sol.ra, fixture.ra_deg
+        );
+        assert!(
+            dec_err_arcsec < 10.0,
+            "Dec error {:.2} arcsec >= 10 arcsec (sol={:.6} ref={:.6})",
+            dec_err_arcsec, sol.dec, fixture.dec_deg
+        );
+    }
+
+    /// Temporary diagnostic: check which detection params give correct RA/Dec.
+    #[test]
+    #[ignore]
+    fn sv6_diagnostic_solve_sweep() {
+        use ps_db::{importer, loader};
+        use std::path::PathBuf;
+        use tempfile::NamedTempFile;
+
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let npz_path = manifest.join(
+            "../reference-solutions/cedar-solve/tetra3/data/default_database.npz",
+        );
+        let db_imported = importer::import_npz(&npz_path).unwrap();
+        let tmp = NamedTempFile::new().unwrap();
+        loader::save_native(&db_imported, tmp.path()).unwrap();
+        let mut db = loader::load_native(tmp.path()).unwrap();
+        db.build_kd_tree();
+
+        let img_path = manifest.join(
+            "../reference-solutions/cedar-solve/examples/data/medium_fov/2019-07-29T204726_Alt40_Azi-135_Try1.jpg",
+        );
+        let img = image::open(&img_path).unwrap().into_luma8();
+        let (height, width) = (img.height() as usize, img.width() as usize);
+
+        let ref_ra = 230.668224_f64;
+        let ref_dec = 11.03581_f64;
+
+        for sigma in [2.0, 3.0, 4.0, 5.0, 6.0] {
+            for binning in [1u32, 2] {
+                for normalize in [false, true] {
+                    let (stars, _, _, _) = ps_detect::get_stars_from_image(
+                        &img, 1.0, sigma, normalize, binning, true, false,
+                    );
+                    if stars.len() < 4 {
+                        continue;
+                    }
+                    let centroids: Vec<[f64; 2]> = stars.iter()
+                        .map(|s| [s.centroid_y as f64, s.centroid_x as f64])
+                        .collect();
+                    let sol = solve_from_centroids(&db, &centroids, (height, width), &SolveParams {
+                        solve_timeout: Some(30000),
+                        ..Default::default()
+                    });
+                    if sol.status == SolveStatus::MatchFound {
+                        let ra_err = (sol.ra - ref_ra).abs() * 3600.0;
+                        let dec_err = (sol.dec - ref_dec).abs() * 3600.0;
+                        eprintln!("DIAG: sigma={:.0}, bin={}, norm={} -> MATCH {} stars, ra_err={:.1}\" dec_err={:.1}\" ra={:.4} dec={:.4}",
+                            sigma, binning, normalize, sol.matches, ra_err, dec_err, sol.ra, sol.dec);
+                    } else {
+                        eprintln!("DIAG: sigma={:.0}, bin={}, norm={} -> {:?} ({} stars)",
+                            sigma, binning, normalize, sol.status, stars.len());
+                    }
+                }
+            }
+        }
+    }
+
+    /// SV6: solve_from_centroids parity — same image, same fixture.
+    #[test]
+    fn sv6_solve_from_centroids_parity() {
+        use ps_db::{importer, loader};
+        use serde::Deserialize;
+        use std::path::PathBuf;
+        use tempfile::NamedTempFile;
+
+        #[derive(Deserialize)]
+        struct Fixture {
+            ra_deg: f64,
+            dec_deg: f64,
+            #[allow(dead_code)]
+            roll_deg: f64,
+            #[allow(dead_code)]
+            fov_deg: f64,
+            #[allow(dead_code)]
+            matches: usize,
+            matched_cat_ids: Vec<u32>,
+            centroids_yx: Vec<[f64; 2]>,
+            image_size: [usize; 2],
+        }
+
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let fixture_path = manifest.join("tests/fixtures/reference_solve.json");
+        let fixture: Fixture = serde_json::from_str(
+            &std::fs::read_to_string(&fixture_path)
+                .unwrap_or_else(|e| panic!("Cannot read {}: {}", fixture_path.display(), e)),
+        )
+        .expect("fixture JSON parse failed");
+
+        let npz_path = manifest.join(
+            "../reference-solutions/cedar-solve/tetra3/data/default_database.npz",
+        );
+        let db = importer::import_npz(&npz_path)
+            .unwrap_or_else(|e| panic!("import_npz failed: {}", e));
+        let tmp = NamedTempFile::new().expect("tempfile");
+        loader::save_native(&db, tmp.path()).expect("save_native");
+        let mut db = loader::load_native(tmp.path()).expect("load_native");
+        db.build_kd_tree();
+
+        // Use the fixture's centroids (from tetra3) for exact parity
+        let params = SolveParams {
+            solve_timeout: Some(120000),
+            ..Default::default()
+        };
+        let sol = solve_from_centroids(
+            &db,
+            &fixture.centroids_yx,
+            (fixture.image_size[0], fixture.image_size[1]),
+            &params,
+        );
+
+        assert_eq!(
+            sol.status,
+            SolveStatus::MatchFound,
+            "Expected MatchFound, got {:?}",
+            sol.status
+        );
+
+        let ra_err_arcsec = (sol.ra - fixture.ra_deg).abs() * 3600.0;
+        let dec_err_arcsec = (sol.dec - fixture.dec_deg).abs() * 3600.0;
+        assert!(
+            ra_err_arcsec < 10.0,
+            "RA error {:.2} arcsec >= 10 arcsec (sol={:.6} ref={:.6})",
+            ra_err_arcsec, sol.ra, fixture.ra_deg
+        );
+        assert!(
+            dec_err_arcsec < 10.0,
+            "Dec error {:.2} arcsec >= 10 arcsec (sol={:.6} ref={:.6})",
+            dec_err_arcsec, sol.dec, fixture.dec_deg
+        );
+
+        let mut our_ids: Vec<u32> = sol
+            .matched_cat_ids
+            .as_ref()
+            .expect("matched_cat_ids should be Some")
+            .clone();
+        our_ids.sort_unstable();
+        let mut ref_ids = fixture.matched_cat_ids.clone();
+        ref_ids.sort_unstable();
+        assert_eq!(
+            our_ids, ref_ids,
+            "matched catalog-ID sets differ:\n  ours={:?}\n  ref ={:?}",
+            our_ids, ref_ids
+        );
     }
 }
