@@ -9,10 +9,10 @@ ps-solve = { path = "../ps-solve" }
 ps-db = { path = "../ps-db" }
 tonic = { workspace = true }
 prost = { workspace = true }
-tonic-web = { workspace = true }
 prost-types = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 memmap2 = { workspace = true }
+clap = { workspace = true }
 async-trait = "0.1"
 
 [build-dependencies]

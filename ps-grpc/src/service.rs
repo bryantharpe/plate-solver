@@ -13,6 +13,7 @@ use ps_solve::{solve_from_centroids as ps_solve_centroids, solve_from_image as p
 use std::fs::File;
 use std::sync::Arc;
 use std::time::Instant;
+use prost_types::Duration;
 use tonic::{Request, Response, Status};
 
 pub struct PlateSolverService {
@@ -191,7 +192,11 @@ impl PlateSolver for PlateSolverService {
             detect_hot_pixels,
             return_binned,
         );
-        let algorithm_time_us = start.elapsed().as_micros() as i64;
+        let elapsed = start.elapsed();
+        let algorithm_time = Duration {
+            seconds: elapsed.as_secs() as i64,
+            nanos: elapsed.subsec_nanos() as i32,
+        };
 
         // Peak star pixel value: average of the NUM_PEAKS brightest stars, fallback 255.
         const NUM_PEAKS: usize = 10;
@@ -234,7 +239,7 @@ impl PlateSolver for PlateSolverService {
             peak_star_pixel,
             star_candidates,
             binned_image: binned_image_proto,
-            algorithm_time_us,
+            algorithm_time: Some(algorithm_time),
         }))
     }
 
@@ -342,7 +347,16 @@ impl PlateSolver for PlateSolverService {
         &self,
         _request: Request<InfoRequest>,
     ) -> Result<Response<ServerInfo>, Status> {
-        Err(Status::unimplemented("get_info not yet implemented"))
+        let p = &self.db.properties;
+        Ok(Response::new(ServerInfo {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            star_catalog: p.star_catalog.clone(),
+            min_fov: p.min_fov as f64,
+            max_fov: p.max_fov as f64,
+            num_patterns: p.num_patterns as i64,
+            epoch_equinox: p.epoch_equinox as f64,
+            epoch_proper_motion: p.epoch_proper_motion as f64,
+        }))
     }
 }
 
@@ -453,10 +467,11 @@ mod tests {
         );
 
         // Algorithm time should be recorded.
+        let algo_time = resp.algorithm_time.expect("algorithm_time present");
         assert!(
-            resp.algorithm_time_us > 0,
-            "algorithm_time_us should be > 0, got {}",
-            resp.algorithm_time_us
+            algo_time.nanos > 0 || algo_time.seconds > 0,
+            "algorithm_time should be > 0, got {:?}",
+            algo_time
         );
 
         // Peak star pixel should be positive for a real star field.
@@ -697,5 +712,102 @@ mod tests {
             "expected TOO_FEW (4) for empty centroids, got status={}",
             resp.status
         );
+    }
+
+    /// Test: get_info returns database properties correctly.
+    #[tokio::test]
+    async fn get_info_returns_db_properties() {
+        let props = DatabaseProperties::apply_legacy_fallbacks(
+            None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+            None, None,
+        );
+        let db = Database::empty(props);
+        let service = PlateSolverService::new(db);
+
+        let result = service
+            .get_info(Request::new(InfoRequest::default()))
+            .await
+            .expect("get_info should succeed");
+        let resp = result.into_inner();
+
+        assert_eq!(resp.min_fov, 10.0);
+        assert_eq!(resp.max_fov, 30.0);
+        assert_eq!(resp.num_patterns, 0);
+        assert_eq!(resp.epoch_equinox, 2000.0);
+        assert!(!resp.star_catalog.is_empty());
+        assert_eq!(resp.star_catalog, "hip_main");
+        assert_eq!(resp.epoch_proper_motion, 2015.5);
+        assert_eq!(resp.version, env!("CARGO_PKG_VERSION"));
+    }
+
+    /// Cedar-detect wire interop: encode a cedar_detect::CentroidsRequest,
+    /// decode as plate_solver::CentroidsRequest, and verify fields match.
+    #[test]
+    fn cedar_detect_interop() {
+        use prost::Message;
+        use crate::cedar_detect::{CentroidsRequest as CedarRequest, Image as CedarImage};
+        use crate::plate_solver::CentroidsRequest as OurRequest;
+
+        // Build a cedar_detect-shaped request
+        let cedar_req = CedarRequest {
+            input_image: Some(CedarImage {
+                width: 640,
+                height: 480,
+                image_data: vec![42u8; 640 * 480],
+                shmem_name: None,
+                reopen_shmem: false,
+            }),
+            sigma: 8.0,
+            max_size: 0,
+            binning: Some(2),
+            return_binned: false,
+            use_binned_for_star_candidates: false,
+            detect_hot_pixels: true,
+            normalize_rows: false,
+            estimate_background_region: None,
+        };
+
+        // Encode as cedar_detect bytes
+        let mut bytes = Vec::new();
+        cedar_req.encode(&mut bytes).expect("encode cedar request");
+
+        // Decode as plate_solver::CentroidsRequest
+        let our_req = OurRequest::decode(bytes.as_slice()).expect("decode as plate_solver request");
+
+        // Fields must match
+        let img = our_req.input_image.expect("image present");
+        assert_eq!(img.width, 640);
+        assert_eq!(img.height, 480);
+        assert_eq!(img.image_data.len(), 640 * 480);
+        assert_eq!(our_req.sigma, 8.0);
+        assert_eq!(our_req.binning, Some(2));
+        assert!(our_req.detect_hot_pixels);
+
+        // Response direction: encode plate_solver::CentroidsResult → decode as cedar_detect::CentroidsResult
+        use crate::plate_solver::CentroidsResult as OurResult;
+        use crate::cedar_detect::CentroidsResult as CedarResult;
+
+        let our_result = OurResult {
+            noise_estimate: 3.14,
+            background_estimate: None,
+            hot_pixel_count: 5,
+            peak_star_pixel: 200,
+            star_candidates: vec![],
+            binned_image: None,
+            algorithm_time: Some(Duration { seconds: 0, nanos: 500_000 }),
+        };
+
+        let mut result_bytes = Vec::new();
+        our_result.encode(&mut result_bytes).expect("encode plate_solver result");
+
+        let cedar_result = CedarResult::decode(result_bytes.as_slice())
+            .expect("decode as cedar_detect result");
+
+        assert_eq!(cedar_result.noise_estimate, 3.14);
+        assert_eq!(cedar_result.hot_pixel_count, 5);
+        assert_eq!(cedar_result.peak_star_pixel, 200);
+        // algorithm_time field 5 should decode correctly as Duration in both protos now
+        let algo_time = cedar_result.algorithm_time.expect("algorithm_time present");
+        assert_eq!(algo_time.nanos, 500_000);
     }
 }

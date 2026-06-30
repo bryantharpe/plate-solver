@@ -1,4 +1,7 @@
 syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
 package plate_solver;
 
 service PlateSolver {
@@ -52,7 +55,7 @@ message CentroidsResult {
   int32 peak_star_pixel = 6;
   repeated StarCentroid star_candidates = 3;
   optional Image binned_image = 4;
-  int64 algorithm_time_us = 5;
+  google.protobuf.Duration algorithm_time = 5;
 }
 
 message SolveParams {
