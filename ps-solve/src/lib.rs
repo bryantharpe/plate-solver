@@ -356,7 +356,8 @@ pub fn solve_from_centroids(
                 // Trim to 2 * num_centroids
                 let num_centroids = image_centroids_undist.len();
                 let trim_limit = (2 * num_centroids).min(nearby_centroids_kept.len());
-                let nearby_cat_centroids: Vec<[f64; 2]> = nearby_centroids_kept[..trim_limit].to_vec();
+                let nearby_cat_centroids: Vec<[f64; 2]> =
+                    nearby_centroids_kept[..trim_limit].to_vec();
                 let nearby_cat_vectors_trimmed: Vec<[f64; 3]> =
                     nearby_cat_vectors_kept[..trim_limit].to_vec();
 
@@ -1416,11 +1417,10 @@ mod tests {
         .expect("fixture JSON parse failed");
 
         // Import the reference NPZ database
-        let npz_path = manifest.join(
-            "../reference-solutions/cedar-solve/tetra3/data/default_database.npz",
-        );
-        let db_imported = importer::import_npz(&npz_path)
-            .unwrap_or_else(|e| panic!("import_npz failed: {}", e));
+        let npz_path =
+            manifest.join("../reference-solutions/cedar-solve/tetra3/data/default_database.npz");
+        let db_imported =
+            importer::import_npz(&npz_path).unwrap_or_else(|e| panic!("import_npz failed: {}", e));
 
         // Save → load native (exercises the full ps-db round-trip)
         let tmp = NamedTempFile::new().expect("tempfile");
@@ -1455,12 +1455,16 @@ mod tests {
         assert!(
             ra_err_arcsec < 10.0,
             "RA error {:.2} arcsec >= 10 arcsec (sol={:.6} ref={:.6})",
-            ra_err_arcsec, sol.ra, fixture.ra_deg
+            ra_err_arcsec,
+            sol.ra,
+            fixture.ra_deg
         );
         assert!(
             dec_err_arcsec < 10.0,
             "Dec error {:.2} arcsec >= 10 arcsec (sol={:.6} ref={:.6})",
-            dec_err_arcsec, sol.dec, fixture.dec_deg
+            dec_err_arcsec,
+            sol.dec,
+            fixture.dec_deg
         );
     }
 
@@ -1473,9 +1477,8 @@ mod tests {
         use tempfile::NamedTempFile;
 
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let npz_path = manifest.join(
-            "../reference-solutions/cedar-solve/tetra3/data/default_database.npz",
-        );
+        let npz_path =
+            manifest.join("../reference-solutions/cedar-solve/tetra3/data/default_database.npz");
         let db_imported = importer::import_npz(&npz_path).unwrap();
         let tmp = NamedTempFile::new().unwrap();
         loader::save_native(&db_imported, tmp.path()).unwrap();
@@ -1500,21 +1503,33 @@ mod tests {
                     if stars.len() < 4 {
                         continue;
                     }
-                    let centroids: Vec<[f64; 2]> = stars.iter()
+                    let centroids: Vec<[f64; 2]> = stars
+                        .iter()
                         .map(|s| [s.centroid_y as f64, s.centroid_x as f64])
                         .collect();
-                    let sol = solve_from_centroids(&db, &centroids, (height, width), &SolveParams {
-                        solve_timeout: Some(30000),
-                        ..Default::default()
-                    });
+                    let sol = solve_from_centroids(
+                        &db,
+                        &centroids,
+                        (height, width),
+                        &SolveParams {
+                            solve_timeout: Some(30000),
+                            ..Default::default()
+                        },
+                    );
                     if sol.status == SolveStatus::MatchFound {
                         let ra_err = (sol.ra - ref_ra).abs() * 3600.0;
                         let dec_err = (sol.dec - ref_dec).abs() * 3600.0;
                         eprintln!("DIAG: sigma={:.0}, bin={}, norm={} -> MATCH {} stars, ra_err={:.1}\" dec_err={:.1}\" ra={:.4} dec={:.4}",
                             sigma, binning, normalize, sol.matches, ra_err, dec_err, sol.ra, sol.dec);
                     } else {
-                        eprintln!("DIAG: sigma={:.0}, bin={}, norm={} -> {:?} ({} stars)",
-                            sigma, binning, normalize, sol.status, stars.len());
+                        eprintln!(
+                            "DIAG: sigma={:.0}, bin={}, norm={} -> {:?} ({} stars)",
+                            sigma,
+                            binning,
+                            normalize,
+                            sol.status,
+                            stars.len()
+                        );
                     }
                 }
             }
@@ -1552,11 +1567,10 @@ mod tests {
         )
         .expect("fixture JSON parse failed");
 
-        let npz_path = manifest.join(
-            "../reference-solutions/cedar-solve/tetra3/data/default_database.npz",
-        );
-        let db = importer::import_npz(&npz_path)
-            .unwrap_or_else(|e| panic!("import_npz failed: {}", e));
+        let npz_path =
+            manifest.join("../reference-solutions/cedar-solve/tetra3/data/default_database.npz");
+        let db =
+            importer::import_npz(&npz_path).unwrap_or_else(|e| panic!("import_npz failed: {}", e));
         let tmp = NamedTempFile::new().expect("tempfile");
         loader::save_native(&db, tmp.path()).expect("save_native");
         let mut db = loader::load_native(tmp.path()).expect("load_native");
@@ -1586,12 +1600,16 @@ mod tests {
         assert!(
             ra_err_arcsec < 10.0,
             "RA error {:.2} arcsec >= 10 arcsec (sol={:.6} ref={:.6})",
-            ra_err_arcsec, sol.ra, fixture.ra_deg
+            ra_err_arcsec,
+            sol.ra,
+            fixture.ra_deg
         );
         assert!(
             dec_err_arcsec < 10.0,
             "Dec error {:.2} arcsec >= 10 arcsec (sol={:.6} ref={:.6})",
-            dec_err_arcsec, sol.dec, fixture.dec_deg
+            dec_err_arcsec,
+            sol.dec,
+            fixture.dec_deg
         );
 
         let mut our_ids: Vec<u32> = sol

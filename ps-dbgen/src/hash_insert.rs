@@ -90,8 +90,8 @@ pub fn build_hash_table(
         let low16 = key_hash_low16(full_hash);
 
         // Map to initial table index
-        let hash_index = pattern_key_hash_to_index(full_hash, table_size as u64, linear_probe)
-            as usize;
+        let hash_index =
+            pattern_key_hash_to_index(full_hash, table_size as u64, linear_probe) as usize;
 
         // Presort pattern indices by centroid distance
         let ordered = order_by_centroid_distance(&vectors_f64);

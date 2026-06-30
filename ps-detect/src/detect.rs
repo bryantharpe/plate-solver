@@ -3,13 +3,13 @@
 //! Wires together binning, 1-D scanning, hot-pixel rejection, blob formation,
 //! and 2-D gating to produce a brightest-first list of star centroids.
 
-use crate::blob::{form_blobs_from_candidates, gate_star_2d};
 use crate::binning::{bin_and_histogram_2x2, Binned2x2Result};
+use crate::blob::{form_blobs_from_candidates, gate_star_2d};
 use crate::gate::{all_bright_are_hot, scan_image_for_candidates, CandidateFrom1D};
 use crate::noise::estimate_noise_from_image;
 use crate::GrayImage;
-use crate::NOISE_FLOOR;
 use crate::StarDescription;
+use crate::NOISE_FLOOR;
 use std::cmp;
 
 pub fn get_stars_from_image(
@@ -20,7 +20,12 @@ pub fn get_stars_from_image(
     binning: u32,
     detect_hot_pixels: bool,
     return_binned_image: bool,
-) -> (Vec<StarDescription>, /*hot_pixel_count*/ i32, Option<GrayImage>, [u32; 256]) {
+) -> (
+    Vec<StarDescription>,
+    /*hot_pixel_count*/ i32,
+    Option<GrayImage>,
+    [u32; 256],
+) {
     match binning {
         1 => {
             if return_binned_image {

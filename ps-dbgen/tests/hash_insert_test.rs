@@ -89,7 +89,9 @@ fn test_build_hash_table_quadratic_basic() {
     let result = build_hash_table(&patterns, &vectors, pattern_bins, false); // quadratic
 
     assert_eq!(result.num_patterns as usize, patterns.len());
-    assert!(result.catalog_u8.is_some() || result.catalog_u16.is_some() || result.catalog_u32.is_some());
+    assert!(
+        result.catalog_u8.is_some() || result.catalog_u16.is_some() || result.catalog_u32.is_some()
+    );
 
     // Table size should be next_prime(2*N) for quadratic
     let expected_size = next_prime(2 * patterns.len() as u64) as usize;
@@ -145,18 +147,37 @@ fn test_empty_slot_sentinels() {
             filled_count += 1;
             // Non-empty slots should have non-zero key_hashes (usually)
             // and non-zero largest_edge
-            assert!(result.largest_edge[slot].to_bits() != 0, "filled slot {} has zero largest_edge", slot);
+            assert!(
+                result.largest_edge[slot].to_bits() != 0,
+                "filled slot {} has zero largest_edge",
+                slot
+            );
         } else {
             // Empty slots: catalog should have MAX sentinel
             match (&result.catalog_u8, &result.catalog_u16, &result.catalog_u32) {
                 (Some(cat), None, None) => {
-                    assert_eq!(cat[slot], [u8::MAX; 4], "empty slot {} catalog not MAX", slot);
+                    assert_eq!(
+                        cat[slot],
+                        [u8::MAX; 4],
+                        "empty slot {} catalog not MAX",
+                        slot
+                    );
                 }
                 (None, Some(cat), None) => {
-                    assert_eq!(cat[slot], [u16::MAX; 4], "empty slot {} catalog not MAX", slot);
+                    assert_eq!(
+                        cat[slot],
+                        [u16::MAX; 4],
+                        "empty slot {} catalog not MAX",
+                        slot
+                    );
                 }
                 (None, None, Some(cat)) => {
-                    assert_eq!(cat[slot], [u32::MAX; 4], "empty slot {} catalog not MAX", slot);
+                    assert_eq!(
+                        cat[slot],
+                        [u32::MAX; 4],
+                        "empty slot {} catalog not MAX",
+                        slot
+                    );
                 }
                 _ => panic!("exactly one catalog variant must be Some"),
             }
@@ -179,11 +200,18 @@ fn test_build_hash_table_determinism() {
     let result2 = build_hash_table(&patterns, &vectors, pattern_bins, false);
 
     // key_hashes should be identical
-    assert_eq!(result1.key_hashes, result2.key_hashes, "key_hashes should be deterministic");
+    assert_eq!(
+        result1.key_hashes, result2.key_hashes,
+        "key_hashes should be deterministic"
+    );
 
     // largest_edge should be identical (compare bits for exact float match)
     for (a, b) in result1.largest_edge.iter().zip(result2.largest_edge.iter()) {
-        assert_eq!(a.to_bits(), b.to_bits(), "largest_edge should be deterministic");
+        assert_eq!(
+            a.to_bits(),
+            b.to_bits(),
+            "largest_edge should be deterministic"
+        );
     }
 
     // catalog should be identical
@@ -261,7 +289,12 @@ fn test_hash_table_roundtrip_save_load() {
     );
 
     // Verify largest_edge matches (compare bits)
-    for (i, (a, b)) in db.largest_edge.iter().zip(db_loaded.largest_edge.iter()).enumerate() {
+    for (i, (a, b)) in db
+        .largest_edge
+        .iter()
+        .zip(db_loaded.largest_edge.iter())
+        .enumerate()
+    {
         assert_eq!(
             a.to_bits(),
             b.to_bits(),
@@ -280,7 +313,12 @@ fn test_hash_table_roundtrip_save_load() {
 
     // Verify star_table matches
     assert_eq!(db.star_table.len(), db_loaded.star_table.len());
-    for (i, (a, b)) in db.star_table.iter().zip(db_loaded.star_table.iter()).enumerate() {
+    for (i, (a, b)) in db
+        .star_table
+        .iter()
+        .zip(db_loaded.star_table.iter())
+        .enumerate()
+    {
         for j in 0..6 {
             assert_eq!(
                 a[j], b[j],
@@ -291,9 +329,18 @@ fn test_hash_table_roundtrip_save_load() {
     }
 
     // Verify properties match
-    assert_eq!(db.properties.pattern_bins, db_loaded.properties.pattern_bins);
-    assert_eq!(db.properties.num_patterns, db_loaded.properties.num_patterns);
-    assert_eq!(db.properties.hash_table_type, db_loaded.properties.hash_table_type);
+    assert_eq!(
+        db.properties.pattern_bins,
+        db_loaded.properties.pattern_bins
+    );
+    assert_eq!(
+        db.properties.num_patterns,
+        db_loaded.properties.num_patterns
+    );
+    assert_eq!(
+        db.properties.hash_table_type,
+        db_loaded.properties.hash_table_type
+    );
 }
 
 // =============================================================================
@@ -312,8 +359,11 @@ fn test_lookup_finds_inserted_patterns() {
     let mut star_table = Vec::with_capacity(num_stars);
     for i in 0..num_stars {
         star_table.push([
-            0.0, 0.0,
-            vectors[i][0], vectors[i][1], vectors[i][2],
+            0.0,
+            0.0,
+            vectors[i][0],
+            vectors[i][1],
+            vectors[i][2],
             (i as f32) * 0.5,
         ]);
     }
@@ -357,7 +407,11 @@ fn test_lookup_finds_inserted_patterns() {
 
         // Lookup without FOV filter
         let candidates = ps_db::lookup_pattern(&db, &key, largest_edge_rad, None);
-        assert!(!candidates.is_empty(), "lookup should find candidates for pattern {:?}", pattern);
+        assert!(
+            !candidates.is_empty(),
+            "lookup should find candidates for pattern {:?}",
+            pattern
+        );
 
         // Verify that at least one candidate slot contains our pattern (after centroid reordering)
         let ordered = order_by_centroid_distance(&vectors_f64);
@@ -378,11 +432,19 @@ fn test_lookup_finds_inserted_patterns() {
                 }
             }
         }
-        assert!(found_in_slot, "pattern {:?} not found in any candidate slot", pattern);
+        assert!(
+            found_in_slot,
+            "pattern {:?} not found in any candidate slot",
+            pattern
+        );
         found_count += 1;
     }
 
-    assert_eq!(found_count, patterns.len(), "all patterns should be findable");
+    assert_eq!(
+        found_count,
+        patterns.len(),
+        "all patterns should be findable"
+    );
 }
 
 // =============================================================================
@@ -405,8 +467,11 @@ fn test_serialization_byte_identical() {
         let mut star_table = Vec::with_capacity(num_stars);
         for i in 0..num_stars {
             star_table.push([
-                0.0, 0.0,
-                vectors[i][0], vectors[i][1], vectors[i][2],
+                0.0,
+                0.0,
+                vectors[i][0],
+                vectors[i][1],
+                vectors[i][2],
                 (i as f32) * 0.5,
             ]);
         }
@@ -448,5 +513,8 @@ fn test_serialization_byte_identical() {
     let bytes1 = build_and_serialize(&vectors, &patterns, pattern_bins);
     let bytes2 = build_and_serialize(&vectors, &patterns, pattern_bins);
 
-    assert_eq!(bytes1, bytes2, "serialized output should be byte-identical across runs");
+    assert_eq!(
+        bytes1, bytes2,
+        "serialized output should be byte-identical across runs"
+    );
 }

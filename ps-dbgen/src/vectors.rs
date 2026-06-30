@@ -13,7 +13,10 @@ pub fn radec_to_unit_vector(ra: f64, dec: f64) -> [f32; 3] {
 
 /// Compute unit vectors for all stars in the catalog, returning Vec<[f32; 3]>.
 pub fn compute_star_vectors(stars: &[StarRecord]) -> Vec<[f32; 3]> {
-    stars.iter().map(|s| radec_to_unit_vector(s.ra, s.dec)).collect()
+    stars
+        .iter()
+        .map(|s| radec_to_unit_vector(s.ra, s.dec))
+        .collect()
 }
 
 #[cfg(test)]
@@ -41,7 +44,12 @@ mod tests {
     #[test]
     fn test_compute_star_vectors_unit_norm() {
         let stars = vec![
-            StarRecord { ra: 0.0, dec: 0.0, mag: 5.0, cat_id: crate::catalog::CatalogId::Hip(1) },
+            StarRecord {
+                ra: 0.0,
+                dec: 0.0,
+                mag: 5.0,
+                cat_id: crate::catalog::CatalogId::Hip(1),
+            },
             StarRecord {
                 ra: PI / 4.0,
                 dec: PI / 6.0,

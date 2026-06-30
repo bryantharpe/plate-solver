@@ -272,7 +272,10 @@ mod tests {
             );
         }
         // Sanity: the 5 near stars yield C(5,4)=5 combos.
-        assert!(!result.is_empty(), "expected patterns from the 5 near stars");
+        assert!(
+            !result.is_empty(),
+            "expected patterns from the 5 near stars"
+        );
         assert_eq!(result.len(), 5, "C(5,4)=5 patterns expected");
     }
 

@@ -6,7 +6,7 @@
 use std::io::Read;
 use std::path::Path;
 
-use crate::{Database, DatabaseProperties, layout::*};
+use crate::{layout::*, Database, DatabaseProperties};
 use half::f16;
 use zip::ZipArchive;
 
@@ -324,9 +324,7 @@ pub fn import_npz(path: &Path) -> Result<Database, Box<dyn std::error::Error>> {
         Some(
             ids_data
                 .chunks_exact(4)
-                .map(|chunk| {
-                    u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])
-                })
+                .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
                 .collect(),
         )
     };

@@ -9,7 +9,7 @@ use std::path::Path;
 use half::f16;
 use memmap2::Mmap;
 
-use crate::{DatabaseProperties, layout::*};
+use crate::{layout::*, DatabaseProperties};
 
 /// Which element width the on-disk pattern catalog uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,7 +139,12 @@ impl MmappedDatabase {
         match self.catalog_elem_size {
             1 => {
                 // [u8; 4] — no alignment concern
-                Some([row_bytes[0] as u32, row_bytes[1] as u32, row_bytes[2] as u32, row_bytes[3] as u32])
+                Some([
+                    row_bytes[0] as u32,
+                    row_bytes[1] as u32,
+                    row_bytes[2] as u32,
+                    row_bytes[3] as u32,
+                ])
             }
             2 => {
                 // [u16; 4] — may be misaligned, use unaligned reads
@@ -151,10 +156,18 @@ impl MmappedDatabase {
             }
             4 => {
                 // [u32; 4] — may be misaligned, use unaligned reads
-                let v0 = u32::from_le_bytes([row_bytes[0], row_bytes[1], row_bytes[2], row_bytes[3]]);
-                let v1 = u32::from_le_bytes([row_bytes[4], row_bytes[5], row_bytes[6], row_bytes[7]]);
-                let v2 = u32::from_le_bytes([row_bytes[8], row_bytes[9], row_bytes[10], row_bytes[11]]);
-                let v3 = u32::from_le_bytes([row_bytes[12], row_bytes[13], row_bytes[14], row_bytes[15]]);
+                let v0 =
+                    u32::from_le_bytes([row_bytes[0], row_bytes[1], row_bytes[2], row_bytes[3]]);
+                let v1 =
+                    u32::from_le_bytes([row_bytes[4], row_bytes[5], row_bytes[6], row_bytes[7]]);
+                let v2 =
+                    u32::from_le_bytes([row_bytes[8], row_bytes[9], row_bytes[10], row_bytes[11]]);
+                let v3 = u32::from_le_bytes([
+                    row_bytes[12],
+                    row_bytes[13],
+                    row_bytes[14],
+                    row_bytes[15],
+                ]);
                 Some([v0, v1, v2, v3])
             }
             _ => None,
@@ -238,7 +251,8 @@ pub fn load_native_mmap(path: &Path) -> Result<MmappedDatabase, Box<dyn std::err
     if data.len() < pos + 4 {
         return Err("truncated: missing props_len".into());
     }
-    let props_len = u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
+    let props_len =
+        u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
     pos += 4;
 
     // 4. PROPS_JSON (variable UTF-8)
@@ -254,13 +268,14 @@ pub fn load_native_mmap(path: &Path) -> Result<MmappedDatabase, Box<dyn std::err
     pos += padding_needed;
 
     // Helper to read N bytes at current position
-    let read_bytes = |buf: &mut [u8], data: &[u8], pos: usize| -> Result<usize, Box<dyn std::error::Error>> {
-        if data.len() < pos + buf.len() {
-            return Err("truncated".into());
-        }
-        buf.copy_from_slice(&data[pos..pos + buf.len()]);
-        Ok(buf.len())
-    };
+    let read_bytes =
+        |buf: &mut [u8], data: &[u8], pos: usize| -> Result<usize, Box<dyn std::error::Error>> {
+            if data.len() < pos + buf.len() {
+                return Err("truncated".into());
+            }
+            buf.copy_from_slice(&data[pos..pos + buf.len()]);
+            Ok(buf.len())
+        };
 
     // 6. star_table section: COUNT u64 LE, then N*6*4 bytes (f32 LE)
     let mut buf8 = [0u8; 8];

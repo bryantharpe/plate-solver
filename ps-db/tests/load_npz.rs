@@ -70,7 +70,9 @@ fn test_nearby_stars() {
     let fixture: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
 
-    let queries = fixture["queries"].as_array().expect("queries should be an array");
+    let queries = fixture["queries"]
+        .as_array()
+        .expect("queries should be an array");
     for query in queries {
         let label = query["label"].as_str().expect("missing label");
         let q_vec: Vec<f64> = query["query_vector"]
@@ -79,7 +81,12 @@ fn test_nearby_stars() {
             .iter()
             .map(|v| v.as_f64().expect("not f64"))
             .collect();
-        assert_eq!(q_vec.len(), 3, "{}: query_vector should have 3 elements", label);
+        assert_eq!(
+            q_vec.len(),
+            3,
+            "{}: query_vector should have 3 elements",
+            label
+        );
         let vector = [q_vec[0] as f32, q_vec[1] as f32, q_vec[2] as f32];
 
         let radius = query["radius_rad"]
@@ -108,11 +115,7 @@ fn test_nearby_stars() {
             result.len()
         );
 
-        assert_eq!(
-            result, expected_indices,
-            "{}: indices mismatch",
-            label
-        );
+        assert_eq!(result, expected_indices, "{}: indices mismatch", label);
     }
 }
 
@@ -166,7 +169,8 @@ fn test_hash_lookup_parity() {
         );
 
         // Test with FOV filter (coarse_fov_rad = Some(fov_estimate))
-        let got_with_fov = ps_db::lookup_pattern(&db, &key, largest_edge_rad, Some(fov_estimate_rad));
+        let got_with_fov =
+            ps_db::lookup_pattern(&db, &key, largest_edge_rad, Some(fov_estimate_rad));
         assert_eq!(
             got_with_fov, expected_with_fov,
             "slot {}: candidates_with_fov mismatch: expected {:?}, got {:?}",
@@ -219,7 +223,8 @@ fn test_mmap_lookup_parity() {
 
         // Test without FOV filter
         let got_ram_no_fov = ps_db::lookup_pattern(&db_ram, &key, largest_edge_rad, None);
-        let got_mmap_no_fov = ps_db::mmap::lookup_pattern_mmap(&db_mmap, &key, largest_edge_rad, None);
+        let got_mmap_no_fov =
+            ps_db::mmap::lookup_pattern_mmap(&db_mmap, &key, largest_edge_rad, None);
         assert_eq!(
             got_ram_no_fov, got_mmap_no_fov,
             "slot {}: candidates_no_fov mismatch: RAM {:?} vs mmap {:?}",
@@ -227,8 +232,14 @@ fn test_mmap_lookup_parity() {
         );
 
         // Test with FOV filter
-        let got_ram_with_fov = ps_db::lookup_pattern(&db_ram, &key, largest_edge_rad, Some(fov_estimate_rad));
-        let got_mmap_with_fov = ps_db::mmap::lookup_pattern_mmap(&db_mmap, &key, largest_edge_rad, Some(fov_estimate_rad));
+        let got_ram_with_fov =
+            ps_db::lookup_pattern(&db_ram, &key, largest_edge_rad, Some(fov_estimate_rad));
+        let got_mmap_with_fov = ps_db::mmap::lookup_pattern_mmap(
+            &db_mmap,
+            &key,
+            largest_edge_rad,
+            Some(fov_estimate_rad),
+        );
         assert_eq!(
             got_ram_with_fov, got_mmap_with_fov,
             "slot {}: candidates_with_fov mismatch: RAM {:?} vs mmap {:?}",
@@ -260,7 +271,9 @@ fn test_mmap_nearby_stars_parity() {
     let fixture: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
 
-    let queries = fixture["queries"].as_array().expect("queries should be an array");
+    let queries = fixture["queries"]
+        .as_array()
+        .expect("queries should be an array");
     for query in queries {
         let label = query["label"].as_str().expect("missing label");
         let q_vec: Vec<f64> = query["query_vector"]
@@ -269,7 +282,12 @@ fn test_mmap_nearby_stars_parity() {
             .iter()
             .map(|v| v.as_f64().expect("not f64"))
             .collect();
-        assert_eq!(q_vec.len(), 3, "{}: query_vector should have 3 elements", label);
+        assert_eq!(
+            q_vec.len(),
+            3,
+            "{}: query_vector should have 3 elements",
+            label
+        );
         let vector = [q_vec[0] as f32, q_vec[1] as f32, q_vec[2] as f32];
 
         let radius = query["radius_rad"]

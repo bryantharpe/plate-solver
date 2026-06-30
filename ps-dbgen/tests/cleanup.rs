@@ -28,7 +28,11 @@ fn test_auto_limiting_magnitude_uniform_fallback() {
     let result = auto_limiting_magnitude(&stars, 0.1, 10);
 
     // total_stars_needed >> 1000, so we hit the fallback (mag_max).
-    assert!((result - 10.0).abs() < 1e-9, "expected fallback to mag_max=10.0, got {}", result);
+    assert!(
+        (result - 10.0).abs() < 1e-9,
+        "expected fallback to mag_max=10.0, got {}",
+        result
+    );
 }
 
 /// Test 1b — formula match where cumulative *does* exceed the threshold.
@@ -59,11 +63,7 @@ fn test_auto_limiting_magnitude_formula_match() {
     // 100 bins from 0.0 to 10.0, bin_width = 0.1
     // ~10 stars per bin; cumulative after bin 0 = ~10, bin 1 = ~20, bin 2 = ~30 > 28
     // Result should be mag_min + 2 * 0.1 = 0.2 (give or take rounding)
-    assert!(
-        (result - 0.2).abs() < 0.01,
-        "expected ~0.2, got {}",
-        result
-    );
+    assert!((result - 0.2).abs() < 0.01, "expected ~0.2, got {}", result);
 }
 
 /// Test 2 — small dataset: first bin that pushes cumulative over threshold.
@@ -88,7 +88,11 @@ fn test_auto_limiting_magnitude_small_dataset() {
     let result = auto_limiting_magnitude(&stars, 10.0, 1);
 
     // Result should be between 1.0 (mag_min) and 5.0 (mag_max).
-    assert!(result >= 1.0 && result <= 5.0, "expected between 1.0 and 5.0, got {}", result);
+    assert!(
+        result >= 1.0 && result <= 5.0,
+        "expected between 1.0 and 5.0, got {}",
+        result
+    );
 }
 
 /// Test 3 — empty star list returns 0.0 without panicking.
@@ -112,5 +116,9 @@ fn test_auto_limiting_magnitude_single_magnitude() {
         .collect();
 
     let result = auto_limiting_magnitude(&stars, 1.0, 10);
-    assert!((result - 3.5).abs() < 1e-9, "all-same-mag should return that magnitude, got {}", result);
+    assert!(
+        (result - 3.5).abs() < 1e-9,
+        "all-same-mag should return that magnitude, got {}",
+        result
+    );
 }

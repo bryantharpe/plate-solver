@@ -3,17 +3,21 @@
 use crate::plate_solver::plate_solver_server::PlateSolver;
 use crate::plate_solver::{
     CentroidsRequest, CentroidsResult, Image, ImageCoord, InfoRequest, MatchedStar, ServerInfo,
-    Solution, SolveFromCentroidsRequest, SolveFromImageRequest, StarCentroid, SolveStatus as ProtoSolveStatus,
+    Solution, SolveFromCentroidsRequest, SolveFromImageRequest, SolveStatus as ProtoSolveStatus,
+    StarCentroid,
 };
 use memmap2::MmapOptions;
+use prost_types::Duration;
 use ps_db::Database;
 use ps_detect::noise::estimate_noise_from_image;
 use ps_detect::{get_stars_from_image, GrayImage};
-use ps_solve::{solve_from_centroids as ps_solve_centroids, solve_from_image as ps_solve_image, SolveParams as PsSolveParams, SolveStatus as PsSolveStatus};
+use ps_solve::{
+    solve_from_centroids as ps_solve_centroids, solve_from_image as ps_solve_image,
+    SolveParams as PsSolveParams, SolveStatus as PsSolveStatus,
+};
 use std::fs::File;
 use std::sync::Arc;
 use std::time::Instant;
-use prost_types::Duration;
 use tonic::{Request, Response, Status};
 
 pub struct PlateSolverService {
@@ -22,9 +26,7 @@ pub struct PlateSolverService {
 
 impl PlateSolverService {
     pub fn new(db: Database) -> Self {
-        Self {
-            db: Arc::new(db),
-        }
+        Self { db: Arc::new(db) }
     }
 }
 
@@ -120,13 +122,10 @@ impl PlateSolver for PlateSolverService {
         // Resolve image bytes (shmem or inline).
         let image_bytes = if let Some(ref shmem_name) = input_image.shmem_name {
             let path = format!("/dev/shm/{}", shmem_name);
-            let file = File::open(&path).map_err(|e| {
-                Status::internal(format!("shmem open failed: {}: {}", path, e))
-            })?;
+            let file = File::open(&path)
+                .map_err(|e| Status::internal(format!("shmem open failed: {}: {}", path, e)))?;
             let mmap = unsafe { MmapOptions::new().map(&file) }
-                .map_err(|e| {
-                    Status::internal(format!("shmem mmap failed: {}: {}", path, e))
-                })?;
+                .map_err(|e| Status::internal(format!("shmem mmap failed: {}: {}", path, e)))?;
             mmap.to_vec()
         } else {
             input_image.image_data.clone()
@@ -200,11 +199,17 @@ impl PlateSolver for PlateSolverService {
 
         // Peak star pixel value: average of the NUM_PEAKS brightest stars, fallback 255.
         const NUM_PEAKS: usize = 10;
-        let (sum_peak, num_peak) =
-            stars.iter().take(NUM_PEAKS).fold((0i32, 0i32), |(s, n), star| {
+        let (sum_peak, num_peak) = stars
+            .iter()
+            .take(NUM_PEAKS)
+            .fold((0i32, 0i32), |(s, n), star| {
                 (s + star.peak_value as i32, n + 1)
             });
-        let peak_star_pixel = if num_peak > 0 { sum_peak / num_peak } else { 255 };
+        let peak_star_pixel = if num_peak > 0 {
+            sum_peak / num_peak
+        } else {
+            255
+        };
 
         // Map stars to StarCentroid proto messages.
         let star_candidates: Vec<StarCentroid> = stars
@@ -251,11 +256,7 @@ impl PlateSolver for PlateSolverService {
 
         // Step 1: Extract centroids with (x,y) -> (y,x) swap.
         // Proto ImageCoord uses (x, y), but ps_solve expects (y, x).
-        let centroids_yx: Vec<[f64; 2]> = req
-            .centroids
-            .iter()
-            .map(|c| [c.y, c.x])
-            .collect();
+        let centroids_yx: Vec<[f64; 2]> = req.centroids.iter().map(|c| [c.y, c.x]).collect();
 
         // Step 2: Extract image dimensions.
         let height = req.height as usize;
@@ -297,13 +298,10 @@ impl PlateSolver for PlateSolverService {
         // Resolve image bytes (shmem or inline).
         let image_bytes = if let Some(ref shmem_name) = input_image.shmem_name {
             let path = format!("/dev/shm/{}", shmem_name);
-            let file = File::open(&path).map_err(|e| {
-                Status::internal(format!("shmem open failed: {}: {}", path, e))
-            })?;
+            let file = File::open(&path)
+                .map_err(|e| Status::internal(format!("shmem open failed: {}: {}", path, e)))?;
             let mmap = unsafe { MmapOptions::new().map(&file) }
-                .map_err(|e| {
-                    Status::internal(format!("shmem mmap failed: {}: {}", path, e))
-                })?;
+                .map_err(|e| Status::internal(format!("shmem mmap failed: {}: {}", path, e)))?;
             mmap.to_vec()
         } else {
             input_image.image_data.clone()
@@ -363,7 +361,7 @@ impl PlateSolver for PlateSolverService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plate_solver::{Image, CentroidsRequest, SolveParams};
+    use crate::plate_solver::{CentroidsRequest, Image, SolveParams};
     use ps_db::DatabaseProperties;
     use std::path::Path;
 
@@ -377,7 +375,12 @@ mod tests {
     }
 
     /// Helper: create a CentroidsRequest with inline image data.
-    fn make_inline_request(image_data: Vec<u8>, width: i32, height: i32, sigma: f64) -> CentroidsRequest {
+    fn make_inline_request(
+        image_data: Vec<u8>,
+        width: i32,
+        height: i32,
+        sigma: f64,
+    ) -> CentroidsRequest {
         CentroidsRequest {
             input_image: Some(Image {
                 width,
@@ -619,11 +622,10 @@ mod tests {
         let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
 
         // Import the reference NPZ database.
-        let npz_path = manifest.join(
-            "../reference-solutions/cedar-solve/tetra3/data/default_database.npz",
-        );
-        let db_imported = importer::import_npz(&npz_path)
-            .unwrap_or_else(|e| panic!("import_npz failed: {}", e));
+        let npz_path =
+            manifest.join("../reference-solutions/cedar-solve/tetra3/data/default_database.npz");
+        let db_imported =
+            importer::import_npz(&npz_path).unwrap_or_else(|e| panic!("import_npz failed: {}", e));
 
         // Save -> load native round-trip.
         let tmp = NamedTempFile::new().expect("tempfile");
@@ -744,9 +746,9 @@ mod tests {
     /// decode as plate_solver::CentroidsRequest, and verify fields match.
     #[test]
     fn cedar_detect_interop() {
-        use prost::Message;
         use crate::cedar_detect::{CentroidsRequest as CedarRequest, Image as CedarImage};
         use crate::plate_solver::CentroidsRequest as OurRequest;
+        use prost::Message;
 
         // Build a cedar_detect-shaped request
         let cedar_req = CedarRequest {
@@ -784,8 +786,8 @@ mod tests {
         assert!(our_req.detect_hot_pixels);
 
         // Response direction: encode plate_solver::CentroidsResult → decode as cedar_detect::CentroidsResult
-        use crate::plate_solver::CentroidsResult as OurResult;
         use crate::cedar_detect::CentroidsResult as CedarResult;
+        use crate::plate_solver::CentroidsResult as OurResult;
 
         let our_result = OurResult {
             noise_estimate: 3.14,
@@ -794,14 +796,19 @@ mod tests {
             peak_star_pixel: 200,
             star_candidates: vec![],
             binned_image: None,
-            algorithm_time: Some(Duration { seconds: 0, nanos: 500_000 }),
+            algorithm_time: Some(Duration {
+                seconds: 0,
+                nanos: 500_000,
+            }),
         };
 
         let mut result_bytes = Vec::new();
-        our_result.encode(&mut result_bytes).expect("encode plate_solver result");
+        our_result
+            .encode(&mut result_bytes)
+            .expect("encode plate_solver result");
 
-        let cedar_result = CedarResult::decode(result_bytes.as_slice())
-            .expect("decode as cedar_detect result");
+        let cedar_result =
+            CedarResult::decode(result_bytes.as_slice()).expect("decode as cedar_detect result");
 
         assert_eq!(cedar_result.noise_estimate, 3.14);
         assert_eq!(cedar_result.hot_pixel_count, 5);

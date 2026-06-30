@@ -36,7 +36,9 @@ pub fn compute_fov_ladder(min_fov: f64, max_fov: f64, multiscale_step: f64) -> V
     // Adjacent-equal dedup
     foos.dedup();
 
-    foos.into_iter().map(|log2_val| 2.0_f64.powf(log2_val)).collect()
+    foos.into_iter()
+        .map(|log2_val| 2.0_f64.powf(log2_val))
+        .collect()
 }
 
 /// Greedy brightest-first density thinning.
@@ -109,8 +111,14 @@ mod tests {
         // 2 entries: [1.0, 1.5]
         let ladder = compute_fov_ladder(1.0, 1.5, 1.5);
         assert_eq!(ladder.len(), 2);
-        assert!((ladder[0] - 1.0).abs() < 1e-10, "first entry should be ~1.0");
-        assert!((ladder[1] - 1.5).abs() < 1e-10, "second entry should be ~1.5");
+        assert!(
+            (ladder[0] - 1.0).abs() < 1e-10,
+            "first entry should be ~1.0"
+        );
+        assert!(
+            (ladder[1] - 1.5).abs() < 1e-10,
+            "second entry should be ~1.5"
+        );
     }
 
     #[test]
@@ -121,7 +129,10 @@ mod tests {
         // 3 entries: [1.0, sqrt(2), 2.0] ≈ [1.0, 1.414, 2.0]
         let ladder = compute_fov_ladder(1.0, 2.0, 1.5);
         assert_eq!(ladder.len(), 3);
-        assert!((ladder[0] - 1.0).abs() < 1e-10, "first entry should be ~1.0");
+        assert!(
+            (ladder[0] - 1.0).abs() < 1e-10,
+            "first entry should be ~1.0"
+        );
         assert!(
             (ladder[1] - 2.0_f64.sqrt()).abs() < 1e-10,
             "middle entry should be ~sqrt(2) ≈ 1.414, got {}",
@@ -164,7 +175,7 @@ mod tests {
         // All in brightness order (brightest first)
         // Star 0 kept (first). Star 1 kept (far from star 0). Star 2 excluded (close to star 0).
         let vectors = vec![
-            vec_at(0.0, 0.0),       // star 0 — kept
+            vec_at(0.0, 0.0),      // star 0 — kept
             vec_at(PI / 2.0, 0.0), // star 1 — kept (far from star 0)
             vec_at(0.001, 0.001),  // star 2 — excluded (close to star 0)
         ];

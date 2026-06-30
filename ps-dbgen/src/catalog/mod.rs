@@ -5,8 +5,8 @@ pub mod tyc;
 /// A star record with position (radians), magnitude, and source ID.
 #[derive(Debug, Clone)]
 pub struct StarRecord {
-    pub ra: f64,    // radians
-    pub dec: f64,   // radians
+    pub ra: f64,  // radians
+    pub dec: f64, // radians
     pub mag: f64,
     pub cat_id: CatalogId,
 }
@@ -28,6 +28,8 @@ pub struct ParseParams {
 
 impl Default for ParseParams {
     fn default() -> Self {
-        Self { epoch_proper_motion: 2000.0 }
+        Self {
+            epoch_proper_motion: 2000.0,
+        }
     }
 }

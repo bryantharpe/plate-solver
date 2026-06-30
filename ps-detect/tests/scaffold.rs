@@ -93,7 +93,16 @@ fn blob_and_gate2d_parity() {
         let max_size = img.width() / 100;
         let mut result_stars: Vec<StarDescription> = Vec::new();
         for blob in &blobs {
-            if let Some(star) = gate_star_2d(blob, &img, &img, 1, noise_estimate, sigma, max_size, max_size) {
+            if let Some(star) = gate_star_2d(
+                blob,
+                &img,
+                &img,
+                1,
+                noise_estimate,
+                sigma,
+                max_size,
+                max_size,
+            ) {
                 result_stars.push(star);
             }
         }

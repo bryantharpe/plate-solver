@@ -59,10 +59,10 @@ fn parse_catalog(path: &str, params: &ParseParams) -> Vec<StarRecord> {
             ps_dbgen::catalog::bsc5::parse_bsc5(&mut reader, params)
                 .expect("failed to parse BSC5 catalog")
         }
-        "tyc" => ps_dbgen::catalog::tyc::parse_tyc(file, params)
-            .expect("failed to parse TYC catalog"),
-        _ => ps_dbgen::catalog::hip::parse_hip(file, params)
-            .expect("failed to parse HIP catalog"),
+        "tyc" => {
+            ps_dbgen::catalog::tyc::parse_tyc(file, params).expect("failed to parse TYC catalog")
+        }
+        _ => ps_dbgen::catalog::hip::parse_hip(file, params).expect("failed to parse HIP catalog"),
     }
 }
 
@@ -229,9 +229,13 @@ fn main() {
 
     #[cfg(not(feature = "kd-tree"))]
     {
-        println!(
-            "kd-tree feature not enabled; skipping pattern enumeration and hash table build."
+        println!("kd-tree feature not enabled; skipping pattern enumeration and hash table build.");
+        let _ = (
+            stars,
+            star_vectors,
+            args.max_fov,
+            min_fov,
+            args.linear_probe,
         );
-        let _ = (stars, star_vectors, args.max_fov, min_fov, args.linear_probe);
     }
 }

@@ -1,9 +1,9 @@
-use std::io::Cursor;
 use byteorder::{LittleEndian, WriteBytesExt};
 use ps_dbgen::catalog::bsc5::parse_bsc5;
 use ps_dbgen::catalog::hip::parse_hip;
 use ps_dbgen::catalog::tyc::parse_tyc;
 use ps_dbgen::catalog::{CatalogId, ParseParams};
+use std::io::Cursor;
 
 /* ------------------------------------------------------------------ */
 /*  BSC5 helpers                                                       */
@@ -14,12 +14,12 @@ fn build_bsc5_fixture(stars: &[(f32, f64, f64, i16, f32, f32)], j2000: bool) -> 
     let n = stars.len() as i32;
     // STARN negative = J2000
     let starn = if j2000 { -(n) } else { n };
-    buf.write_i32::<LittleEndian>(0).unwrap();  // STAR0
-    buf.write_i32::<LittleEndian>(0).unwrap();  // STAR1
+    buf.write_i32::<LittleEndian>(0).unwrap(); // STAR0
+    buf.write_i32::<LittleEndian>(0).unwrap(); // STAR1
     buf.write_i32::<LittleEndian>(starn).unwrap(); // STARN
-    buf.write_i32::<LittleEndian>(1).unwrap();  // STNUM
-    buf.write_i32::<LittleEndian>(1).unwrap();  // MPROP
-    buf.write_i32::<LittleEndian>(1).unwrap();  // NMAG
+    buf.write_i32::<LittleEndian>(1).unwrap(); // STNUM
+    buf.write_i32::<LittleEndian>(1).unwrap(); // MPROP
+    buf.write_i32::<LittleEndian>(1).unwrap(); // NMAG
     buf.write_i32::<LittleEndian>(32).unwrap(); // NBENT
     for (id, ra, dec, mag, ra_pm, dec_pm) in stars {
         buf.write_f32::<LittleEndian>(*id).unwrap();
@@ -37,12 +37,21 @@ fn build_bsc5_fixture(stars: &[(f32, f64, f64, i16, f32, f32)], j2000: bool) -> 
 fn test_bsc5_parse_basic() {
     // Two stars, J2000 equinox (negative STARN), no PM to propagate.
     let stars = [
-        (1.0_f32, std::f64::consts::FRAC_PI_2, 0.5_f64, 345, 0.0_f32, 0.0_f32),
+        (
+            1.0_f32,
+            std::f64::consts::FRAC_PI_2,
+            0.5_f64,
+            345,
+            0.0_f32,
+            0.0_f32,
+        ),
         (2.0_f32, 1.0_f64, -0.3_f64, 510, 0.0_f32, 0.0_f32),
     ];
     let buf = build_bsc5_fixture(&stars, true /* j2000 */);
     let mut cursor = Cursor::new(buf);
-    let params = ParseParams { epoch_proper_motion: 2000.0 };
+    let params = ParseParams {
+        epoch_proper_motion: 2000.0,
+    };
     let records = parse_bsc5(&mut cursor, &params).expect("parse should succeed");
 
     // Both stars have non-zero positions, so no drops.
@@ -71,7 +80,9 @@ fn test_bsc5_equinox_sign_rule() {
     ];
     let buf = build_bsc5_fixture(&stars, false /* b1950 */);
     let mut cursor = Cursor::new(buf);
-    let params = ParseParams { epoch_proper_motion: 2000.0 };
+    let params = ParseParams {
+        epoch_proper_motion: 2000.0,
+    };
     let records = parse_bsc5(&mut cursor, &params).expect("parse should succeed");
 
     assert_eq!(records.len(), 1);
@@ -84,10 +95,18 @@ fn test_bsc5_equinox_sign_rule() {
     let expected_ra = 1.0 + mu_alpha * 50.0;
     let expected_dec = 0.5 + 0.0005_f64 * 50.0;
 
-    assert!((records[0].ra - expected_ra).abs() < 1e-6,
-            "ra {} vs expected {}", records[0].ra, expected_ra);
-    assert!((records[0].dec - expected_dec).abs() < 1e-6,
-            "dec {} vs expected {}", records[0].dec, expected_dec);
+    assert!(
+        (records[0].ra - expected_ra).abs() < 1e-6,
+        "ra {} vs expected {}",
+        records[0].ra,
+        expected_ra
+    );
+    assert!(
+        (records[0].dec - expected_dec).abs() < 1e-6,
+        "dec {} vs expected {}",
+        records[0].dec,
+        expected_dec
+    );
 }
 
 #[test]
@@ -99,7 +118,9 @@ fn test_bsc5_drops_zero_position() {
     ];
     let buf = build_bsc5_fixture(&stars, true);
     let mut cursor = Cursor::new(buf);
-    let params = ParseParams { epoch_proper_motion: 2000.0 };
+    let params = ParseParams {
+        epoch_proper_motion: 2000.0,
+    };
     let records = parse_bsc5(&mut cursor, &params).expect("parse should succeed");
 
     assert_eq!(records.len(), 1);
@@ -109,20 +130,32 @@ fn test_bsc5_drops_zero_position() {
 #[test]
 fn test_bsc5_pole_guard() {
     // Star near the pole: dec close to pi/2 => cos(delta) ~ 0 < 0.05 => PM zeroed.
-    let stars = [
-        (7.0_f32, 0.5_f64, std::f64::consts::FRAC_PI_2 - 0.01_f64, 300, 100.0_f32, 100.0_f32),
-    ];
+    let stars = [(
+        7.0_f32,
+        0.5_f64,
+        std::f64::consts::FRAC_PI_2 - 0.01_f64,
+        300,
+        100.0_f32,
+        100.0_f32,
+    )];
     let buf = build_bsc5_fixture(&stars, true);
     let mut cursor = Cursor::new(buf);
-    let params = ParseParams { epoch_proper_motion: 2000.0 };
+    let params = ParseParams {
+        epoch_proper_motion: 2000.0,
+    };
     let records = parse_bsc5(&mut cursor, &params).expect("parse should succeed");
 
     assert_eq!(records.len(), 1);
     // PM should be zeroed because cos(delta) < 0.05
     // (FRAC_PI_2 - 0.01).cos() is very small (~0.01), definitely < 0.05
-    assert!((records[0].ra - 0.5).abs() < 1e-9, "RA should be unchanged near pole");
-    assert!((records[0].dec - (std::f64::consts::FRAC_PI_2 - 0.01)).abs() < 1e-9,
-            "Dec should be unchanged near pole");
+    assert!(
+        (records[0].ra - 0.5).abs() < 1e-9,
+        "RA should be unchanged near pole"
+    );
+    assert!(
+        (records[0].dec - (std::f64::consts::FRAC_PI_2 - 0.01)).abs() < 1e-9,
+        "Dec should be unchanged near pole"
+    );
 }
 
 /* ------------------------------------------------------------------ */
@@ -133,7 +166,9 @@ fn test_bsc5_pole_guard() {
 fn test_hip_parse_basic() {
     let data = include_str!("fixtures/hip_sample.dat");
     let cursor = Cursor::new(data.as_bytes());
-    let params = ParseParams { epoch_proper_motion: 2000.0 };
+    let params = ParseParams {
+        epoch_proper_motion: 2000.0,
+    };
     let records = parse_hip(cursor, &params).expect("parse should succeed");
 
     // Row 3 has empty mag -> skipped. Only 2 valid records.
@@ -155,10 +190,18 @@ fn test_hip_parse_basic() {
     let ra_expected = (90.0 + mu_alpha * dt).to_radians();
     let dec_expected = (delta_0 + pm_dec_deg * dt).to_radians();
 
-    assert!((records[0].ra - ra_expected).abs() < 1e-6,
-            "HIP ra {} vs expected {}", records[0].ra, ra_expected);
-    assert!((records[0].dec - dec_expected).abs() < 1e-6,
-            "HIP dec {} vs expected {}", records[0].dec, dec_expected);
+    assert!(
+        (records[0].ra - ra_expected).abs() < 1e-6,
+        "HIP ra {} vs expected {}",
+        records[0].ra,
+        ra_expected
+    );
+    assert!(
+        (records[0].dec - dec_expected).abs() < 1e-6,
+        "HIP dec {} vs expected {}",
+        records[0].dec,
+        dec_expected
+    );
 
     // Second star
     assert!((records[1].mag - 5.10).abs() < 1e-6);
@@ -173,7 +216,9 @@ fn test_hip_parse_basic() {
 fn test_tyc_parse_basic() {
     let data = include_str!("fixtures/tyc_sample.dat");
     let cursor = Cursor::new(data.as_bytes());
-    let params = ParseParams { epoch_proper_motion: 2000.0 };
+    let params = ParseParams {
+        epoch_proper_motion: 2000.0,
+    };
     let records = parse_tyc(cursor, &params).expect("parse should succeed");
 
     assert_eq!(records.len(), 2);

@@ -5,14 +5,11 @@
 use std::io::Write;
 use std::path::Path;
 
-use crate::{Database, DatabaseProperties, layout::*};
+use crate::{layout::*, Database, DatabaseProperties};
 use half::f16;
 
 /// Write a database to the native binary format.
-pub fn save_native(
-    db: &Database,
-    path: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn save_native(db: &Database, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let mut file = std::fs::File::create(path)?;
 
     // 1. MAGIC (4 bytes)
@@ -29,7 +26,8 @@ pub fn save_native(
 
     // 5. Padding to 8-byte alignment
     let current_pos = 4 + 4 + 4 + props_bytes.len();
-    let padding_needed = (SECTION_ALIGNMENT - (current_pos % SECTION_ALIGNMENT)) % SECTION_ALIGNMENT;
+    let padding_needed =
+        (SECTION_ALIGNMENT - (current_pos % SECTION_ALIGNMENT)) % SECTION_ALIGNMENT;
     for _ in 0..padding_needed {
         file.write_all(&[0u8])?;
     }
@@ -44,7 +42,11 @@ pub fn save_native(
     }
 
     // 7. pattern_catalog section: COUNT u64 LE, ELEM_SIZE u8, then data
-    let (catalog_count, elem_size, catalog_data) = match (&db.pattern_catalog_u8, &db.pattern_catalog_u16, &db.pattern_catalog_u32) {
+    let (catalog_count, elem_size, catalog_data) = match (
+        &db.pattern_catalog_u8,
+        &db.pattern_catalog_u16,
+        &db.pattern_catalog_u32,
+    ) {
         (Some(cat), None, None) => (cat.len() as u64, 1u8, {
             let mut buf = Vec::with_capacity(cat.len() * 4);
             for row in cat {
@@ -147,7 +149,8 @@ pub fn load_native(path: &Path) -> Result<Database, Box<dyn std::error::Error>> 
     if data.len() < pos + 4 {
         return Err("truncated: missing props_len".into());
     }
-    let props_len = u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
+    let props_len =
+        u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
     pos += 4;
 
     // 4. PROPS_JSON (variable UTF-8)
@@ -163,13 +166,14 @@ pub fn load_native(path: &Path) -> Result<Database, Box<dyn std::error::Error>> 
     pos += padding_needed;
 
     // Helper to read N bytes at current position
-    let read_bytes = |buf: &mut [u8], data: &[u8], pos: usize| -> Result<usize, Box<dyn std::error::Error>> {
-        if data.len() < pos + buf.len() {
-            return Err("truncated".into());
-        }
-        buf.copy_from_slice(&data[pos..pos + buf.len()]);
-        Ok(buf.len())
-    };
+    let read_bytes =
+        |buf: &mut [u8], data: &[u8], pos: usize| -> Result<usize, Box<dyn std::error::Error>> {
+            if data.len() < pos + buf.len() {
+                return Err("truncated".into());
+            }
+            buf.copy_from_slice(&data[pos..pos + buf.len()]);
+            Ok(buf.len())
+        };
 
     // 6. star_table section: COUNT u64 LE, then N*6*4 bytes (f32 LE)
     let mut buf8 = [0u8; 8];
@@ -186,11 +190,36 @@ pub fn load_native(path: &Path) -> Result<Database, Box<dyn std::error::Error>> 
         let base = pos + i * 24;
         let row: [f32; 6] = [
             f32::from_le_bytes([data[base], data[base + 1], data[base + 2], data[base + 3]]),
-            f32::from_le_bytes([data[base + 4], data[base + 5], data[base + 6], data[base + 7]]),
-            f32::from_le_bytes([data[base + 8], data[base + 9], data[base + 10], data[base + 11]]),
-            f32::from_le_bytes([data[base + 12], data[base + 13], data[base + 14], data[base + 15]]),
-            f32::from_le_bytes([data[base + 16], data[base + 17], data[base + 18], data[base + 19]]),
-            f32::from_le_bytes([data[base + 20], data[base + 21], data[base + 22], data[base + 23]]),
+            f32::from_le_bytes([
+                data[base + 4],
+                data[base + 5],
+                data[base + 6],
+                data[base + 7],
+            ]),
+            f32::from_le_bytes([
+                data[base + 8],
+                data[base + 9],
+                data[base + 10],
+                data[base + 11],
+            ]),
+            f32::from_le_bytes([
+                data[base + 12],
+                data[base + 13],
+                data[base + 14],
+                data[base + 15],
+            ]),
+            f32::from_le_bytes([
+                data[base + 16],
+                data[base + 17],
+                data[base + 18],
+                data[base + 19],
+            ]),
+            f32::from_le_bytes([
+                data[base + 20],
+                data[base + 21],
+                data[base + 22],
+                data[base + 23],
+            ]),
         ];
         star_table.push(row);
     }
@@ -212,7 +241,11 @@ pub fn load_native(path: &Path) -> Result<Database, Box<dyn std::error::Error>> 
         return Err("truncated: pattern_catalog data".into());
     }
 
-    let (pattern_catalog_u8, pattern_catalog_u16, pattern_catalog_u32): (Option<Vec<[u8; 4]>>, Option<Vec<[u16; 4]>>, Option<Vec<[u32; 4]>>) = match elem_size {
+    let (pattern_catalog_u8, pattern_catalog_u16, pattern_catalog_u32): (
+        Option<Vec<[u8; 4]>>,
+        Option<Vec<[u16; 4]>>,
+        Option<Vec<[u32; 4]>>,
+    ) = match elem_size {
         1 => {
             let mut cat = Vec::with_capacity(catalog_count);
             for i in 0..catalog_count {
@@ -239,10 +272,30 @@ pub fn load_native(path: &Path) -> Result<Database, Box<dyn std::error::Error>> 
             for i in 0..catalog_count {
                 let base = pos + i * 16;
                 cat.push([
-                    u32::from_le_bytes([data[base], data[base + 1], data[base + 2], data[base + 3]]),
-                    u32::from_le_bytes([data[base + 4], data[base + 5], data[base + 6], data[base + 7]]),
-                    u32::from_le_bytes([data[base + 8], data[base + 9], data[base + 10], data[base + 11]]),
-                    u32::from_le_bytes([data[base + 12], data[base + 13], data[base + 14], data[base + 15]]),
+                    u32::from_le_bytes([
+                        data[base],
+                        data[base + 1],
+                        data[base + 2],
+                        data[base + 3],
+                    ]),
+                    u32::from_le_bytes([
+                        data[base + 4],
+                        data[base + 5],
+                        data[base + 6],
+                        data[base + 7],
+                    ]),
+                    u32::from_le_bytes([
+                        data[base + 8],
+                        data[base + 9],
+                        data[base + 10],
+                        data[base + 11],
+                    ]),
+                    u32::from_le_bytes([
+                        data[base + 12],
+                        data[base + 13],
+                        data[base + 14],
+                        data[base + 15],
+                    ]),
                 ]);
             }
             (None, None, Some(cat))
@@ -323,7 +376,12 @@ pub fn load_native(path: &Path) -> Result<Database, Box<dyn std::error::Error>> 
                 let mut ids = Vec::with_capacity(ids_count);
                 for i in 0..ids_count {
                     let base = pos + i * 4;
-                    ids.push(u32::from_le_bytes([data[base], data[base + 1], data[base + 2], data[base + 3]]));
+                    ids.push(u32::from_le_bytes([
+                        data[base],
+                        data[base + 1],
+                        data[base + 2],
+                        data[base + 3],
+                    ]));
                 }
                 (None, Some(ids))
             }

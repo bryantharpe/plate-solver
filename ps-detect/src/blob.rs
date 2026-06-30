@@ -4,8 +4,8 @@
 //! brightness criteria to confirm each blob is a genuine star.
 
 use crate::gate::CandidateFrom1D;
-use crate::StarDescription;
 use crate::GrayImage;
+use crate::StarDescription;
 use imageproc::rect::Rect;
 use std::cmp;
 
@@ -205,8 +205,7 @@ fn peak_coord_1d(values: Vec<u32>) -> f64 {
 /// Candidates within a horizontal distance of 3 pixels between adjacent rows
 /// are merged into the same blob. Returns only non-empty blobs.
 pub fn form_blobs_from_candidates(candidates: Vec<CandidateFrom1D>, max_y: usize) -> Vec<Blob> {
-    let mut labeled_candidates_by_row =
-        vec![Vec::<LabeledCandidate>::new(); max_y + 1];
+    let mut labeled_candidates_by_row = vec![Vec::<LabeledCandidate>::new(); max_y + 1];
 
     let mut blobs: Vec<Blob> = Vec::with_capacity(candidates.len());
     for (next_blob_id, candidate) in candidates.into_iter().enumerate() {
@@ -247,7 +246,8 @@ pub fn form_blobs_from_candidates(candidates: Vec<CandidateFrom1D>, max_y: usize
                         break;
                     }
                     // Donor was already merged; follow the chain.
-                    let merged_blob_id = donor_blob.recipient_blob
+                    let merged_blob_id = donor_blob
+                        .recipient_blob
                         .expect("if candidates are empty, must have been merged");
                     if merged_blob_id == recipient_blob_id {
                         break;
@@ -320,12 +320,11 @@ pub fn gate_star_2d(
 
     // Define concentric boxes.
     let core = Rect::at(core_x_min, core_y_min).of_size(core_width, core_height);
-    let neighbors = Rect::at(core_x_min - 1, core_y_min - 1)
-        .of_size(core_width + 2, core_height + 2);
-    let margin = Rect::at(core_x_min - 2, core_y_min - 2)
-        .of_size(core_width + 4, core_height + 4);
-    let perimeter = Rect::at(core_x_min - 3, core_y_min - 3)
-        .of_size(core_width + 6, core_height + 6);
+    let neighbors =
+        Rect::at(core_x_min - 1, core_y_min - 1).of_size(core_width + 2, core_height + 2);
+    let margin = Rect::at(core_x_min - 2, core_y_min - 2).of_size(core_width + 4, core_height + 4);
+    let perimeter =
+        Rect::at(core_x_min - 3, core_y_min - 3).of_size(core_width + 6, core_height + 6);
 
     // Compute core mean.
     let mut core_sum: i32 = 0;
@@ -381,7 +380,9 @@ pub fn gate_star_2d(
     // Perimeter statistics: background estimate, min, max, stddev.
     let mut perimeter_sum: i32 = 0;
     let mut perimeter_count: i32 = 0;
-    let mut perimeter_min = image.get_pixel(perimeter.left() as u32, perimeter.top() as u32).0[0];
+    let mut perimeter_min = image
+        .get_pixel(perimeter.left() as u32, perimeter.top() as u32)
+        .0[0];
     let mut perimeter_max = perimeter_min;
     for_each_perimeter_pixel(image, &perimeter, |_x, _y, pixel_value| {
         perimeter_sum += i32::from(pixel_value);
@@ -428,8 +429,7 @@ pub fn gate_star_2d(
         let height = margin.height() * 2;
         let adj_width = cmp::min(left + width, higher_res_image.width()) - left;
         let adj_height = cmp::min(top + height, higher_res_image.height()) - top;
-        let higher_res_margin =
-            Rect::at(left as i32, top as i32).of_size(adj_width, adj_height);
+        let higher_res_margin = Rect::at(left as i32, top as i32).of_size(adj_width, adj_height);
         (brightness, num_saturated, peak_value) =
             compute_brightness(higher_res_image, &higher_res_margin);
         (x, y) = compute_peak_coord(higher_res_image, &higher_res_margin);
@@ -471,12 +471,7 @@ mod tests {
 
     #[test]
     fn test_for_each_pixel_in_roi_3x3() {
-        let image = GrayImage::from_raw(
-            3,
-            3,
-            vec![0, 1, 2, 127, 253, 254, 255, 0, 1],
-        )
-        .unwrap();
+        let image = GrayImage::from_raw(3, 3, vec![0, 1, 2, 127, 253, 254, 255, 0, 1]).unwrap();
         let mut pixels = Vec::new();
         for_each_pixel_in_roi(&image, &Rect::at(0, 0).of_size(3, 3), |x, y, p| {
             pixels.push((x, y, p));
@@ -499,12 +494,7 @@ mod tests {
 
     #[test]
     fn test_for_each_perimeter_pixel_3x3() {
-        let image = GrayImage::from_raw(
-            3,
-            3,
-            vec![0, 1, 2, 127, 253, 254, 255, 0, 1],
-        )
-        .unwrap();
+        let image = GrayImage::from_raw(3, 3, vec![0, 1, 2, 127, 253, 254, 255, 0, 1]).unwrap();
         let mut pixels = Vec::new();
         for_each_perimeter_pixel(&image, &Rect::at(0, 0).of_size(3, 3), |x, y, p| {
             pixels.push((x, y, p));
