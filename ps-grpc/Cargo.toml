@@ -12,9 +12,12 @@ prost = { workspace = true }
 tonic-web = { workspace = true }
 prost-types = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+memmap2 = { workspace = true }
+async-trait = "0.1"
 
 [build-dependencies]
 tonic-build = { workspace = true }
 
 [dev-dependencies]
+image = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "test-util"] }
