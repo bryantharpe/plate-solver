@@ -1112,4 +1112,89 @@ mod tests {
             elapsed
         );
     }
+
+    /// Test: gRPC-Web over HTTP/1 can call ExtractCentroids.
+    #[tokio::test]
+    async fn grpc_web_http1_extract_centroids() {
+        use crate::plate_solver::plate_solver_server::PlateSolverServer;
+        use std::net::SocketAddr;
+        use tonic::transport::Server;
+        use tonic_web::GrpcWebLayer;
+
+        // Bind on a random port; pass the listener to the server to avoid a
+        // TOCTOU race between drop-and-rebind.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr: SocketAddr = listener.local_addr().unwrap();
+
+        let svc = PlateSolverService::new(make_empty_db());
+        let server = tokio::spawn(async move {
+            Server::builder()
+                .accept_http1(true)
+                .layer(GrpcWebLayer::new())
+                .add_service(PlateSolverServer::new(svc))
+                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+                .await
+                .expect("server error");
+        });
+        // Give the server a moment to start accepting
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Build a minimal gRPC-Web framed request body for ExtractCentroids.
+        // gRPC-Web: frame = [1-byte flag][4-byte big-endian length][payload]
+        // We send the protobuf message as a single data frame, followed by a
+        // trailing half-frame (flag=0x80, length=0) to signal end of stream.
+        use crate::plate_solver::{CentroidsRequest, Image};
+        use prost::Message;
+        let req_msg = CentroidsRequest {
+            input_image: Some(Image {
+                width: 16,
+                height: 16,
+                image_data: vec![128u8; 16 * 16],
+                shmem_name: None,
+                reopen_shmem: false,
+            }),
+            sigma: 8.0,
+            binning: None,
+            return_binned: false,
+            use_binned_for_star_candidates: false,
+            detect_hot_pixels: false,
+            normalize_rows: false,
+            estimate_background_region: None,
+        };
+        let mut proto_bytes = Vec::new();
+        req_msg.encode(&mut proto_bytes).unwrap();
+
+        // gRPC-Web frame: data frame + trailing half-frame
+        let mut body = Vec::new();
+        body.push(0x00u8); // data frame flag
+        let len = proto_bytes.len() as u32;
+        body.extend_from_slice(&len.to_be_bytes());
+        body.extend_from_slice(&proto_bytes);
+        // Trailing half-frame (signals end of client stream)
+        body.push(0x80u8);
+        body.extend_from_slice(&0u32.to_be_bytes());
+
+        let url = format!("http://{}/plate_solver.PlateSolver/ExtractCentroids", addr);
+        let resp = reqwest::Client::new()
+            .post(&url)
+            .header("content-type", "application/grpc-web")
+            .header("x-grpc-web", "1")
+            .body(body)
+            .send()
+            .await
+            .expect("HTTP request failed");
+
+        // gRPC-Web response must be 200 OK (errors are in trailers or status, not HTTP 4xx)
+        assert_eq!(resp.status(), 200, "expected HTTP 200 from gRPC-Web handler");
+        let content_type = resp.headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert!(
+            content_type.starts_with("application/grpc-web"),
+            "expected grpc-web content-type, got: {content_type}"
+        );
+
+        server.abort();
+    }
 }
