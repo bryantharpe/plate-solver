@@ -65,15 +65,17 @@ impl MmappedDatabase {
     /// Returns a slice of `[f32; 6]` rows backed by the mmap.
     /// Safe because star_table starts at an 8-byte aligned offset and each
     /// row (24 bytes) is a multiple of f32's alignment (4).
-    pub fn star_table(&self) -> &[[f32; 6]] {
+    pub fn star_table(&self) -> Result<&[[f32; 6]], String> {
         let data: &[u8] = &self._mmap;
         let start = self.star_table_offset;
         let end = start + self.star_table_count * 24;
         let bytes = &data[start..end];
-        // star_table starts at 8-aligned offset; [f32;6] needs alignment 4.
         let ptr = bytes.as_ptr();
-        debug_assert_eq!(ptr.align_offset(4), 0);
-        unsafe { std::slice::from_raw_parts(ptr as *const [f32; 6], self.star_table_count) }
+        if ptr.align_offset(4) == 0 {
+            unsafe { Ok(std::slice::from_raw_parts(ptr as *const [f32; 6], self.star_table_count)) }
+        } else {
+            Err(format!("star_table offset {} is not [f32;6]-aligned", start))
+        }
     }
 
     /// Zero-copy view of the key hashes.
@@ -206,12 +208,22 @@ impl MmappedDatabase {
     #[cfg(feature = "kd-tree")]
     pub fn build_kd_tree(&mut self) {
         use kiddo::KdTree;
-        let stars = self.star_table();
+        let stars = self.star_table().expect("star_table misaligned in mmap");
         let mut tree: KdTree<f32, 3> = KdTree::with_capacity(stars.len());
         for (i, row) in stars.iter().enumerate() {
             tree.add(&[row[2], row[3], row[4]], i as u64);
         }
         self.star_kd_tree = Some(tree);
+    }
+}
+
+impl MmappedDatabase {
+    /// Force an arbitrary star_table layout for testing the alignment check.
+    /// Intentionally public so integration tests can call it.
+    #[doc(hidden)]
+    pub fn set_star_table_layout_for_test(&mut self, offset: usize, count: usize) {
+        self.star_table_offset = offset;
+        self.star_table_count = count;
     }
 }
 
