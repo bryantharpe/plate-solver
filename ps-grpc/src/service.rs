@@ -16,8 +16,10 @@ use ps_solve::{
     SolveParams as PsSolveParams, SolveStatus as PsSolveStatus,
 };
 use std::fs::File;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration as StdDuration, Instant};
+use tokio::time::sleep;
 use tonic::{Request, Response, Status};
 
 /// Backing storage for a request's input image: either an owned buffer
@@ -111,6 +113,26 @@ fn map_solution(sol: &ps_solve::Solution, return_matches: bool, t_extract_ms: f6
         t_extract_ms,
         t_solve_ms: sol.t_solve * 1000.0,
         matched,
+    }
+}
+
+/// Parse the gRPC `grpc-timeout` metadata header from the request.
+/// Returns the deadline as a `std::time::Duration`, or `None` if absent/unparseable.
+/// Format: <up-to-8 digits><unit> where unit ∈ H/M/S/m/u/n
+/// (gRPC spec §A6-client-retries, §grpc-timeout header definition)
+fn rpc_deadline<T>(request: &tonic::Request<T>) -> Option<StdDuration> {
+    let val = request.metadata().get("grpc-timeout")?;
+    let s = val.to_str().ok()?;
+    let (digits, unit) = s.split_at(s.len().checked_sub(1)?);
+    let n: u64 = digits.parse().ok()?;
+    match unit {
+        "H" => Some(StdDuration::from_secs(n * 3600)),
+        "M" => Some(StdDuration::from_secs(n * 60)),
+        "S" => Some(StdDuration::from_secs(n)),
+        "m" => Some(StdDuration::from_millis(n)),
+        "u" => Some(StdDuration::from_micros(n)),
+        "n" => Some(StdDuration::from_nanos(n)),
+        _ => None,
     }
 }
 
@@ -308,10 +330,10 @@ impl PlateSolver for PlateSolverService {
         &self,
         request: Request<SolveFromCentroidsRequest>,
     ) -> Result<Response<Solution>, Status> {
+        let deadline = rpc_deadline(&request);
         let req = request.into_inner();
 
-        // Step 1: Extract centroids with (x,y) -> (y,x) swap.
-        // Proto ImageCoord uses (x, y), but ps_solve expects (y, x).
+        // (x,y) → (y,x) swap at RPC boundary.
         let centroids_yx: Vec<[f64; 2]> = req.centroids.iter().map(|c| [c.y, c.x]).collect();
 
         // Step 2: Extract image dimensions.
@@ -319,25 +341,39 @@ impl PlateSolver for PlateSolverService {
         let height = height_u32 as usize;
         let width = width_u32 as usize;
 
-        // Step 3: Map SolveParams.
         let default_params = crate::plate_solver::SolveParams::default();
         let params_msg = req.params.as_ref().unwrap_or(&default_params);
-        let solve_params = map_params(params_msg);
+        let mut solve_params = map_params(params_msg);
         let return_matches = params_msg.return_matches;
 
-        // Step 4: Call ps_solve.
-        let sol = ps_solve_centroids(&self.db, &centroids_yx, (height, width), &solve_params);
+        let db = Arc::clone(&self.db);
 
-        // Step 5: Map result to proto Solution.
-        let solution_proto = map_solution(&sol, return_matches, 0.0);
-
-        Ok(Response::new(solution_proto))
+        if let Some(dur) = deadline {
+            let cancel_flag = Arc::new(AtomicBool::new(false));
+            solve_params.cancel_flag = Some(Arc::clone(&cancel_flag));
+            let flag_for_timer = Arc::clone(&cancel_flag);
+            let handle = tokio::task::spawn_blocking(move || {
+                ps_solve_centroids(&db, &centroids_yx, (height, width), &solve_params)
+            });
+            tokio::spawn(async move {
+                sleep(dur).await;
+                flag_for_timer.store(true, Ordering::Relaxed);
+            });
+            let sol = handle.await.map_err(|e| Status::internal(format!("solve task failed: {e}")))?;
+            Ok(Response::new(map_solution(&sol, return_matches, 0.0)))
+        } else {
+            let sol = tokio::task::spawn_blocking(move || {
+                ps_solve_centroids(&db, &centroids_yx, (height, width), &solve_params)
+            }).await.map_err(|e| Status::internal(format!("solve task failed: {e}")))?;
+            Ok(Response::new(map_solution(&sol, return_matches, 0.0)))
+        }
     }
 
     async fn solve_from_image(
         &self,
         request: Request<SolveFromImageRequest>,
     ) -> Result<Response<Solution>, Status> {
+        let deadline = rpc_deadline(&request);
         let req = request.into_inner();
 
         // Take the CentroidsRequest + its input image out of the request so the
@@ -382,14 +418,18 @@ impl PlateSolver for PlateSolverService {
                 .ok_or_else(|| Status::invalid_argument("failed to construct GrayImage"))?;
             ImageBacking::Owned(image)
         };
-        let image_view = backing
+        // Validate up front that the backing can produce a view, then drop the
+        // borrow: the solve runs on a blocking thread, so `backing` (owned buffer
+        // or mmap, both 'static) is moved in and the zero-copy view is rebuilt
+        // inside the closure.
+        backing
             .as_view(width, height)
             .ok_or_else(|| Status::invalid_argument("failed to construct image view"))?;
 
         // Map SolveParams.
         let default_params = crate::plate_solver::SolveParams::default();
         let params_msg = req.params.as_ref().unwrap_or(&default_params);
-        let solve_params = map_params(params_msg);
+        let mut solve_params = map_params(params_msg);
         let return_matches = params_msg.return_matches;
 
         // Map detection params from the request (client-controlled sigma/binning/etc).
@@ -414,13 +454,38 @@ impl PlateSolver for PlateSolverService {
             normalize_rows: extract_req.normalize_rows,
             detect_hot_pixels: extract_req.detect_hot_pixels,
         };
-        // Call ps_solve::solve_from_image directly. It self-reports the extraction
+        // Solve on a blocking thread. `solve_from_image` self-reports the extraction
         // wall-clock in `t_extract` (seconds); convert to ms for the wire field.
-        let sol = ps_solve_image(&self.db, &image_view, &solve_params, &detect);
+        // When the RPC carries a deadline, a timer trips `cancel_flag` so the solver
+        // bails out instead of running past the client's timeout.
+        let db = Arc::clone(&self.db);
 
-        let solution_proto = map_solution(&sol, return_matches, sol.t_extract * 1000.0);
-
-        Ok(Response::new(solution_proto))
+        if let Some(dur) = deadline {
+            let cancel_flag = Arc::new(AtomicBool::new(false));
+            solve_params.cancel_flag = Some(Arc::clone(&cancel_flag));
+            let flag_for_timer = Arc::clone(&cancel_flag);
+            let db2 = Arc::clone(&db);
+            let handle = tokio::task::spawn_blocking(move || {
+                let view = backing
+                    .as_view(width, height)
+                    .expect("image view validated before the solve task was spawned");
+                ps_solve_image(&db2, &view, &solve_params, &detect)
+            });
+            tokio::spawn(async move {
+                sleep(dur).await;
+                flag_for_timer.store(true, Ordering::Relaxed);
+            });
+            let sol = handle.await.map_err(|e| Status::internal(format!("solve task failed: {e}")))?;
+            Ok(Response::new(map_solution(&sol, return_matches, sol.t_extract * 1000.0)))
+        } else {
+            let sol = tokio::task::spawn_blocking(move || {
+                let view = backing
+                    .as_view(width, height)
+                    .expect("image view validated before the solve task was spawned");
+                ps_solve_image(&db, &view, &solve_params, &detect)
+            }).await.map_err(|e| Status::internal(format!("solve task failed: {e}")))?;
+            Ok(Response::new(map_solution(&sol, return_matches, sol.t_extract * 1000.0)))
+        }
     }
 
     async fn get_info(
@@ -446,6 +511,7 @@ mod tests {
     use crate::plate_solver::{CentroidsRequest, Image, SolveParams};
     use ps_db::DatabaseProperties;
     use std::path::Path;
+    use std::time::Duration as StdDuration;
 
     /// Helper: build an empty database for testing.
     fn make_empty_db() -> Database {
@@ -1344,5 +1410,64 @@ mod tests {
             err.code()
         );
         assert!(err.message().contains("height"));
+    }
+
+    /// H6: a tight RPC deadline cancels the solve via cancel_flag before solve_timeout.
+    /// Uses the reference DB + many centroids to ensure the solve takes >200ms.
+    #[tokio::test]
+    async fn h6_rpc_deadline_cancels_solve() {
+        use ps_db::{importer, loader};
+        use std::time::Instant;
+        use tempfile::NamedTempFile;
+
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+        // Load the reference DB (has real patterns — solve takes seconds without a deadline).
+        let npz_path =
+            manifest.join("../reference-solutions/cedar-solve/tetra3/data/default_database.npz");
+        let db_imported = importer::import_npz(&npz_path)
+            .unwrap_or_else(|e| panic!("import_npz failed: {}", e));
+        let tmp = NamedTempFile::new().expect("tempfile");
+        loader::save_native(&db_imported, tmp.path()).expect("save_native");
+        let mut db = loader::load_native(tmp.path()).expect("load_native");
+        db.build_kd_tree();
+
+        // 15 centroids → C(15,4) = 1365 combos with real pattern lookup = slow.
+        let centroids: Vec<ImageCoord> = (0..15).map(|i| ImageCoord {
+            x: 50.0 + (i as f64) * 30.0,
+            y: 50.0 + (i as f64) * 20.0,
+        }).collect();
+
+        let mut request = Request::new(SolveFromCentroidsRequest {
+            centroids,
+            width: 640,
+            height: 480,
+            params: Some(SolveParams {
+                solve_timeout_ms: Some(60_000), // 60s — proves the stop is from RPC deadline, not this
+                ..Default::default()
+            }),
+        });
+        // Set a 200ms RPC deadline via the grpc-timeout header.
+        request.set_timeout(StdDuration::from_millis(200));
+
+        let service = PlateSolverService::new(db);
+        let t0 = Instant::now();
+        let result = service.solve_from_centroids(request).await.expect("should return Ok");
+        let elapsed = t0.elapsed();
+
+        let resp = result.into_inner();
+        // The solve must have been cancelled (not timed out by its own 60s budget).
+        assert_eq!(
+            resp.status,
+            ProtoSolveStatus::Cancelled as i32,
+            "expected Cancelled (3) but got status={}",
+            resp.status
+        );
+        // Must complete well before solve_timeout_ms (60s).
+        assert!(
+            elapsed.as_secs() < 5,
+            "deadline should have cancelled solve within 5s, took {:?}",
+            elapsed
+        );
     }
 }

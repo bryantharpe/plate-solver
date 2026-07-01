@@ -6,6 +6,7 @@ exclude = ["tools/parity/_capture_binning", "reference-solutions/cedar-detect"]
 [workspace.dependencies]
 # Math
 nalgebra = "0.32"
+rayon = "1.10"
 
 # KD-tree
 kiddo = "5.0"

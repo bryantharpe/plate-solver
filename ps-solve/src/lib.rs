@@ -10,6 +10,22 @@ use ps_detect::GrayImageView;
 use std::f64::consts::PI;
 use std::time::Instant;
 
+// --- Parallelism feature gate ----------------------------------------------
+// `rayon` is feature-gated and OFF by default (and OFF on mobile per PRD
+// §mobile-runtime). No parallel code is wired yet, but we statically assert
+// the types that would cross rayon thread boundaries are `Send + Sync` so a
+// future `#[cfg(feature = "rayon")]` parallel solve loop compiles without
+// trait-object surprises.
+#[cfg(feature = "rayon")]
+extern crate rayon as _;
+
+#[allow(dead_code)]
+fn _assert_thread_safety() {
+    fn check<T: Send + Sync>() {}
+    check::<SolveParams>();
+    check::<ps_db::Database>();
+}
+
 /// Status codes for a solve attempt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SolveStatus {

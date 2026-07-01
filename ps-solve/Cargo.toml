@@ -10,8 +10,18 @@ ps-detect = { path = "../ps-detect" }
 nalgebra = { workspace = true }
 image = { workspace = true }
 
+rayon = { workspace = true, optional = true }
+
 [dev-dependencies]
 half = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
+
+[features]
+default = []
+# Optional parallelism for the solve loop. Default OFF; OFF on mobile
+# (per PRD §mobile-runtime / feat-07-mobile-runtime design). No parallel
+# code is wired yet — the flag + Send/Sync assertions (see lib.rs) exist so
+# future parallelism compiles cleanly behind it.
+rayon = ["dep:rayon"]
