@@ -12,7 +12,7 @@ use ps_db::Database;
 use ps_detect::noise::estimate_noise_from_image;
 use ps_detect::{get_stars_from_image, GrayImage, as_view};
 use ps_solve::{
-    solve_from_centroids as ps_solve_centroids, solve_from_image as ps_solve_image,
+    solve_from_centroids as ps_solve_centroids, solve_from_image as ps_solve_image, DetectParams,
     SolveParams as PsSolveParams, SolveStatus as PsSolveStatus,
 };
 use std::fs::File;
@@ -392,9 +392,31 @@ impl PlateSolver for PlateSolverService {
         let solve_params = map_params(params_msg);
         let return_matches = params_msg.return_matches;
 
+        // Map detection params from the request (client-controlled sigma/binning/etc).
+        let raw_sigma = extract_req.sigma;
+        let sigma = if raw_sigma > 0.0 { raw_sigma } else { 4.0 };
+        let effective_binning: u32 = if let Some(b) = extract_req.binning {
+            match b {
+                2 | 4 => b as u32,
+                _ => {
+                    return Err(Status::invalid_argument(format!(
+                        "binning must be 2 or 4, got {}",
+                        b
+                    )));
+                }
+            }
+        } else {
+            1u32
+        };
+        let detect = DetectParams {
+            sigma,
+            binning: effective_binning,
+            normalize_rows: extract_req.normalize_rows,
+            detect_hot_pixels: extract_req.detect_hot_pixels,
+        };
         // Call ps_solve::solve_from_image directly. It self-reports the extraction
         // wall-clock in `t_extract` (seconds); convert to ms for the wire field.
-        let sol = ps_solve_image(&self.db, &image_view, &solve_params);
+        let sol = ps_solve_image(&self.db, &image_view, &solve_params, &detect);
 
         let solution_proto = map_solution(&sol, return_matches, sol.t_extract * 1000.0);
 
