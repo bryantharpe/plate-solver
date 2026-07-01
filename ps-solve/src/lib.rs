@@ -699,7 +699,7 @@ pub fn solve_from_image(
         detect.binning,
         detect.detect_hot_pixels,
         false,
-    );
+    ).expect("valid binning");
     let centroids: Vec<[f64; 2]> = stars
         .iter()
         .map(|s| [s.centroid_y as f64, s.centroid_x as f64])
@@ -1731,7 +1731,7 @@ mod tests {
                 for normalize in [false, true] {
                     let (stars, _, _, _) = ps_detect::get_stars_from_image(
                         &img, 1.0, sigma, normalize, binning, true, false,
-                    );
+                    ).expect("valid binning");
                     if stars.len() < 4 {
                         continue;
                     }

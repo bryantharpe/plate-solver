@@ -202,7 +202,7 @@ impl PlateSolver for PlateSolverService {
             effective_binning,
             detect_hot_pixels,
             return_binned,
-        );
+        ).map_err(|e| Status::invalid_argument(e))?;
         let elapsed = start.elapsed();
         let algorithm_time = Duration {
             seconds: elapsed.as_secs() as i64,

@@ -54,7 +54,7 @@ fn get_stars_end_to_end_parity() {
             /*binning=*/ 1,
             /*detect_hot_pixels=*/ true,
             /*return_binned_image=*/ false,
-        );
+        ).unwrap();
 
         // Assert count match.
         // hale_bopp.jpg has a known hot-pixel tolerance of ±2.
