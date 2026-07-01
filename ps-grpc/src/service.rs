@@ -121,8 +121,13 @@ impl PlateSolver for PlateSolverService {
         // reopen_shmem: we open fresh per request, so reopen is implicit.
         let _reopen = input_image.reopen_shmem;
 
-        let width = input_image.width as u32;
-        let height = input_image.height as u32;
+        let width = u32::try_from(input_image.width)
+            .map_err(|_| Status::invalid_argument("width must be positive"))?;
+        let height = u32::try_from(input_image.height)
+            .map_err(|_| Status::invalid_argument("height must be positive"))?;
+        if width == 0 || height == 0 {
+            return Err(Status::invalid_argument("width and height must be > 0"));
+        }
 
         // Resolve image bytes (shmem or inline). The inline path moves
         // `image_data` directly (no clone). The shmem path must copy out of
@@ -146,8 +151,11 @@ impl PlateSolver for PlateSolverService {
             input_image.image_data
         };
 
-        // Validate dimensions.
-        let expected_len = (width * height) as usize;
+        // Validate dimensions (guard against overflow).
+        let expected_len = (width as u64)
+            .checked_mul(height as u64)
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| Status::invalid_argument("image dimensions too large"))?;
         if image_bytes.len() != expected_len {
             return Err(Status::invalid_argument(format!(
                 "image_data length {} does not match width*height {}*{}={}",
@@ -270,9 +278,23 @@ impl PlateSolver for PlateSolverService {
         // Proto ImageCoord uses (x, y), but ps_solve expects (y, x).
         let centroids_yx: Vec<[f64; 2]> = req.centroids.iter().map(|c| [c.y, c.x]).collect();
 
-        // Step 2: Extract image dimensions.
-        let height = req.height as usize;
-        let width = req.width as usize;
+        // Step 2: Extract and validate image dimensions.
+        let height = usize::try_from(
+            u32::try_from(req.height)
+                .map_err(|_| Status::invalid_argument("height must be positive"))?,
+        )
+        .map_err(|_| Status::invalid_argument("height out of range"))?;
+        if height == 0 {
+            return Err(Status::invalid_argument("height must be > 0"));
+        }
+        let width = usize::try_from(
+            u32::try_from(req.width)
+                .map_err(|_| Status::invalid_argument("width must be positive"))?,
+        )
+        .map_err(|_| Status::invalid_argument("width out of range"))?;
+        if width == 0 {
+            return Err(Status::invalid_argument("width must be > 0"));
+        }
 
         // Step 3: Map SolveParams.
         let default_params = crate::plate_solver::SolveParams::default();
@@ -305,8 +327,13 @@ impl PlateSolver for PlateSolverService {
             .input_image
             .ok_or_else(|| Status::invalid_argument("missing input_image in extract"))?;
 
-        let width = input_image.width as u32;
-        let height = input_image.height as u32;
+        let width = u32::try_from(input_image.width)
+            .map_err(|_| Status::invalid_argument("width must be positive"))?;
+        let height = u32::try_from(input_image.height)
+            .map_err(|_| Status::invalid_argument("height must be positive"))?;
+        if width == 0 || height == 0 {
+            return Err(Status::invalid_argument("width and height must be > 0"));
+        }
 
         // Resolve image bytes (shmem or inline). The inline path moves
         // `image_data` directly (no clone). The shmem path must copy out of
@@ -330,8 +357,11 @@ impl PlateSolver for PlateSolverService {
             input_image.image_data
         };
 
-        // Validate dimensions.
-        let expected_len = (width * height) as usize;
+        // Validate dimensions (guard against overflow).
+        let expected_len = (width as u64)
+            .checked_mul(height as u64)
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| Status::invalid_argument("image dimensions too large"))?;
         if image_bytes.len() != expected_len {
             return Err(Status::invalid_argument(format!(
                 "image_data length {} does not match width*height {}*{}={}",
@@ -866,5 +896,109 @@ mod tests {
         // algorithm_time field 5 should decode correctly as Duration in both protos now
         let algo_time = cedar_result.algorithm_time.expect("algorithm_time present");
         assert_eq!(algo_time.nanos, 500_000);
+    }
+
+    /// Test: extract_centroids with negative width returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn test_extract_centroids_negative_width() {
+        let data = vec![128u8; 100];
+        let request = make_inline_request(data, -1, 100, 10.0);
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.extract_centroids(Request::new(request)).await;
+
+        assert!(result.is_err(), "expected error for negative width");
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument, got {:?}",
+            err.code()
+        );
+    }
+
+    /// Test: extract_centroids with zero height returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn test_extract_centroids_zero_height() {
+        let data = vec![128u8; 0];
+        let request = make_inline_request(data, 100, 0, 10.0);
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.extract_centroids(Request::new(request)).await;
+
+        assert!(result.is_err(), "expected error for zero height");
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument, got {:?}",
+            err.code()
+        );
+    }
+
+    /// Test: extract_centroids with oversized dimensions returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn test_extract_centroids_oversized_dimensions() {
+        // i32::MAX * i32::MAX is too large for the image_data check (>4 EiB on 64-bit).
+        let data = vec![128u8; 100];
+        let request = make_inline_request(data, i32::MAX, i32::MAX, 10.0);
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.extract_centroids(Request::new(request)).await;
+
+        assert!(result.is_err(), "expected error for oversized dimensions");
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument, got {:?}",
+            err.code()
+        );
+    }
+
+    /// Test: solve_from_centroids with negative width returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn test_solve_from_centroids_negative_width() {
+        let request = SolveFromCentroidsRequest {
+            centroids: vec![ImageCoord { x: 10.0, y: 20.0 }],
+            width: -1,
+            height: 100,
+            params: None,
+        };
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.solve_from_centroids(Request::new(request)).await;
+
+        assert!(result.is_err(), "expected error for negative width");
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument, got {:?}",
+            err.code()
+        );
+    }
+
+    /// Test: solve_from_centroids with zero height returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn test_solve_from_centroids_zero_height() {
+        let request = SolveFromCentroidsRequest {
+            centroids: vec![ImageCoord { x: 10.0, y: 20.0 }],
+            width: 100,
+            height: 0,
+            params: None,
+        };
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.solve_from_centroids(Request::new(request)).await;
+
+        assert!(result.is_err(), "expected error for zero height");
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument, got {:?}",
+            err.code()
+        );
     }
 }
