@@ -287,22 +287,6 @@ pub async fn solve_handler(State(state): State<AppState>, mut multipart: Multipa
         Err(resp) => return resp,
     };
 
-    let img = match decode_image_bounded(&form.image_bytes) {
-        Ok(img) => img.to_luma8(),
-        Err(image::ImageError::Limits(e)) => {
-            return error_response(
-                StatusCode::PAYLOAD_TOO_LARGE,
-                format!("image exceeds decode limits: {e}"),
-            )
-        }
-        Err(e) => {
-            return error_response(
-                StatusCode::UNSUPPORTED_MEDIA_TYPE,
-                format!("could not decode image: {e}"),
-            )
-        }
-    };
-
     let params = SolveParams {
         match_radius: form.match_radius,
         match_threshold: form.match_threshold,
@@ -314,6 +298,10 @@ pub async fn solve_handler(State(state): State<AppState>, mut multipart: Multipa
         cancel_flag: None,
     };
 
+    // Acquire the solve permit *before* touching the image: decode is
+    // CPU-bound and allocation-heavy, so it must be throttled by the same
+    // single-heavy-op-at-a-time gate as the solve itself, and run off the
+    // async executor via spawn_blocking rather than blocking a tokio worker.
     let permit = match state.solve_gate.clone().acquire_owned().await {
         Ok(p) => p,
         Err(_) => {
@@ -322,14 +310,28 @@ pub async fn solve_handler(State(state): State<AppState>, mut multipart: Multipa
     };
 
     let db = state.db.clone();
+    let image_bytes = form.image_bytes;
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        ps_solve::solve_from_image(&db, &img, &params)
+        let img = decode_image_bounded(&image_bytes)?.to_luma8();
+        Ok(ps_solve::solve_from_image(&db, &img, &params))
     })
     .await;
 
     let sol = match result {
-        Ok(sol) => sol,
+        Ok(Ok(sol)) => sol,
+        Ok(Err(image::ImageError::Limits(e))) => {
+            return error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                format!("image exceeds decode limits: {e}"),
+            )
+        }
+        Ok(Err(e)) => {
+            return error_response(
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                format!("could not decode image: {e}"),
+            )
+        }
         Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "solver panicked"),
     };
 
