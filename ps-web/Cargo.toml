@@ -1,0 +1,16 @@
+[package]
+name = "ps-web"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ps-db = { path = "../ps-db", features = ["kd-tree"] }
+axum = { workspace = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+clap = { workspace = true }
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
+http-body-util = "0.1"
