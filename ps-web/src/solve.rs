@@ -74,8 +74,10 @@ fn map_response(sol: &Solution) -> SolveResponse {
                 .map(|((yx, rdm), cat_id)| MatchedStarJson {
                     x: yx[1], // swap: response uses (x, y)
                     y: yx[0],
-                    ra: rdm[0],
-                    dec: rdm[1],
+                    // ps_solve::Solution.matched_stars stores ra/dec in radians
+                    // (star_table columns); convert to degrees to match ra_deg/dec_deg.
+                    ra: rdm[0].to_degrees(),
+                    dec: rdm[1].to_degrees(),
                     mag: rdm[2],
                     cat_id: *cat_id,
                 })

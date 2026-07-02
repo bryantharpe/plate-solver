@@ -173,7 +173,35 @@ async fn solve_reference_image_returns_match_found() {
 
     assert!(json["ra_hms"].is_string());
     assert!(json["dec_dms"].is_string());
-    assert!(json["matched_stars"].as_array().unwrap().len() as u64 == matches);
+    let matched_stars = json["matched_stars"].as_array().unwrap();
+    assert!(matched_stars.len() as u64 == matches);
+
+    // Pin matched_stars ra/dec units: they must be degrees, consistent with
+    // ra_deg/dec_deg (regression test for radians-vs-degrees mismatch). A
+    // matched star must lie within the solved field of view of the
+    // boresight; if ra/dec were still in radians this would be off by ~57x.
+    let first_star = &matched_stars[0];
+    let star_ra = first_star["ra"].as_f64().expect("star ra present");
+    let star_dec = first_star["dec"].as_f64().expect("star dec present");
+    let sep_deg = angular_separation_deg(star_ra, star_dec, ra, dec);
+    assert!(
+        sep_deg < fov,
+        "matched star ({}, {}) is {} deg from solved boresight ({}, {}), expected < fov {} (units mismatch?)",
+        star_ra,
+        star_dec,
+        sep_deg,
+        ra,
+        dec,
+        fov
+    );
+}
+
+/// Great-circle angular separation between two ra/dec points, in degrees.
+fn angular_separation_deg(ra1_deg: f64, dec1_deg: f64, ra2_deg: f64, dec2_deg: f64) -> f64 {
+    let (ra1, dec1) = (ra1_deg.to_radians(), dec1_deg.to_radians());
+    let (ra2, dec2) = (ra2_deg.to_radians(), dec2_deg.to_radians());
+    let cos_sep = dec1.sin() * dec2.sin() + dec1.cos() * dec2.cos() * (ra1 - ra2).cos();
+    cos_sep.clamp(-1.0, 1.0).acos().to_degrees()
 }
 
 #[tokio::test]
