@@ -123,6 +123,26 @@ const DEFAULT_MATCH_RADIUS: f64 = 0.01;
 const DEFAULT_MATCH_THRESHOLD: f64 = 1e-5;
 const MATCH_MAX_ERROR: f64 = 0.002;
 
+/// Strict per-side cap on decoded image dimensions. Well above any real
+/// astrophotography sensor (largest common consumer sensors are well under
+/// 10k px/side); exists to reject a small, highly-compressible file that
+/// declares absurd dimensions (decompression-bomb DoS).
+const MAX_IMAGE_DIMENSION: u32 = 20_000;
+/// Non-strict cap on total decoder allocation. Backstops the dimension cap
+/// for formats/paths where width*height*channels can still blow past a sane
+/// memory budget even under the dimension limit.
+const MAX_DECODE_ALLOC_BYTES: u64 = 256 * 1024 * 1024;
+
+fn image_decode_limits() -> image::io::Limits {
+    // `image::io::Limits` is `#[non_exhaustive]`: build from `default()` and
+    // mutate fields rather than using struct-literal syntax.
+    let mut limits = image::io::Limits::default();
+    limits.max_image_width = Some(MAX_IMAGE_DIMENSION);
+    limits.max_image_height = Some(MAX_IMAGE_DIMENSION);
+    limits.max_alloc = Some(MAX_DECODE_ALLOC_BYTES);
+    limits
+}
+
 /// Parsed multipart form fields for a solve request.
 struct SolveForm {
     image_bytes: Vec<u8>,
@@ -248,14 +268,33 @@ async fn parse_field_f64(
     })
 }
 
+/// Decode an image with strict dimension/allocation limits, to guard against
+/// decompression-bomb inputs (a small, highly-compressible file that decodes
+/// to an enormous pixel buffer). Oversize images are rejected with 413
+/// rather than allowed to exhaust process memory; malformed/unsupported
+/// images are rejected with 415 as before.
+fn decode_image_bounded(bytes: &[u8]) -> image::ImageResult<image::DynamicImage> {
+    let mut reader = image::io::Reader::new(std::io::Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(image::ImageError::IoError)?;
+    reader.limits(image_decode_limits());
+    reader.decode()
+}
+
 pub async fn solve_handler(State(state): State<AppState>, mut multipart: Multipart) -> Response {
     let form = match parse_form(&mut multipart).await {
         Ok(f) => f,
         Err(resp) => return resp,
     };
 
-    let img = match image::load_from_memory(&form.image_bytes) {
+    let img = match decode_image_bounded(&form.image_bytes) {
         Ok(img) => img.to_luma8(),
+        Err(image::ImageError::Limits(e)) => {
+            return error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                format!("image exceeds decode limits: {e}"),
+            )
+        }
         Err(e) => {
             return error_response(
                 StatusCode::UNSUPPORTED_MEDIA_TYPE,

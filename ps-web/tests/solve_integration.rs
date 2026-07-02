@@ -266,6 +266,53 @@ async fn undecodable_image_returns_415() {
     assert!(json["error"].is_string());
 }
 
+/// Regression test for decompression-bomb DoS protection: a valid, cheap-to-encode
+/// image (1px tall) that declares a width past the decoder's strict dimension
+/// limit must be rejected before any large pixel buffer is allocated.
+#[tokio::test]
+async fn oversize_image_returns_413() {
+    // One dimension past the server's configured limit; height=1 keeps the
+    // actual encoded/decoded buffer tiny even though the image is "rejected
+    // for being too big".
+    let gray = image::GrayImage::new(20_001, 1);
+    let dynamic = image::DynamicImage::from(gray);
+    let mut png_bytes = Cursor::new(Vec::new());
+    dynamic
+        .write_to(&mut png_bytes, image::ImageFormat::Png)
+        .expect("encode png");
+
+    let body = build_multipart_body(&[
+        PartField::File {
+            name: "image",
+            filename: "oversize.png",
+            content_type: "image/png",
+            data: png_bytes.get_ref(),
+        },
+        PartField::Text {
+            name: "fov_estimate",
+            value: "11",
+        },
+    ]);
+
+    let app = app(make_state());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/solve")
+                .header("content-type", multipart_content_type())
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(json["error"].is_string());
+}
+
 #[tokio::test]
 async fn all_black_image_returns_too_few() {
     let gray = image::GrayImage::new(64, 64);
