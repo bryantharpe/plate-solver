@@ -2,9 +2,6 @@
 
 HTTP web API for the Plate Solver, built on [axum](https://docs.rs/axum).
 
-This crate is currently a skeleton: it exposes a health check and a
-placeholder index page. The `POST /api/solve` endpoint is a follow-up.
-
 ## Running
 
 ```bash
@@ -24,3 +21,26 @@ cargo run -p ps-web -- --db <path> --listen 0.0.0.0:9000
 
 - `GET /healthz` — JSON status and database properties.
 - `GET /` — placeholder index page.
+- `POST /api/solve` — multipart image + FOV estimate to JSON plate solution.
+
+### `POST /api/solve`
+
+Accepts `multipart/form-data`:
+
+- `image` (required) — JPEG or PNG file.
+- `fov_estimate` (required) — estimated field of view, in degrees.
+- `fov_max_error` (optional) — max FOV error tolerance, in degrees.
+- `match_radius` (optional, default `0.01`) — match radius as a fraction of image width.
+- `match_threshold` (optional, default `1e-5`) — false-alarm probability threshold.
+- `timeout_ms` (optional, default `30000`, clamped to `60000`) — solve timeout in milliseconds.
+- `distortion` (optional) — fixed radial distortion coefficient; omit to estimate it.
+
+The response is always HTTP 200 for a completed solve attempt, with a `status`
+field of `match_found`, `no_match`, `timeout`, `cancelled`, or `too_few`.
+Non-`match_found` responses include a human-readable `hint`. Malformed
+requests return 400, undecodable images return 415, and solver panics
+return 500 — all with a `{"error": "..."}` body.
+
+```bash
+curl -F image=@reference-solutions/cedar-solve/examples/data/medium_fov/2019-07-29T204726_Alt40_Azi-135_Try1.jpg -F fov_estimate=11 http://127.0.0.1:8080/api/solve
+```

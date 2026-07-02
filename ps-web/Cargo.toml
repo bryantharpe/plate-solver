@@ -5,12 +5,17 @@ edition = "2021"
 
 [dependencies]
 ps-db = { path = "../ps-db", features = ["kd-tree"] }
+ps-solve = { path = "../ps-solve" }
 axum = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 clap = { workspace = true }
+# Enable PNG in addition to the workspace-default JPEG-only feature set.
+# Cargo feature unification means this enables `png` for the whole workspace build.
+image = { version = "=0.25.1", default-features = false, features = ["jpeg", "png"] }
 
 [dev-dependencies]
 tower = { version = "0.4", features = ["util"] }
 http-body-util = "0.1"
+tempfile = { workspace = true }

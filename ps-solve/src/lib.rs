@@ -253,11 +253,24 @@ pub fn solve_from_centroids(
 
         // Inner loop: DB lookup per candidate key.
         for (cand_key, _dist) in &candidate_keys {
+            // lookup_pattern's FOV pre-filter uses a fixed, very tight tolerance
+            // (~0.1% of the estimate) whenever a coarse FOV is passed in. The
+            // tetra3 reference only applies this filter when the caller supplies
+            // *both* fov_estimate and fov_max_error (see
+            // `_get_all_patterns_for_index` in tetra3.py). Passing fov_estimate
+            // alone would incorrectly reject the correct pattern for any
+            // estimate that isn't already accurate to ~0.1%, so only forward it
+            // when fov_max_error is also set.
+            let coarse_fov_for_lookup = if params.fov_max_error.is_some() {
+                params.fov_estimate
+            } else {
+                None
+            };
             let slots = ps_db::lookup::lookup_pattern(
                 db,
                 cand_key,
                 image_pattern_largest_edge,
-                params.fov_estimate, // Only apply FOV filter when user provides fov_estimate
+                coarse_fov_for_lookup,
             );
 
             for &slot in &slots {

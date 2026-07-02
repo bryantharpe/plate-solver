@@ -1,13 +1,18 @@
 //! HTTP web API for the Plate Solver.
 
-use axum::extract::State;
+mod solve;
+
+use axum::extract::{DefaultBodyLimit, State};
 use axum::response::Html;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use ps_db::Database;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
+
+/// Max accepted request body size for `/api/solve` (bytes).
+const SOLVE_BODY_LIMIT: usize = 32 * 1024 * 1024;
 
 /// Shared application state passed to every handler.
 #[derive(Clone)]
@@ -57,6 +62,10 @@ pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
         .route("/", get(index))
+        .route(
+            "/api/solve",
+            post(solve::solve_handler).layer(DefaultBodyLimit::max(SOLVE_BODY_LIMIT)),
+        )
         .with_state(state)
 }
 
