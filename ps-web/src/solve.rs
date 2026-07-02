@@ -281,11 +281,29 @@ fn decode_image_bounded(bytes: &[u8]) -> image::ImageResult<image::DynamicImage>
     reader.decode()
 }
 
+/// Trips the wrapped flag when dropped. `spawn_blocking` tasks are not
+/// aborted when their `JoinHandle` future is dropped, so a client disconnect
+/// mid-solve would otherwise leave the blocking task (and the solve permit
+/// it holds) running until it finishes on its own. Holding this guard across
+/// the `spawn_blocking` await means that if the handler future is dropped
+/// (request cancelled), the guard drops too and trips the flag, which
+/// `ps_solve`'s solve loop polls to exit early.
+struct CancelOnDrop(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        self.0.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 pub async fn solve_handler(State(state): State<AppState>, mut multipart: Multipart) -> Response {
     let form = match parse_form(&mut multipart).await {
         Ok(f) => f,
         Err(resp) => return resp,
     };
+
+    let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let _cancel_guard = CancelOnDrop(cancel_flag.clone());
 
     let params = SolveParams {
         match_radius: form.match_radius,
@@ -295,7 +313,7 @@ pub async fn solve_handler(State(state): State<AppState>, mut multipart: Multipa
         distortion: form.distortion,
         fov_estimate: Some(form.fov_estimate),
         fov_max_error: form.fov_max_error,
-        cancel_flag: None,
+        cancel_flag: Some(cancel_flag),
     };
 
     // Acquire the solve permit *before* touching the image: decode is
@@ -373,6 +391,16 @@ fn split_sexagesimal(total_units: f64) -> (i64, i64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancel_on_drop_trips_flag() {
+        let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        {
+            let _guard = CancelOnDrop(flag.clone());
+            assert!(!flag.load(std::sync::atomic::Ordering::Relaxed));
+        }
+        assert!(flag.load(std::sync::atomic::Ordering::Relaxed));
+    }
 
     #[test]
     fn ra_to_hms_zero() {
