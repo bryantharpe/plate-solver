@@ -138,4 +138,32 @@ mod tests {
             content_type
         );
     }
+
+    #[tokio::test]
+    async fn index_html_has_solve_ui_wiring() {
+        let app = app(make_state());
+
+        let response = app
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let html = String::from_utf8(body.to_vec()).expect("HTML is valid UTF-8");
+
+        assert!(
+            html.contains(r#"id="solve-form""#),
+            "missing id=\"solve-form\""
+        );
+        assert!(
+            html.contains(r#"id="fov_estimate""#),
+            "missing id=\"fov_estimate\""
+        );
+        assert!(html.contains(r#"id="result""#), "missing id=\"result\"");
+        assert!(
+            html.to_lowercase().contains("aladin"),
+            "missing \"aladin\" reference"
+        );
+    }
 }

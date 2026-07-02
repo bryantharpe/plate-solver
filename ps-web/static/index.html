@@ -2,10 +2,472 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Plate Solver</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        max-width: 960px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.4;
+      }
+      h1 {
+        margin-bottom: 0.25rem;
+      }
+      form {
+        border: 1px solid #8888;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin: 1.5rem 0;
+      }
+      .field {
+        margin-bottom: 0.85rem;
+      }
+      .field label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+      }
+      .field small {
+        display: block;
+        opacity: 0.75;
+        margin-top: 0.2rem;
+      }
+      details {
+        margin: 0.85rem 0;
+        border: 1px solid #8884;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+      }
+      details summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+      details .field {
+        margin-top: 0.75rem;
+      }
+      button {
+        font-size: 1rem;
+        padding: 0.5rem 1.25rem;
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      .spinner {
+        margin-left: 0.75rem;
+        opacity: 0.8;
+      }
+      .spinner::before {
+        content: "";
+        display: inline-block;
+        width: 0.9em;
+        height: 0.9em;
+        margin-right: 0.4em;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        vertical-align: -0.15em;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      table {
+        border-collapse: collapse;
+        margin: 0.5rem 0 1.5rem;
+        width: 100%;
+      }
+      table.kv-table td,
+      table.kv-table th {
+        text-align: left;
+        padding: 0.3rem 0.75rem 0.3rem 0;
+      }
+      table.stars-table {
+        display: block;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      table.stars-table th,
+      table.stars-table td {
+        padding: 0.25rem 0.6rem;
+        border-bottom: 1px solid #8883;
+        text-align: right;
+      }
+      table.stars-table thead {
+        position: sticky;
+        top: 0;
+        background: canvas;
+      }
+      .message {
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        margin: 1rem 0;
+      }
+      .message-error {
+        border: 1px solid #d33;
+        background: #d3313015;
+      }
+      .message-hint {
+        border: 1px solid #8888;
+        background: #88888815;
+      }
+      #aladin-lite-div {
+        width: 100%;
+        height: 420px;
+        margin: 0.75rem 0;
+      }
+      .fallback-link {
+        font-size: 0.9rem;
+        opacity: 0.85;
+      }
+    </style>
   </head>
   <body>
     <h1>Plate Solver</h1>
-    <p>The web API is running. See <a href="/healthz">/healthz</a> for status.</p>
+    <p>
+      Upload a star-field image and an estimated field of view to solve for
+      its sky position. See <a href="/healthz">/healthz</a> for server
+      status.
+    </p>
+
+    <form id="solve-form">
+      <div class="field">
+        <label for="image">Image (JPEG or PNG)</label>
+        <input
+          type="file"
+          id="image"
+          name="image"
+          accept="image/jpeg,image/png"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label for="fov_estimate">FOV estimate (degrees)</label>
+        <input
+          type="number"
+          id="fov_estimate"
+          name="fov_estimate"
+          step="any"
+          min="0"
+          required
+        />
+        <small id="fov-hint">Loading supported FOV range&hellip;</small>
+      </div>
+
+      <details>
+        <summary>Advanced</summary>
+
+        <div class="field">
+          <label for="timeout_ms">Timeout (ms)</label>
+          <input
+            type="number"
+            id="timeout_ms"
+            name="timeout_ms"
+            step="1"
+            min="0"
+            placeholder="30000"
+          />
+        </div>
+
+        <div class="field">
+          <label for="match_radius">Match radius</label>
+          <input
+            type="number"
+            id="match_radius"
+            name="match_radius"
+            step="any"
+            min="0"
+            placeholder="0.01"
+          />
+        </div>
+
+        <div class="field">
+          <label for="match_threshold">Match threshold</label>
+          <input
+            type="number"
+            id="match_threshold"
+            name="match_threshold"
+            step="any"
+            min="0"
+            placeholder="0.00001"
+          />
+        </div>
+
+        <div class="field">
+          <label for="fov_max_error">FOV max error (degrees)</label>
+          <input
+            type="number"
+            id="fov_max_error"
+            name="fov_max_error"
+            step="any"
+            min="0"
+            placeholder="auto"
+          />
+        </div>
+
+        <div class="field">
+          <label for="distortion">Distortion (fixed coefficient)</label>
+          <input
+            type="number"
+            id="distortion"
+            name="distortion"
+            step="any"
+            placeholder="estimated"
+          />
+        </div>
+      </details>
+
+      <button type="submit" id="submit-btn">Solve</button>
+      <span id="spinner" class="spinner" hidden>Solving&hellip;</span>
+    </form>
+
+    <div id="result"></div>
+
+    <script
+      src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js"
+      charset="utf-8"
+      onerror="window.__aladinLoadFailed = true"
+    ></script>
+
+    <script>
+      const OPTIONAL_FIELDS = [
+        "timeout_ms",
+        "match_radius",
+        "match_threshold",
+        "fov_max_error",
+        "distortion",
+      ];
+
+      const STATUS_TITLES = {
+        no_match: "No match found",
+        timeout: "Solve timed out",
+        cancelled: "Solve cancelled",
+        too_few: "Too few stars detected",
+      };
+
+      const form = document.getElementById("solve-form");
+      const fovHint = document.getElementById("fov-hint");
+      const spinner = document.getElementById("spinner");
+      const submitBtn = document.getElementById("submit-btn");
+      const resultEl = document.getElementById("result");
+
+      fetch("/healthz")
+        .then((r) => r.json())
+        .then((info) => {
+          if (
+            typeof info.min_fov === "number" &&
+            typeof info.max_fov === "number"
+          ) {
+            fovHint.textContent = `Supported FOV range: ${info.min_fov}° – ${info.max_fov}°`;
+          }
+        })
+        .catch(() => {
+          fovHint.textContent = "Could not load supported FOV range.";
+        });
+
+      function clearResult() {
+        resultEl.innerHTML = "";
+      }
+
+      function renderError(message) {
+        clearResult();
+        const box = document.createElement("div");
+        box.className = "message message-error";
+        box.textContent = message;
+        resultEl.appendChild(box);
+      }
+
+      function renderHintStatus(data) {
+        clearResult();
+        const box = document.createElement("div");
+        box.className = "message message-hint";
+        const h3 = document.createElement("h3");
+        h3.textContent = STATUS_TITLES[data.status] || data.status;
+        const p = document.createElement("p");
+        p.textContent = data.hint;
+        box.appendChild(h3);
+        box.appendChild(p);
+        resultEl.appendChild(box);
+      }
+
+      function kvRow(table, label, value) {
+        const tr = document.createElement("tr");
+        const th = document.createElement("th");
+        th.textContent = label;
+        const td = document.createElement("td");
+        td.textContent = value;
+        tr.appendChild(th);
+        tr.appendChild(td);
+        table.appendChild(tr);
+      }
+
+      function renderMatchFound(data) {
+        clearResult();
+
+        const summary = document.createElement("table");
+        summary.className = "kv-table";
+        kvRow(summary, "RA (deg)", data.ra_deg.toFixed(6));
+        kvRow(summary, "RA (HMS)", data.ra_hms);
+        kvRow(summary, "Dec (deg)", data.dec_deg.toFixed(6));
+        kvRow(summary, "Dec (DMS)", data.dec_dms);
+        kvRow(summary, "Roll (deg)", data.roll_deg.toFixed(4));
+        kvRow(summary, "Solved FOV (deg)", data.fov_deg.toFixed(4));
+        kvRow(summary, "RMSE (px)", data.rmse.toFixed(4));
+        kvRow(summary, "P90 error (px)", data.p90e.toFixed(4));
+        kvRow(summary, "Max error (px)", data.maxe.toFixed(4));
+        kvRow(summary, "Matches", String(data.matches));
+        kvRow(summary, "Probability", data.prob.toExponential(3));
+        kvRow(summary, "Solve time (ms)", data.t_solve_ms.toFixed(1));
+        resultEl.appendChild(summary);
+
+        const starsTitle = document.createElement("h3");
+        starsTitle.textContent = "Matched stars";
+        resultEl.appendChild(starsTitle);
+
+        const starsTable = document.createElement("table");
+        starsTable.className = "stars-table";
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        ["x", "y", "RA", "Dec", "Mag", "Cat ID"].forEach((label) => {
+          const th = document.createElement("th");
+          th.textContent = label;
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        starsTable.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        (data.matched_stars || []).forEach((star) => {
+          const tr = document.createElement("tr");
+          [
+            star.x.toFixed(2),
+            star.y.toFixed(2),
+            star.ra.toFixed(6),
+            star.dec.toFixed(6),
+            star.mag.toFixed(2),
+            String(star.cat_id),
+          ].forEach((val) => {
+            const td = document.createElement("td");
+            td.textContent = val;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        starsTable.appendChild(tbody);
+        resultEl.appendChild(starsTable);
+
+        const skyTitle = document.createElement("h3");
+        skyTitle.textContent = "Sky view";
+        resultEl.appendChild(skyTitle);
+
+        const aladinDiv = document.createElement("div");
+        aladinDiv.id = "aladin-lite-div";
+        resultEl.appendChild(aladinDiv);
+
+        const fallbackPara = document.createElement("p");
+        fallbackPara.className = "fallback-link";
+        const fallbackLink = document.createElement("a");
+        fallbackLink.id = "aladin-fallback-link";
+        fallbackLink.textContent = "Open in Aladin";
+        fallbackLink.target = "_blank";
+        fallbackLink.rel = "noopener noreferrer";
+        fallbackLink.href =
+          "https://aladin.cds.unistra.fr/AladinLite/?target=" +
+          encodeURIComponent(`${data.ra_deg} ${data.dec_deg}`) +
+          "&fov=" +
+          encodeURIComponent(data.fov_deg * 2);
+        fallbackPara.appendChild(fallbackLink);
+        resultEl.appendChild(fallbackPara);
+
+        initAladin(aladinDiv, data);
+      }
+
+      function initAladin(container, data) {
+        if (window.__aladinLoadFailed || typeof A === "undefined" || !A.init) {
+          container.textContent =
+            "Interactive sky view unavailable (script failed to load) — use the link below.";
+          return;
+        }
+        A.init
+          .then(() => {
+            try {
+              const aladin = A.aladin(container, {
+                target: `${data.ra_deg} ${data.dec_deg}`,
+                fov: data.fov_deg * 2,
+                cooFrame: "ICRS",
+              });
+              const catalog = A.catalog({
+                name: "Matched stars",
+                color: "#2ecc71",
+                sourceSize: 10,
+                shape: "circle",
+              });
+              const sources = (data.matched_stars || []).map((s) =>
+                A.source(s.ra, s.dec, {
+                  cat_id: s.cat_id,
+                  mag: s.mag,
+                  x: s.x,
+                  y: s.y,
+                }),
+              );
+              catalog.addSources(sources);
+              aladin.addCatalog(catalog);
+            } catch (err) {
+              container.textContent =
+                "Interactive sky view failed to initialize — use the link below.";
+            }
+          })
+          .catch(() => {
+            container.textContent =
+              "Interactive sky view unavailable (script failed to load) — use the link below.";
+          });
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const formData = new FormData(form);
+        for (const name of OPTIONAL_FIELDS) {
+          if (formData.get(name) === "") {
+            formData.delete(name);
+          }
+        }
+
+        clearResult();
+        spinner.hidden = false;
+        submitBtn.disabled = true;
+
+        try {
+          const response = await fetch("/api/solve", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            renderError(
+              data.error || `Request failed with status ${response.status}`,
+            );
+          } else if (data.status === "match_found") {
+            renderMatchFound(data);
+          } else {
+            renderHintStatus(data);
+          }
+        } catch (err) {
+          renderError(`Request failed: ${err.message || err}`);
+        } finally {
+          spinner.hidden = true;
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
   </body>
 </html>

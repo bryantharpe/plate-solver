@@ -20,8 +20,23 @@ cargo run -p ps-web -- --db <path> --listen 0.0.0.0:9000
 ## Routes
 
 - `GET /healthz` — JSON status and database properties.
-- `GET /` — placeholder index page.
+- `GET /` — browser UI: upload form, solution display, Aladin Lite sky view.
 - `POST /api/solve` — multipart image + FOV estimate to JSON plate solution.
+
+## Browser workflow
+
+1. Start the server:
+   ```bash
+   cargo run -p ps-web -- --db reference-solutions/cedar-solve/tetra3/data/default_database.npz
+   ```
+2. Open `http://127.0.0.1:8080/` in a browser.
+3. Choose the reference image
+   `reference-solutions/cedar-solve/examples/data/medium_fov/2019-07-29T204726_Alt40_Azi-135_Try1.jpg`,
+   enter `11` for the FOV estimate, and click **Solve**.
+4. Expect a `match_found` result with RA ≈ `230.67°` and Dec ≈ `11.04°`,
+   a matched-stars table, and an interactive Aladin Lite sky view centered on
+   the solved position (falls back to a plain "Open in Aladin" link if the
+   CDN script can't load).
 
 ### `POST /api/solve`
 
