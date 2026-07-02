@@ -1,5 +1,10 @@
 # Claude Code local settings (personal, machine-specific)
 .claude/settings.local.json
+.claude/commands/handoff.md
+.claude/commands/review.md
+
+# Gas Town per-session runtime state (agent lock, session id)
+.runtime/
 
 # macOS
 .DS_Store
