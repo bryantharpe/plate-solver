@@ -59,6 +59,23 @@ The `assets_serve_with_correct_mime_and_exist` test in `src/lib.rs` fails if
 the committed `dist/` is internally inconsistent (index.html referencing
 assets that don't exist).
 
+### Browser smoke check (supplementary, not part of the cargo gate)
+
+`frontend/e2e/smoke.mjs` drives a real browser against a running server and
+verifies the matched-star overlay, hover tooltip, and Aladin fallback link —
+the behavior that has no `cargo test` coverage since it lives entirely in the
+React frontend. This repo has no CI (`cargo fmt`/`clippy`/`test` is the whole
+local gate); run the smoke check manually after frontend changes:
+
+```bash
+cargo run --release -p ps-web -- --db reference-solutions/cedar-solve/tetra3/data/default_database.npz &
+node frontend/e2e/smoke.mjs
+```
+
+Requires Playwright with a reachable Chromium (see the script header for the
+`PLAYWRIGHT_CHROMIUM_PATH` override on machines other than this dev
+container).
+
 ## Browser workflow
 
 1. Start the server:
@@ -90,8 +107,9 @@ Accepts `multipart/form-data`:
 The response is always HTTP 200 for a completed solve attempt, with a `status`
 field of `match_found`, `no_match`, `timeout`, `cancelled`, or `too_few`.
 Non-`match_found` responses include a human-readable `hint`. Malformed
-requests return 400, undecodable images return 415, and solver panics
-return 500 — all with a `{"error": "..."}` body.
+requests return 400, an oversize request body or an image past the decode
+dimension/allocation limits returns 413, undecodable images return 415, and
+solver panics return 500 — all with a `{"error": "..."}` body.
 
 ```bash
 curl -F image=@reference-solutions/cedar-solve/examples/data/medium_fov/2019-07-29T204726_Alt40_Azi-135_Try1.jpg -F fov_estimate=11 http://127.0.0.1:8080/api/solve

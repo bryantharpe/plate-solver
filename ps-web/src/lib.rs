@@ -144,6 +144,26 @@ mod tests {
             .to_string()
     }
 
+    /// `AppState::solve_gate` is the single-permit semaphore that serializes
+    /// decode+solve so at most one heavy operation runs at a time. This pins
+    /// that architecture directly against the `Semaphore`, independent of
+    /// timing-sensitive concurrent-HTTP-request behavior.
+    #[test]
+    fn solve_gate_allows_only_one_permit_at_a_time() {
+        let state = make_state();
+        assert_eq!(state.solve_gate.available_permits(), 1);
+
+        let first = state.solve_gate.clone().try_acquire_owned().unwrap();
+        assert_eq!(state.solve_gate.available_permits(), 0);
+        assert!(
+            state.solve_gate.clone().try_acquire_owned().is_err(),
+            "a second permit must not be available while the first is held"
+        );
+
+        drop(first);
+        assert_eq!(state.solve_gate.available_permits(), 1);
+    }
+
     #[tokio::test]
     async fn healthz_returns_ok_with_db_info() {
         let response = get_path("/healthz").await;

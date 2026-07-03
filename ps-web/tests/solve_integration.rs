@@ -314,6 +314,186 @@ async fn oversize_image_returns_413() {
 }
 
 #[tokio::test]
+async fn invalid_fov_estimate_returns_400() {
+    let gray = image::GrayImage::new(64, 64);
+    let dynamic = image::DynamicImage::from(gray);
+    let mut png_bytes = Cursor::new(Vec::new());
+    dynamic
+        .write_to(&mut png_bytes, image::ImageFormat::Png)
+        .expect("encode png");
+
+    for bad_fov in ["-1", "0", "not-a-number", "NaN"] {
+        let body = build_multipart_body(&[
+            PartField::File {
+                name: "image",
+                filename: "black.png",
+                content_type: "image/png",
+                data: png_bytes.get_ref(),
+            },
+            PartField::Text {
+                name: "fov_estimate",
+                value: bad_fov,
+            },
+        ]);
+
+        let app = app(make_state());
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/solve")
+                    .header("content-type", multipart_content_type())
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            StatusCode::BAD_REQUEST,
+            "fov_estimate={bad_fov:?} should be rejected"
+        );
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(json["error"].is_string());
+    }
+}
+
+#[tokio::test]
+async fn unknown_field_is_ignored() {
+    let gray = image::GrayImage::new(64, 64);
+    let dynamic = image::DynamicImage::from(gray);
+    let mut png_bytes = Cursor::new(Vec::new());
+    dynamic
+        .write_to(&mut png_bytes, image::ImageFormat::Png)
+        .expect("encode png");
+
+    let body = build_multipart_body(&[
+        PartField::File {
+            name: "image",
+            filename: "black.png",
+            content_type: "image/png",
+            data: png_bytes.get_ref(),
+        },
+        PartField::Text {
+            name: "fov_estimate",
+            value: "11",
+        },
+        PartField::Text {
+            name: "not_a_real_field",
+            value: "should be silently ignored",
+        },
+    ]);
+
+    let app = app(make_state());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/solve")
+                .header("content-type", multipart_content_type())
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // An unrecognized field must not cause a 400 — the request is processed
+    // exactly as if the field were absent (all-black image -> too_few).
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(json["status"], "too_few", "response body: {json}");
+}
+
+/// Regression test for the raw request body size limit (distinct from the
+/// decode dimension/alloc limits below, which only apply to the `image`
+/// field's contents once parsed): a request whose total body exceeds
+/// `SOLVE_BODY_LIMIT` must be rejected before multipart parsing even runs.
+#[tokio::test]
+async fn oversize_body_returns_413() {
+    let filler = "a".repeat(34 * 1024 * 1024); // > 32 MiB SOLVE_BODY_LIMIT
+    let body = build_multipart_body(&[
+        PartField::Text {
+            name: "filler",
+            value: &filler,
+        },
+        PartField::Text {
+            name: "fov_estimate",
+            value: "11",
+        },
+    ]);
+
+    let app = app(make_state());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/solve")
+                .header("content-type", multipart_content_type())
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+/// Regression test distinguishing the decoder's allocation cap from its
+/// dimension cap (`oversize_image_returns_413` above only trips the
+/// dimension cap): an image within the per-side dimension limit but whose
+/// total pixel buffer exceeds the allocation limit must also be rejected
+/// with 413, and the error message must name the memory limit specifically.
+#[tokio::test]
+async fn decode_alloc_cap_returns_413() {
+    // 16400 x 16400 = 268,960,000 bytes > 256 MiB alloc cap, while both
+    // dimensions stay under the 20,000px dimension cap.
+    let gray = image::GrayImage::new(16_400, 16_400);
+    let dynamic = image::DynamicImage::from(gray);
+    let mut png_bytes = Cursor::new(Vec::new());
+    dynamic
+        .write_to(&mut png_bytes, image::ImageFormat::Png)
+        .expect("encode png");
+
+    let body = build_multipart_body(&[
+        PartField::File {
+            name: "image",
+            filename: "alloc_cap.png",
+            content_type: "image/png",
+            data: png_bytes.get_ref(),
+        },
+        PartField::Text {
+            name: "fov_estimate",
+            value: "11",
+        },
+    ]);
+
+    let app = app(make_state());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/solve")
+                .header("content-type", multipart_content_type())
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let error = json["error"].as_str().expect("error is a string");
+    assert!(
+        error.to_lowercase().contains("memory"),
+        "expected a memory-limit error, got: {error}"
+    );
+}
+
+#[tokio::test]
 async fn all_black_image_returns_too_few() {
     let gray = image::GrayImage::new(64, 64);
     let dynamic = image::DynamicImage::from(gray);
