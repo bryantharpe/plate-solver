@@ -12,6 +12,10 @@
 # Rust
 /target
 
+# ps-web frontend (NOTE: frontend/dist is committed by design — the Rust
+# binary embeds it via rust-embed so cargo builds never need node)
+ps-web/frontend/node_modules/
+
 # Standalone parity-capture helper crate (workspace-excluded; builds its own target)
 tools/parity/_capture_binning/target/
 tools/parity/_capture_binning/Cargo.lock
