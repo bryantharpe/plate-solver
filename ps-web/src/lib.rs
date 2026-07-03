@@ -3,10 +3,12 @@
 mod solve;
 
 use axum::extract::{DefaultBodyLimit, State};
-use axum::response::Html;
+use axum::http::{header, StatusCode, Uri};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use ps_db::Database;
+use rust_embed::RustEmbed;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
@@ -53,19 +55,49 @@ async fn healthz(State(state): State<AppState>) -> Json<HealthResponse> {
     })
 }
 
-async fn index() -> Html<&'static str> {
-    Html(include_str!("../static/index.html"))
+/// The built React SPA (`frontend/dist`), embedded into the binary so the
+/// server stays a single self-contained executable. `dist` is committed to
+/// git; rebuilding it requires node (`cd ps-web/frontend && npm run build`)
+/// but cargo never does — see ps-web/README.md.
+#[derive(RustEmbed)]
+#[folder = "frontend/dist"]
+struct FrontendAssets;
+
+fn serve_embedded(path: &str) -> Response {
+    match FrontendAssets::get(path) {
+        Some(file) => {
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+            ([(header::CONTENT_TYPE, mime.as_ref())], file.data).into_response()
+        }
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+/// Fallback handler: serve embedded frontend files by path, 404 for missing
+/// assets (a dotted path is a real file request — don't mask a broken build),
+/// and SPA-fallback everything else to `index.html`.
+async fn static_handler(uri: Uri) -> Response {
+    let path = uri.path().trim_start_matches('/');
+    if path.is_empty() {
+        serve_embedded("index.html")
+    } else if FrontendAssets::get(path).is_some() {
+        serve_embedded(path)
+    } else if path.starts_with("assets/") || path.contains('.') {
+        StatusCode::NOT_FOUND.into_response()
+    } else {
+        serve_embedded("index.html")
+    }
 }
 
 /// Build the axum router for the plate solver web API.
 pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
-        .route("/", get(index))
         .route(
             "/api/solve",
             post(solve::solve_handler).layer(DefaultBodyLimit::max(SOLVE_BODY_LIMIT)),
         )
+        .fallback(get(static_handler))
         .with_state(state)
 }
 
@@ -90,20 +122,31 @@ mod tests {
         AppState::new(Arc::new(make_empty_db()))
     }
 
+    async fn get_path(path: &str) -> axum::response::Response {
+        app(make_state())
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap()
+    }
+
+    async fn body_string(response: axum::response::Response) -> String {
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        String::from_utf8(body.to_vec()).expect("body is valid UTF-8")
+    }
+
+    fn content_type(response: &axum::response::Response) -> String {
+        response
+            .headers()
+            .get("content-type")
+            .expect("content-type header present")
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
     #[tokio::test]
     async fn healthz_returns_ok_with_db_info() {
-        let app = app(make_state());
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/healthz")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
+        let response = get_path("/healthz").await;
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
@@ -118,52 +161,70 @@ mod tests {
 
     #[tokio::test]
     async fn index_returns_html() {
-        let app = app(make_state());
-
-        let response = app
-            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
+        let response = get_path("/").await;
         assert_eq!(response.status(), StatusCode::OK);
-        let content_type = response
-            .headers()
-            .get("content-type")
-            .expect("content-type header present")
-            .to_str()
-            .unwrap();
-        assert!(
-            content_type.starts_with("text/html"),
-            "expected text/html, got {}",
-            content_type
-        );
+        let ct = content_type(&response);
+        assert!(ct.starts_with("text/html"), "expected text/html, got {ct}");
     }
 
     #[tokio::test]
-    async fn index_html_has_solve_ui_wiring() {
-        let app = app(make_state());
-
-        let response = app
-            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
+    async fn index_serves_spa_shell() {
+        let response = get_path("/").await;
         assert_eq!(response.status(), StatusCode::OK);
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        let html = String::from_utf8(body.to_vec()).expect("HTML is valid UTF-8");
+        let html = body_string(response).await;
+        assert!(html.contains(r#"<div id="root">"#), "missing SPA root div");
+        assert!(
+            html.contains(r#"<script type="module""#),
+            "missing module script tag"
+        );
+        assert!(html.contains("/assets/"), "missing hashed asset reference");
+    }
 
+    /// Every /assets/… path referenced by the embedded index.html must exist
+    /// in the embed and serve with a sensible mime type. This doubles as a
+    /// stale-dist guard: a half-committed frontend build fails here.
+    #[tokio::test]
+    async fn assets_serve_with_correct_mime_and_exist() {
+        let html = body_string(get_path("/").await).await;
+
+        let mut asset_paths = Vec::new();
+        for (i, _) in html.match_indices("/assets/") {
+            let rest = &html[i..];
+            let end = rest
+                .find(|c| c == '"' || c == '\'')
+                .expect("asset path terminated by a quote");
+            asset_paths.push(rest[..end].to_string());
+        }
         assert!(
-            html.contains(r#"id="solve-form""#),
-            "missing id=\"solve-form\""
+            !asset_paths.is_empty(),
+            "index.html references no /assets/ files"
         );
-        assert!(
-            html.contains(r#"id="fov_estimate""#),
-            "missing id=\"fov_estimate\""
-        );
-        assert!(html.contains(r#"id="result""#), "missing id=\"result\"");
-        assert!(
-            html.to_lowercase().contains("aladin"),
-            "missing \"aladin\" reference"
-        );
+
+        for path in asset_paths {
+            let response = get_path(&path).await;
+            assert_eq!(response.status(), StatusCode::OK, "missing asset {path}");
+            let ct = content_type(&response);
+            if path.ends_with(".js") {
+                assert!(ct.contains("javascript"), "bad mime for {path}: {ct}");
+            } else if path.ends_with(".css") {
+                assert!(ct.starts_with("text/css"), "bad mime for {path}: {ct}");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn unknown_asset_404s() {
+        let response = get_path("/assets/nope.js").await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn spa_fallback_serves_index() {
+        let response = get_path("/some/client/route").await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let ct = content_type(&response);
+        assert!(ct.starts_with("text/html"), "expected text/html, got {ct}");
+        let html = body_string(response).await;
+        assert!(html.contains(r#"<div id="root">"#), "missing SPA root div");
     }
 }
