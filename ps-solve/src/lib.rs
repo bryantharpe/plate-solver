@@ -53,11 +53,13 @@ pub struct Solution {
     pub matched_stars: Option<Vec<[f64; 3]>>,
     /// Matched catalog IDs, if requested.
     pub matched_cat_ids: Option<Vec<u32>>,
+    /// Number of 4-star combinations examined before stopping.
+    pub combos_examined: u64,
 }
 
 impl Solution {
     /// Construct a failure result.
-    pub fn failure(status: SolveStatus, t_solve: f64) -> Self {
+    pub fn failure(status: SolveStatus, t_solve: f64, combos_examined: u64) -> Self {
         Self {
             status,
             ra: 0.0,
@@ -74,6 +76,7 @@ impl Solution {
             matched_centroids: None,
             matched_stars: None,
             matched_cat_ids: None,
+            combos_examined,
         }
     }
 }
@@ -137,7 +140,7 @@ pub fn solve_from_centroids(
 
     // SV2 step 3: Pre-cluster-bust TooFew guard
     if star_centroids.len() < 4 {
-        return Solution::failure(SolveStatus::TooFew, 0.0);
+        return Solution::failure(SolveStatus::TooFew, 0.0, 0);
     }
 
     // SV2 step 4: Cluster-bust on ALL raw star_centroids
@@ -186,8 +189,10 @@ pub fn solve_from_centroids(
     let cancel_flag = params.cancel_flag.clone();
 
     let mut status = SolveStatus::NoMatch;
+    let mut combos_examined: u64 = 0;
 
     'outer: for combo in combinations_4(num_pattern_centroids) {
+        combos_examined += 1;
         // Timeout check
         if let Some(tmax) = solve_timeout_secs {
             if t0.elapsed().as_secs_f64() > tmax {
@@ -556,12 +561,13 @@ pub fn solve_from_centroids(
                     matched_centroids: Some(matched_centroids_out),
                     matched_stars: Some(matched_stars_out),
                     matched_cat_ids: Some(matched_cat_ids_out),
+                    combos_examined,
                 };
             }
         }
     }
 
-    Solution::failure(status, t0.elapsed().as_secs_f64())
+    Solution::failure(status, t0.elapsed().as_secs_f64(), combos_examined)
 }
 
 /// Cluster-bust centroids: greedy O(n^2) pass keeping stars separated
@@ -758,7 +764,7 @@ mod tests {
 
     #[test]
     fn solution_failure_constructor() {
-        let sol = Solution::failure(SolveStatus::TooFew, 0.123);
+        let sol = Solution::failure(SolveStatus::TooFew, 0.123, 0);
         assert_eq!(sol.status, SolveStatus::TooFew);
         assert_eq!(sol.matches, 0);
         assert!((sol.t_solve - 0.123).abs() < 1e-12);
