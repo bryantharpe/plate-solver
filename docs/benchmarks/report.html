@@ -28,12 +28,12 @@ li { margin: 0.3em 0; }
 <body>
 <h1>Plate Solver Eval-Harness Report</h1>
 <h2>Performance Headline</h2>
-<p>ps_grpc is 1.59x faster than cedar_flow on detect (median over 9 astronomical images)</p>
-<p>ps_grpc is 4.2x faster than tetra3_original on detect (median over 8 astronomical images)</p>
-<p>ps_grpc is 1.72x faster than cedar_flow on solve (median over 9 astronomical images)</p>
-<p>ps_grpc is 3.59x faster than tetra3_original on solve (median over 9 astronomical images)</p>
+<p>ps_grpc is 1.5x faster than cedar_flow on detect (median over 9 astronomical images)</p>
+<p>ps_grpc is 6.69x faster than tetra3_original on detect (median over 9 astronomical images)</p>
+<p>ps_grpc is 0.27x faster than cedar_flow on solve (median over 9 astronomical images)</p>
+<p>ps_grpc is 0.8x faster than tetra3_original on solve (median over 9 astronomical images)</p>
 <h2>Methodology &amp; Environment</h2>
-<p>This report was generated on a **Linux aarch64 system with 8 CPUs**. This is **NOT** the PRD&#x27;s RPi-4B-class or mobile target hardware; these results do not represent the performance characteristics of that platform.</p>
+<p>This report was generated on a **Linux aarch64 system with 20 CPUs**. This is **NOT** the PRD&#x27;s RPi-4B-class or mobile target hardware; these results do not represent the performance characteristics of that platform.</p>
 <h3>Iteration Counts</h3>
 <ul>
 <li>Detect stage: 20 iterations (warmup: 3)</li>
@@ -60,14 +60,14 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0089</th>
-<th>0.0084</th>
+<th>0.0032</th>
+<th>0.0013</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.041</td>
-<td>0.0404</td>
+<td>0.0183</td>
+<td>—</td>
 </tr>
 </table>
 <p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
@@ -75,16 +75,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0304</th>
-<th>0.0284</th>
-<th>7.7</th>
+<th>0.0221</th>
+<th>0.0119</th>
+<th>1.35</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.1204</td>
-<td>0.1184</td>
-<td>39.7</td>
+<td>0.0177</td>
+<td>0.0012</td>
+<td>16.34</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt40_Azi135_Try1.jpg</h3>
@@ -93,14 +93,14 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0092</th>
-<th>0.0088</th>
+<th>0.0033</th>
+<th>0.0014</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0413</td>
-<td>0.0408</td>
+<td>0.018</td>
+<td>—</td>
 </tr>
 </table>
 <p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
@@ -108,16 +108,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0315</th>
-<th>0.0295</th>
-<th>7.7</th>
+<th>0.0302</th>
+<th>0.0179</th>
+<th>1.44</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.1215</td>
-<td>0.1195</td>
-<td>39.7</td>
+<td>0.036</td>
+<td>0.0194</td>
+<td>16.4</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt40_Azi-45_Try1.jpg</h3>
@@ -126,14 +126,14 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0095</th>
-<th>0.009</th>
+<th>0.0024</th>
+<th>0.001</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0416</td>
-<td>0.0411</td>
+<td>0.0187</td>
+<td>—</td>
 </tr>
 </table>
 <p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
@@ -141,16 +141,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0326</th>
-<th>0.0306</th>
-<th>7.7</th>
+<th>0.0031</th>
+<th>0.0002</th>
+<th>1.06</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.1226</td>
-<td>0.1206</td>
-<td>39.7</td>
+<td>0.0186</td>
+<td>0.0023</td>
+<td>16.15</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt40_Azi45_Try1.jpg</h3>
@@ -159,146 +159,14 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0099</th>
-<th>0.0094</th>
+<th>0.0022</th>
+<th>0.0015</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0418</td>
-<td>0.0413</td>
-</tr>
-</table>
-<p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
-<table>
-<tr>
-<th>ps_grpc</th>
-<th>5</th>
-<th>0.0337</th>
-<th>0.0317</th>
-<th>7.7</th>
-</tr>
-<tr>
-<td>tetra3_original</td>
-<td>5</td>
-<td>0.1237</td>
-<td>0.1217</td>
-<td>39.7</td>
-</tr>
-</table>
-<h3>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</h3>
-<p>**Detect (wall-clock &amp; algorithm time in seconds)**</p>
-<table>
-<tr>
-<th>ps_grpc</th>
-<th>20</th>
-<th>0.0101</th>
-<th>0.0096</th>
-</tr>
-<tr>
-<td>tetra3_original</td>
-<td>20</td>
-<td>0.0421</td>
-<td>0.0416</td>
-</tr>
-</table>
-<p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
-<table>
-<tr>
-<th>ps_grpc</th>
-<th>5</th>
-<th>0.0348</th>
-<th>0.0328</th>
-<th>7.7</th>
-</tr>
-<tr>
-<td>tetra3_original</td>
-<td>5</td>
-<td>0.1248</td>
-<td>0.1228</td>
-<td>39.7</td>
-</tr>
-</table>
-<h3>2019-07-29T204726_Alt60_Azi135_Try1.jpg</h3>
-<p>**Detect (wall-clock &amp; algorithm time in seconds)**</p>
-<table>
-<tr>
-<th>ps_grpc</th>
-<th>20</th>
-<th>0.0105</th>
-<th>0.01</th>
-</tr>
-<tr>
-<td>tetra3_original</td>
-<td>20</td>
-<td>0.0425</td>
-<td>0.042</td>
-</tr>
-</table>
-<p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
-<table>
-<tr>
-<th>ps_grpc</th>
-<th>5</th>
-<th>0.0359</th>
-<th>0.0339</th>
-<th>7.7</th>
-</tr>
-<tr>
-<td>tetra3_original</td>
-<td>5</td>
-<td>0.1259</td>
-<td>0.1239</td>
-<td>39.7</td>
-</tr>
-</table>
-<h3>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</h3>
-<p>**Detect (wall-clock &amp; algorithm time in seconds)**</p>
-<table>
-<tr>
-<th>ps_grpc</th>
-<th>20</th>
-<th>0.0107</th>
-<th>0.0103</th>
-</tr>
-<tr>
-<td>tetra3_original</td>
-<td>20</td>
-<td>0.0427</td>
-<td>0.0422</td>
-</tr>
-</table>
-<p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
-<table>
-<tr>
-<th>ps_grpc</th>
-<th>5</th>
-<th>0.037</th>
-<th>0.035</th>
-<th>7.7</th>
-</tr>
-<tr>
-<td>tetra3_original</td>
-<td>5</td>
-<td>0.127</td>
-<td>0.125</td>
-<td>39.7</td>
-</tr>
-</table>
-<h3>2019-07-29T204726_Alt60_Azi45_Try1.jpg</h3>
-<p>**Detect (wall-clock &amp; algorithm time in seconds)**</p>
-<table>
-<tr>
-<th>ps_grpc</th>
-<th>20</th>
-<th>0.0111</th>
-<th>0.0106</th>
-</tr>
-<tr>
-<td>tetra3_original</td>
-<td>20</td>
-<td>0.043</td>
-<td>0.0426</td>
+<td>0.0186</td>
+<td>—</td>
 </tr>
 </table>
 <p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
@@ -307,15 +175,147 @@ li { margin: 0.3em 0; }
 <th>ps_grpc</th>
 <th>5</th>
 <th>0.0381</th>
-<th>0.0361</th>
-<th>7.7</th>
+<th>0.0237</th>
+<th>1.53</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.1281</td>
-<td>0.1261</td>
-<td>39.7</td>
+<td>0.0212</td>
+<td>0.0028</td>
+<td>18.22</td>
+</tr>
+</table>
+<h3>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</h3>
+<p>**Detect (wall-clock &amp; algorithm time in seconds)**</p>
+<table>
+<tr>
+<th>ps_grpc</th>
+<th>20</th>
+<th>0.003</th>
+<th>0.0021</th>
+</tr>
+<tr>
+<td>tetra3_original</td>
+<td>20</td>
+<td>0.0189</td>
+<td>—</td>
+</tr>
+</table>
+<p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
+<table>
+<tr>
+<th>ps_grpc</th>
+<th>5</th>
+<th>0.0155</th>
+<th>0.0083</th>
+<th>1.3</th>
+</tr>
+<tr>
+<td>tetra3_original</td>
+<td>5</td>
+<td>0.0198</td>
+<td>0.0008</td>
+<td>18.81</td>
+</tr>
+</table>
+<h3>2019-07-29T204726_Alt60_Azi135_Try1.jpg</h3>
+<p>**Detect (wall-clock &amp; algorithm time in seconds)**</p>
+<table>
+<tr>
+<th>ps_grpc</th>
+<th>20</th>
+<th>0.0019</th>
+<th>0.0011</th>
+</tr>
+<tr>
+<td>tetra3_original</td>
+<td>20</td>
+<td>0.0189</td>
+<td>—</td>
+</tr>
+</table>
+<p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
+<table>
+<tr>
+<th>ps_grpc</th>
+<th>5</th>
+<th>0.0449</th>
+<th>0.0288</th>
+<th>1.09</th>
+</tr>
+<tr>
+<td>tetra3_original</td>
+<td>5</td>
+<td>0.0205</td>
+<td>0.0012</td>
+<td>19.13</td>
+</tr>
+</table>
+<h3>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</h3>
+<p>**Detect (wall-clock &amp; algorithm time in seconds)**</p>
+<table>
+<tr>
+<th>ps_grpc</th>
+<th>20</th>
+<th>0.0022</th>
+<th>0.0014</th>
+</tr>
+<tr>
+<td>tetra3_original</td>
+<td>20</td>
+<td>0.0186</td>
+<td>—</td>
+</tr>
+</table>
+<p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
+<table>
+<tr>
+<th>ps_grpc</th>
+<th>5</th>
+<th>0.0306</th>
+<th>0.0188</th>
+<th>1.42</th>
+</tr>
+<tr>
+<td>tetra3_original</td>
+<td>5</td>
+<td>0.0361</td>
+<td>0.0174</td>
+<td>18.65</td>
+</tr>
+</table>
+<h3>2019-07-29T204726_Alt60_Azi45_Try1.jpg</h3>
+<p>**Detect (wall-clock &amp; algorithm time in seconds)**</p>
+<table>
+<tr>
+<th>ps_grpc</th>
+<th>20</th>
+<th>0.0027</th>
+<th>0.002</th>
+</tr>
+<tr>
+<td>tetra3_original</td>
+<td>20</td>
+<td>0.0181</td>
+<td>—</td>
+</tr>
+</table>
+<p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
+<table>
+<tr>
+<th>ps_grpc</th>
+<th>5</th>
+<th>0.0329</th>
+<th>0.0197</th>
+<th>2.04</th>
+</tr>
+<tr>
+<td>tetra3_original</td>
+<td>5</td>
+<td>0.0175</td>
+<td>0.001</td>
+<td>16.28</td>
 </tr>
 </table>
 <h3>hale_bopp.jpg</h3>
@@ -324,14 +324,14 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0113</th>
-<th>0.0109</th>
+<th>0.002</th>
+<th>0.0014</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
+<td>20</td>
+<td>0.0124</td>
 <td>—</td>
-<td class='flagged'>ERROR</td>
-<td class='flagged'>ERROR</td>
 </tr>
 </table>
 <p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
@@ -339,16 +339,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0392</th>
-<th>0.0372</th>
-<th>7.7</th>
+<th>0.024</th>
+<th>0.0134</th>
+<th>1.4</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.1292</td>
-<td>0.1272</td>
-<td>39.7</td>
+<td>0.0157</td>
+<td>0.0015</td>
+<td>13.99</td>
 </tr>
 </table>
 <h3>tree.jpg</h3>
@@ -356,32 +356,32 @@ li { margin: 0.3em 0; }
 <table>
 <tr>
 <th>ps_grpc</th>
-<th>20</th>
-<th>0.0117</th>
-<th>0.0112</th>
+<th>1</th>
+<th>0.0014</th>
+<th>0.0008</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
-<td>20</td>
-<td>0.0437</td>
-<td>0.0432</td>
+<td>1</td>
+<td>0.0103</td>
+<td>—</td>
 </tr>
 </table>
 <p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
 <table>
 <tr>
 <th>ps_grpc</th>
-<th>5</th>
-<th>0.0403</th>
-<th>0.0383</th>
-<th>7.7</th>
+<th>1</th>
+<th>0.0486</th>
+<th>0.0404</th>
+<th>0.81</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
-<td>5</td>
-<td>0.1303</td>
-<td>0.1283</td>
-<td>39.7</td>
+<td>1</td>
+<td>0.0259</td>
+<td>0.0146</td>
+<td>11.2</td>
 </tr>
 </table>
 <h3>test_5mp_g100_e50ms.jpg</h3>
@@ -389,32 +389,32 @@ li { margin: 0.3em 0; }
 <table>
 <tr>
 <th>ps_grpc</th>
-<th>20</th>
-<th>0.012</th>
-<th>0.0115</th>
+<th>1</th>
+<th>0.003</th>
+<th>0.0015</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
-<td>20</td>
-<td>0.044</td>
-<td>0.0435</td>
+<td>1</td>
+<td>0.0361</td>
+<td>—</td>
 </tr>
 </table>
 <p>**Solve (wall-clock &amp; solve time in seconds; extract time in milliseconds)**</p>
 <table>
 <tr>
 <th>ps_grpc</th>
-<th>5</th>
-<th>0.0414</th>
-<th>0.0394</th>
-<th>7.7</th>
+<th>1</th>
+<th>0.0338</th>
+<th>0.0228</th>
+<th>1.7</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
-<td>5</td>
-<td>0.1314</td>
-<td>0.1294</td>
-<td>39.7</td>
+<td>1</td>
+<td>0.0392</td>
+<td>0.0043</td>
+<td>34.66</td>
 </tr>
 </table>
 <h2>Aggregate Speedup (Astronomical Images)</h2>
@@ -422,13 +422,13 @@ li { margin: 0.3em 0; }
 <table>
 <tr>
 <th>ps_grpc vs cedar_flow</th>
-<th>1.59x</th>
-<th>1.72x</th>
+<th>1.5x</th>
+<th>0.27x</th>
 </tr>
 <tr>
 <td>cedar_flow vs tetra3_original</td>
-<td>2.63x</td>
-<td>2.09x</td>
+<td>5.31x</td>
+<td>3.3x</td>
 </tr>
 </table>
 <h2>Parity Results</h2>
@@ -461,310 +461,310 @@ li { margin: 0.3em 0; }
 <th>2019-07-29T204726_Alt40_Azi-135_Try1.jpg</th>
 <th>cedar_flow_vs_tetra3_original</th>
 <th>cross_catalog_sanity_check</th>
-<th>✓ (max=0.00px/0.10px)</th>
-<th>✓ (Δ=0.00″/10.00″)</th>
-<th>✓ (Δ=0.00″/10.00″)</th>
-<th>✓ (Δ=0.00″/0.01″)</th>
-<th>✓ (0.00%/0.10%)</th>
+<th>✗ (max=424.87px/0.10px)</th>
+<th>N/A (missing value)</th>
+<th>N/A (missing value)</th>
+<th>N/A (missing value)</th>
+<th>N/A (missing value)</th>
 <th>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</th>
-<th>✓</th>
-<th></th>
+<th>✗</th>
+<th>**FLAGGED**</th>
 </tr>
 <tr>
 <td>2019-07-29T204726_Alt40_Azi-135_Try1.jpg</td>
 <td>ps_grpc_vs_tetra3_original</td>
 <td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
+<td>✗ (max=424.87px/0.10px)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
 <td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi-45_Try1.jpg</td>
-<td>cedar_flow_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi-45_Try1.jpg</td>
-<td>ps_grpc_vs_cedar_flow</td>
-<td>primary_same_catalog</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>✓ (Δ=0/2)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi-45_Try1.jpg</td>
-<td>ps_grpc_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi135_Try1.jpg</td>
-<td>cedar_flow_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi135_Try1.jpg</td>
-<td>ps_grpc_vs_cedar_flow</td>
-<td>primary_same_catalog</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>✓ (Δ=0/2)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi135_Try1.jpg</td>
-<td>ps_grpc_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi45_Try1.jpg</td>
-<td>cedar_flow_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi45_Try1.jpg</td>
-<td>ps_grpc_vs_cedar_flow</td>
-<td>primary_same_catalog</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>✓ (Δ=0/2)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt40_Azi45_Try1.jpg</td>
-<td>ps_grpc_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</td>
-<td>cedar_flow_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</td>
-<td>ps_grpc_vs_cedar_flow</td>
-<td>primary_same_catalog</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>✓ (Δ=0/2)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</td>
-<td>ps_grpc_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</td>
-<td>cedar_flow_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</td>
-<td>ps_grpc_vs_cedar_flow</td>
-<td>primary_same_catalog</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>✓ (Δ=0/2)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</td>
-<td>ps_grpc_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi135_Try1.jpg</td>
-<td>cedar_flow_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi135_Try1.jpg</td>
-<td>ps_grpc_vs_cedar_flow</td>
-<td>primary_same_catalog</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>✓ (Δ=0/2)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi135_Try1.jpg</td>
-<td>ps_grpc_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi45_Try1.jpg</td>
-<td>cedar_flow_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi45_Try1.jpg</td>
-<td>ps_grpc_vs_cedar_flow</td>
-<td>primary_same_catalog</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✗ (Δ=36.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>✓ (Δ=0/2)</td>
-<td>✓</td>
-<td class='flagged'>**FLAGGED**</td>
-</tr>
-<tr>
-<td>2019-07-29T204726_Alt60_Azi45_Try1.jpg</td>
-<td>ps_grpc_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
-<td>✓ (max=0.00px/0.10px)</td>
-<td>✗ (Δ=36.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
-<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
-<td>✓</td>
-<td class='flagged'>**FLAGGED**</td>
-</tr>
-<tr>
-<td>hale_bopp.jpg</td>
-<td>cedar_flow_vs_tetra3_original</td>
-<td>cross_catalog_sanity_check</td>
 <td>✗</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi-45_Try1.jpg</td>
+<td>cedar_flow_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=655.89px/0.10px)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✗</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi-45_Try1.jpg</td>
+<td>ps_grpc_vs_cedar_flow</td>
+<td>primary_same_catalog</td>
+<td>✓ (max=0.00px/0.10px)</td>
+<td>✓ (Δ=0.04″/10.00″)</td>
+<td>✓ (Δ=0.22″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.05%/0.10%)</td>
+<td>✓ (Δ=0/2)</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi-45_Try1.jpg</td>
+<td>ps_grpc_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=655.89px/0.10px)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✗</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi135_Try1.jpg</td>
+<td>cedar_flow_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=695.44px/0.10px)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✗</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi135_Try1.jpg</td>
+<td>ps_grpc_vs_cedar_flow</td>
+<td>primary_same_catalog</td>
+<td>✓ (max=0.00px/0.10px)</td>
+<td>✓ (Δ=0.06″/10.00″)</td>
+<td>✓ (Δ=0.15″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.03%/0.10%)</td>
+<td>✓ (Δ=0/2)</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi135_Try1.jpg</td>
+<td>ps_grpc_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=695.44px/0.10px)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✗</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi45_Try1.jpg</td>
+<td>cedar_flow_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=664.10px/0.10px)</td>
+<td>✗ (Δ=13.91″/10.00″)</td>
+<td>✓ (Δ=5.45″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.03%/0.10%)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✓</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi45_Try1.jpg</td>
+<td>ps_grpc_vs_cedar_flow</td>
+<td>primary_same_catalog</td>
+<td>✓ (max=0.00px/0.10px)</td>
+<td>✓ (Δ=0.37″/10.00″)</td>
+<td>✓ (Δ=0.35″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.04%/0.10%)</td>
+<td>✓ (Δ=0/2)</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt40_Azi45_Try1.jpg</td>
+<td>ps_grpc_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=664.10px/0.10px)</td>
+<td>✗ (Δ=13.54″/10.00″)</td>
+<td>✓ (Δ=5.11″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.07%/0.10%)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✓</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</td>
+<td>cedar_flow_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=291.85px/0.10px)</td>
+<td>✓ (Δ=2.71″/10.00″)</td>
+<td>✓ (Δ=1.54″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.03%/0.10%)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✓</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</td>
+<td>ps_grpc_vs_cedar_flow</td>
+<td>primary_same_catalog</td>
+<td>✓ (max=0.00px/0.10px)</td>
+<td>✓ (Δ=0.23″/10.00″)</td>
+<td>✓ (Δ=0.23″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.06%/0.10%)</td>
+<td>✓ (Δ=0/2)</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</td>
+<td>ps_grpc_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=291.85px/0.10px)</td>
+<td>✓ (Δ=2.48″/10.00″)</td>
+<td>✓ (Δ=1.77″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.03%/0.10%)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✓</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</td>
+<td>cedar_flow_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=629.07px/0.10px)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✗</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</td>
+<td>ps_grpc_vs_cedar_flow</td>
+<td>primary_same_catalog</td>
+<td>✓ (max=0.00px/0.10px)</td>
+<td>✓ (Δ=0.17″/10.00″)</td>
+<td>✓ (Δ=0.10″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.05%/0.10%)</td>
+<td>✓ (Δ=0/2)</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</td>
+<td>ps_grpc_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=629.07px/0.10px)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (missing value)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✗</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi135_Try1.jpg</td>
+<td>cedar_flow_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=634.24px/0.10px)</td>
+<td>✓ (Δ=0.10″/10.00″)</td>
+<td>✓ (Δ=0.78″/10.00″)</td>
 <td>✓ (Δ=0.00″/0.01″)</td>
 <td>✓ (0.00%/0.10%)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✓</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi135_Try1.jpg</td>
+<td>ps_grpc_vs_cedar_flow</td>
+<td>primary_same_catalog</td>
+<td>✓ (max=0.00px/0.10px)</td>
+<td>✓ (Δ=0.58″/10.00″)</td>
+<td>✓ (Δ=0.48″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.04%/0.10%)</td>
+<td>✓ (Δ=0/2)</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi135_Try1.jpg</td>
+<td>ps_grpc_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=634.24px/0.10px)</td>
+<td>✓ (Δ=0.49″/10.00″)</td>
+<td>✓ (Δ=1.25″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.04%/0.10%)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✓</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi45_Try1.jpg</td>
+<td>cedar_flow_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=812.99px/0.10px)</td>
+<td>✓ (Δ=9.23″/10.00″)</td>
+<td>✓ (Δ=1.35″/10.00″)</td>
+<td>✓ (Δ=0.01″/0.01″)</td>
+<td>✓ (0.01%/0.10%)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✓</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi45_Try1.jpg</td>
+<td>ps_grpc_vs_cedar_flow</td>
+<td>primary_same_catalog</td>
+<td>✓ (max=0.00px/0.10px)</td>
+<td>✓ (Δ=0.02″/10.00″)</td>
+<td>✓ (Δ=0.22″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.08%/0.10%)</td>
+<td>✓ (Δ=0/2)</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td>2019-07-29T204726_Alt60_Azi45_Try1.jpg</td>
+<td>ps_grpc_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=812.99px/0.10px)</td>
+<td>✓ (Δ=9.24″/10.00″)</td>
+<td>✓ (Δ=1.12″/10.00″)</td>
+<td>✓ (Δ=0.01″/0.01″)</td>
+<td>✓ (0.09%/0.10%)</td>
+<td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
+<td>✓</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>hale_bopp.jpg</td>
+<td>cedar_flow_vs_tetra3_original</td>
+<td>cross_catalog_sanity_check</td>
+<td>✗ (max=772.74px/0.10px)</td>
+<td>✗ (Δ=13.04″/10.00″)</td>
+<td>✓ (Δ=4.77″/10.00″)</td>
+<td>✓ (Δ=0.00″/0.01″)</td>
+<td>✓ (0.01%/0.10%)</td>
 <td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
 <td>✓</td>
 <td class='flagged'>**FLAGGED**</td>
@@ -774,10 +774,10 @@ li { margin: 0.3em 0; }
 <td>ps_grpc_vs_cedar_flow</td>
 <td>primary_same_catalog</td>
 <td>✓ (max=0.00px/0.10px)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
+<td>✓ (Δ=0.04″/10.00″)</td>
+<td>✓ (Δ=0.01″/10.00″)</td>
 <td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
+<td>✓ (0.01%/0.10%)</td>
 <td>✓ (Δ=0/2)</td>
 <td>✓</td>
 <td></td>
@@ -786,11 +786,11 @@ li { margin: 0.3em 0; }
 <td>hale_bopp.jpg</td>
 <td>ps_grpc_vs_tetra3_original</td>
 <td>cross_catalog_sanity_check</td>
-<td>✗</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
-<td>✓ (Δ=0.00″/10.00″)</td>
+<td>✗ (max=772.74px/0.10px)</td>
+<td>✗ (Δ=13.07″/10.00″)</td>
+<td>✓ (Δ=4.75″/10.00″)</td>
 <td>✓ (Δ=0.00″/0.01″)</td>
-<td>✓ (0.00%/0.10%)</td>
+<td>✓ (0.01%/0.10%)</td>
 <td>N/A (cross-catalog: catalog IDs use different catalogs, not directly comparable)</td>
 <td>✓</td>
 <td class='flagged'>**FLAGGED**</td>
@@ -801,10 +801,10 @@ li { margin: 0.3em 0; }
 <tr>
 <th>test_5mp_g100_e50ms.jpg</th>
 <th>cedar_flow</th>
-<th>NO_MATCH</th>
+<th>MATCH_FOUND</th>
 <th>NO_MATCH, TOO_FEW</th>
-<th>✓</th>
-<th></th>
+<th>✗</th>
+<th>**FLAGGED**</th>
 </tr>
 <tr>
 <td>test_5mp_g100_e50ms.jpg</td>
@@ -817,26 +817,26 @@ li { margin: 0.3em 0; }
 <tr>
 <td>tree.jpg</td>
 <td>cedar_flow</td>
-<td>NO_MATCH</td>
-<td>NO_MATCH, TOO_FEW</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>tree.jpg</td>
-<td>ps_grpc</td>
-<td>NO_MATCH</td>
-<td>NO_MATCH, TOO_FEW</td>
-<td>✓</td>
-<td></td>
-</tr>
-<tr>
-<td>tree.jpg</td>
-<td>tetra3_original</td>
 <td>MATCH_FOUND</td>
 <td>NO_MATCH, TOO_FEW</td>
 <td>✗</td>
 <td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>tree.jpg</td>
+<td>ps_grpc</td>
+<td>MATCH_FOUND</td>
+<td>NO_MATCH, TOO_FEW</td>
+<td>✗</td>
+<td class='flagged'>**FLAGGED**</td>
+</tr>
+<tr>
+<td>tree.jpg</td>
+<td>tetra3_original</td>
+<td>NO_MATCH</td>
+<td>NO_MATCH, TOO_FEW</td>
+<td>✓</td>
+<td></td>
 </tr>
 </table>
 <h2>Reproduction</h2>
