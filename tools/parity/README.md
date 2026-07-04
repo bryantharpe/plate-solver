@@ -54,13 +54,12 @@ The `.venv` pins honor cedar-solve's declared constraints (`numpy<2,>=1.21.1`,
 `Pillow<9,>=8.3.1`, `scipy<2,>=1.7.1`), so the reference runs under exactly the
 versions it was written for. `scikit-image` and `astropy` were previously listed
 here as speculative extras for future coordinate/image parity captures, but
-neither is used by any capture script today, and on Python 3.12 both are actively
-incompatible with cedar-solve's pins: `scikit-image==0.19.3` (the last version
-accepting `Pillow<9`) fails to build on 3.12 (its build backend imports
-`pkgutil.ImpImporter`, removed in 3.12), and current `astropy` requires
-`numpy>=2`, which conflicts with cedar-solve's `numpy<2`. Both are dropped from
-`.venv` until something in this repo actually needs them — add back only with a
-combination that satisfies cedar-solve's pins on the target Python version.
+neither is used by any capture script today, so both are dropped from `.venv`
+until something in this repo actually needs them. `scikit-image==0.19.3` (the
+last version accepting `Pillow<9`) additionally fails to build on this host's
+Python 3.12 (its old build backend can't be installed under 3.12); `astropy`
+has no such issue — a `numpy<2`-compatible release (e.g. 7.2.1) installs fine,
+it's simply unused. Add either back only once something actually needs it.
 
 ## (Re)create the environment
 
