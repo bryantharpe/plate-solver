@@ -49,17 +49,17 @@
 
 ## 3. Parity check
 
-- [ ] 3.1 `tools/parity/benchmark/parity.py`: RA/Dec within 10 arcsec, matched catalog IDs
+- [x] 3.1 `tools/parity/benchmark/parity.py`: RA/Dec within 10 arcsec, matched catalog IDs
       exact/near-exact, detection centroids within ±0.1px — reusing
       `openspec/IMPLEMENTATION-STATUS.md`'s established tolerances verbatim
-- [ ] 3.2 Propose and document Roll (0.01°) and FOV (0.1% relative) tolerances, labeled in the
+- [x] 3.2 Propose and document Roll (0.01°) and FOV (0.1% relative) tolerances, labeled in the
       report as harness-defined (no prior end-to-end tolerance exists for these two fields)
-- [ ] 3.3 Three pairwise comparisons per astronomical image: `ps_grpc` vs `cedar_flow` (primary,
+- [x] 3.3 Three pairwise comparisons per astronomical image: `ps_grpc` vs `cedar_flow` (primary,
       same catalog), `ps_grpc` vs `tetra3_original` and `cedar_flow` vs `tetra3_original` (both
       labeled "cross-catalog sanity check")
-- [ ] 3.4 Mismatches recorded as `flagged: true` in `results.json`, always surfaced in the report;
+- [x] 3.4 Mismatches recorded as `flagged: true` in `results.json`, always surfaced in the report;
       the run always completes regardless of any single image's mismatch
-- [ ] 3.5 Stress images excluded from RA/Dec comparison but their solve `status` (expect
+- [x] 3.5 Stress images excluded from RA/Dec comparison but their solve `status` (expect
       NO_MATCH/TOO_FEW everywhere) is still cross-checked and reported
 
 ## 4. Report generation
