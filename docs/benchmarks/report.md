@@ -1,10 +1,10 @@
 ## Performance Headline
 
-ps_grpc is 1.02x faster than cedar_flow on detect (median over 9 astronomical images)
-ps_grpc is 7.42x faster than tetra3_original on detect (median over 9 astronomical images)
+ps_grpc is 0.9x faster than cedar_flow on detect (median over 9 astronomical images)
+ps_grpc is 7.51x faster than tetra3_original on detect (median over 9 astronomical images)
 
-ps_grpc is 1.55x faster than cedar_flow on solve (median over 9 astronomical images)
-ps_grpc is 6.9x faster than tetra3_original on solve (median over 9 astronomical images)
+ps_grpc is 1.68x faster than cedar_flow on solve (median over 9 astronomical images)
+ps_grpc is 6.77x faster than tetra3_original on solve (median over 9 astronomical images)
 
 ## Methodology & Environment
 
@@ -37,17 +37,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.0044 | 0.0022 |
-| cedar_flow | 20 | 0.0042 | 0.0023 |
-| tetra3_original | 20 | 0.0314 | — |
+| ps_grpc | 20 | 0.0057 | 0.003 |
+| cedar_flow | 20 | 0.005 | 0.0026 |
+| tetra3_original | 20 | 0.0412 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0053 | 0.0001 | 2.2 |
-| cedar_flow | 5 | 0.0082 | 0.0033 | 2.37 |
-| tetra3_original | 5 | 0.0375 | 0.0035 | 33.36 |
+| ps_grpc | 5 | 0.007 | 0.0001 | 3.12 |
+| cedar_flow | 5 | 0.011 | 0.0046 | 2.71 |
+| tetra3_original | 5 | 0.046 | 0.0045 | 41.13 |
 
 ### 2019-07-29T204726_Alt40_Azi135_Try1.jpg
 
@@ -55,17 +55,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.0042 | 0.0023 |
-| cedar_flow | 20 | 0.0046 | 0.0025 |
-| tetra3_original | 20 | 0.0314 | — |
+| ps_grpc | 20 | 0.0055 | 0.0032 |
+| cedar_flow | 20 | 0.0048 | 0.0027 |
+| tetra3_original | 20 | 0.0419 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0061 | 0.0002 | 2.35 |
-| cedar_flow | 5 | 0.0103 | 0.005 | 2.5 |
-| tetra3_original | 5 | 0.1061 | 0.07 | 35.94 |
+| ps_grpc | 5 | 0.0076 | 0.0002 | 3.25 |
+| cedar_flow | 5 | 0.0131 | 0.0069 | 2.77 |
+| tetra3_original | 5 | 0.1434 | 0.0996 | 45.95 |
 
 ### 2019-07-29T204726_Alt40_Azi-45_Try1.jpg
 
@@ -73,17 +73,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.0035 | 0.0017 |
-| cedar_flow | 20 | 0.0037 | 0.0018 |
-| tetra3_original | 20 | 0.0319 | — |
+| ps_grpc | 20 | 0.0047 | 0.0024 |
+| cedar_flow | 20 | 0.0042 | 0.002 |
+| tetra3_original | 20 | 0.0406 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0048 | 0.0001 | 1.66 |
-| cedar_flow | 5 | 0.007 | 0.0028 | 1.83 |
-| tetra3_original | 5 | 0.0409 | 0.0079 | 32.71 |
+| ps_grpc | 5 | 0.0062 | 0.0001 | 2.41 |
+| cedar_flow | 5 | 0.009 | 0.0039 | 1.99 |
+| tetra3_original | 5 | 0.0528 | 0.0102 | 42.19 |
 
 ### 2019-07-29T204726_Alt40_Azi45_Try1.jpg
 
@@ -91,17 +91,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.0045 | 0.0025 |
-| cedar_flow | 20 | 0.0045 | 0.0026 |
-| tetra3_original | 20 | 0.0332 | — |
+| ps_grpc | 20 | 0.0055 | 0.0033 |
+| cedar_flow | 20 | 0.0049 | 0.0028 |
+| tetra3_original | 20 | 0.0411 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0064 | 0.0002 | 2.51 |
-| cedar_flow | 5 | 0.0104 | 0.0052 | 2.66 |
-| tetra3_original | 5 | 0.0442 | 0.0095 | 34.46 |
+| ps_grpc | 5 | 0.0075 | 0.0002 | 3.32 |
+| cedar_flow | 5 | 0.0128 | 0.0063 | 2.91 |
+| tetra3_original | 5 | 0.0587 | 0.0129 | 45.5 |
 
 ### 2019-07-29T204726_Alt60_Azi-135_Try1.jpg
 
@@ -109,17 +109,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.004 | 0.0021 |
-| cedar_flow | 20 | 0.0042 | 0.0023 |
-| tetra3_original | 20 | 0.034 | — |
+| ps_grpc | 20 | 0.0051 | 0.0028 |
+| cedar_flow | 20 | 0.0046 | 0.0023 |
+| tetra3_original | 20 | 0.0402 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0062 | 0.0001 | 2.27 |
-| cedar_flow | 5 | 0.0077 | 0.0029 | 2.3 |
-| tetra3_original | 5 | 0.0362 | 0.0021 | 33.49 |
+| ps_grpc | 5 | 0.0069 | 0.0001 | 2.91 |
+| cedar_flow | 5 | 0.0094 | 0.004 | 2.3 |
+| tetra3_original | 5 | 0.0444 | 0.0025 | 41.45 |
 
 ### 2019-07-29T204726_Alt60_Azi135_Try1.jpg
 
@@ -127,17 +127,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.0039 | 0.0019 |
-| cedar_flow | 20 | 0.0039 | 0.0021 |
-| tetra3_original | 20 | 0.0349 | — |
+| ps_grpc | 20 | 0.0047 | 0.0024 |
+| cedar_flow | 20 | 0.0042 | 0.0021 |
+| tetra3_original | 20 | 0.042 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0056 | 0.0003 | 1.99 |
-| cedar_flow | 5 | 0.0105 | 0.0058 | 2.08 |
-| tetra3_original | 5 | 0.0375 | 0.0033 | 33.92 |
+| ps_grpc | 5 | 0.0067 | 0.0002 | 2.37 |
+| cedar_flow | 5 | 0.0126 | 0.0073 | 2.13 |
+| tetra3_original | 5 | 0.0455 | 0.0039 | 41.24 |
 
 ### 2019-07-29T204726_Alt60_Azi-45_Try1.jpg
 
@@ -145,17 +145,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.0043 | 0.0023 |
-| cedar_flow | 20 | 0.0043 | 0.0025 |
-| tetra3_original | 20 | 0.0337 | — |
+| ps_grpc | 20 | 0.0054 | 0.0032 |
+| cedar_flow | 20 | 0.0049 | 0.0027 |
+| tetra3_original | 20 | 0.0403 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0058 | 0.0001 | 2.3 |
-| cedar_flow | 5 | 0.0089 | 0.004 | 2.49 |
-| tetra3_original | 5 | 0.1069 | 0.0673 | 39.51 |
+| ps_grpc | 5 | 0.0075 | 0.0001 | 3.19 |
+| cedar_flow | 5 | 0.0119 | 0.0054 | 2.7 |
+| tetra3_original | 5 | 0.136 | 0.091 | 44.96 |
 
 ### 2019-07-29T204726_Alt60_Azi45_Try1.jpg
 
@@ -163,17 +163,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.0055 | 0.0035 |
-| cedar_flow | 20 | 0.0057 | 0.0037 |
-| tetra3_original | 20 | 0.0346 | — |
+| ps_grpc | 20 | 0.0067 | 0.0044 |
+| cedar_flow | 20 | 0.006 | 0.0038 |
+| tetra3_original | 20 | 0.0447 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0077 | 0.0002 | 3.58 |
-| cedar_flow | 5 | 0.0119 | 0.0056 | 3.55 |
-| tetra3_original | 5 | 0.0357 | 0.0029 | 32.5 |
+| ps_grpc | 5 | 0.0087 | 0.0002 | 4.43 |
+| cedar_flow | 5 | 0.0146 | 0.0071 | 3.86 |
+| tetra3_original | 5 | 0.049 | 0.0042 | 44.63 |
 
 ### hale_bopp.jpg
 
@@ -181,17 +181,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 20 | 0.0043 | 0.0027 |
-| cedar_flow | 20 | 0.0044 | 0.0027 |
-| tetra3_original | 20 | 0.0205 | — |
+| ps_grpc | 20 | 0.0055 | 0.0032 |
+| cedar_flow | 20 | 0.0052 | 0.003 |
+| tetra3_original | 20 | 0.0298 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 5 | 0.0079 | 0.0002 | 2.71 |
-| cedar_flow | 5 | 0.0289 | 0.0225 | 2.7 |
-| tetra3_original | 5 | 0.0283 | 0.0045 | 23.66 |
+| ps_grpc | 5 | 0.0104 | 0.0003 | 3.25 |
+| cedar_flow | 5 | 0.0392 | 0.0308 | 3.1 |
+| tetra3_original | 5 | 0.0392 | 0.0065 | 29.78 |
 
 ### tree.jpg
 
@@ -199,17 +199,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 1 | 0.003 | 0.0014 |
-| cedar_flow | 1 | 0.0023 | 0.0013 |
-| tetra3_original | 1 | 0.0199 | — |
+| ps_grpc | 1 | 0.0032 | 0.0017 |
+| cedar_flow | 1 | 0.0028 | 0.0015 |
+| tetra3_original | 1 | 0.0232 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 1 | 0.0038 | 0.0007 | 1.28 |
-| cedar_flow | 1 | 0.5114 | 0.509 | 1.22 |
-| tetra3_original | 1 | 0.07 | 0.0503 | 19.32 |
+| ps_grpc | 1 | 0.0041 | 0.0007 | 1.53 |
+| cedar_flow | 1 | 0.708 | 0.7039 | 2 |
+| tetra3_original | 1 | 0.1215 | 0.0685 | 52.53 |
 
 ### test_5mp_g100_e50ms.jpg
 
@@ -217,17 +217,17 @@ This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NO
 
 | System | Iterations | Wall-Clock (median) | Algorithm (median) |
 |--------|------------|---------------------|-------------------|
-| ps_grpc | 1 | 0.0068 | 0.0027 |
-| cedar_flow | 1 | 0.0068 | 0.0027 |
-| tetra3_original | 1 | 0.0685 | — |
+| ps_grpc | 1 | 0.011 | 0.0033 |
+| cedar_flow | 1 | 0.0071 | 0.0028 |
+| tetra3_original | 1 | 0.0756 | — |
 
 **Solve (wall-clock & solve time in seconds; extract time in milliseconds)**
 
 | System | Iterations | Wall-Clock (median) | Solve (median) | Extract (self-reported, ms) |
 |--------|------------|---------------------|----------------|-------------------------|
-| ps_grpc | 1 | 0.0089 | 0.0001 | 2.64 |
-| cedar_flow | 1 | 0.0167 | 0.0084 | 2.72 |
-| tetra3_original | 1 | 0.0744 | 0.0139 | 60.07 |
+| ps_grpc | 1 | 0.011 | 0.0001 | 3.23 |
+| cedar_flow | 1 | 0.0194 | 0.0103 | 2.77 |
+| tetra3_original | 1 | 0.2429 | 0.0212 | 221.19 |
 
 ## Aggregate Speedup (Astronomical Images)
 
@@ -235,9 +235,9 @@ Median speedup ratios across all astronomical images (higher = faster for baseli
 
 | Comparison | Detect Speedup | Solve Speedup |
 |------------|----------------|----|
-| ps_grpc vs cedar_flow | 1.02x | 1.55x |
-| ps_grpc vs tetra3_original | 7.42x | 6.9x |
-| cedar_flow vs tetra3_original | 7.4x | 4.56x |
+| ps_grpc vs cedar_flow | 0.9x | 1.68x |
+| ps_grpc vs tetra3_original | 7.51x | 6.77x |
+| cedar_flow vs tetra3_original | 8.35x | 4.58x |
 
 ## Parity Results
 
