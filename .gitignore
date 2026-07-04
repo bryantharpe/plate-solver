@@ -16,5 +16,11 @@
 tools/parity/_capture_binning/target/
 tools/parity/_capture_binning/Cargo.lock
 
-# Parity venv
+# Parity venvs
 tools/parity/.venv
+tools/parity/.venv-tetra3-orig
+__pycache__/
+
+# feat-09 eval-harness: regenerable catalog + run output, not source
+tools/parity/benchmark/generated/*.bin
+tools/parity/benchmark/results.json
