@@ -191,7 +191,7 @@ pub fn solve_from_centroids(
     let mut status = SolveStatus::NoMatch;
     let mut combos_examined: u64 = 0;
 
-    'outer: for combo in combinations_4(num_pattern_centroids) {
+    'outer: for combo in breadth_first_combinations_4(num_pattern_centroids) {
         combos_examined += 1;
         // Timeout check
         if let Some(tmax) = solve_timeout_secs {
@@ -597,19 +597,62 @@ pub fn cluster_bust_centroids(centroids: &[[f64; 2]], separation_pixels: f64) ->
     kept
 }
 
-/// Generate all 4-element combinations of indices [0..n) in lexicographic order.
-fn combinations_4(n: usize) -> Vec<[usize; 4]> {
-    let mut result = Vec::new();
-    for a in 0..n {
-        for b in (a + 1)..n {
-            for c in (b + 1)..n {
-                for d in (c + 1)..n {
-                    result.push([a, b, c, d]);
+/// Lazily yields all 4-element combinations of `[0, n)` in the same
+/// breadth-first ("brightest first") order as cedar-solve's
+/// `breadth_first_combinations` (tetra3/breadth_first_combinations.py),
+/// which for fixed r is colexicographic order: combinations sorted
+/// ascending by largest element, then by second-largest, and so on.
+/// A valid match among the brightest stars is therefore reached after
+/// ~C(d,4) combos (d = its largest index) instead of potentially most
+/// of C(n,4) under the old lexicographic order.
+///
+/// Also replaces an eager `Vec<[usize; 4]>` that allocated C(n,4)*32 B
+/// up front (~618 MiB at n = 150, the bundled DB's
+/// verification_stars_per_fov), so timeout/cancel checks fire at the
+/// same per-combo cadence with no allocation.
+struct BreadthFirstCombinations4 {
+    n: usize,
+    cur: [usize; 4],
+    done: bool,
+}
+
+impl BreadthFirstCombinations4 {
+    fn new(n: usize) -> Self {
+        // done = n < 4 short-circuits the empty case AND guards the
+        // bound arithmetic in next() from ever running with n < 4.
+        Self { n, cur: [0, 1, 2, 3], done: n < 4 }
+    }
+}
+
+impl Iterator for BreadthFirstCombinations4 {
+    type Item = [usize; 4];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+        let out = self.cur;
+        // Colex successor: find the smallest position that can advance
+        // (bounded by the element above it, or n at the top), bump it,
+        // and reset everything below to the minimal values 0..i.
+        for i in 0..4 {
+            let bound = if i < 3 { self.cur[i + 1] } else { self.n };
+            if self.cur[i] + 1 < bound {
+                self.cur[i] += 1;
+                for j in 0..i {
+                    self.cur[j] = j;
                 }
+                return Some(out);
             }
         }
+        self.done = true;
+        Some(out) // the final combination is still yielded
     }
-    result
+}
+
+/// Lazy breadth-first (colex) 4-combinations of `[0, n)`. No allocation.
+fn breadth_first_combinations_4(n: usize) -> BreadthFirstCombinations4 {
+    BreadthFirstCombinations4::new(n)
 }
 
 /// Solve from a raw grayscale image (detects stars then solves).
