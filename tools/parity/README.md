@@ -61,6 +61,14 @@ Python 3.12 (its old build backend can't be installed under 3.12); `astropy`
 has no such issue — a `numpy<2`-compatible release (e.g. 7.2.1) installs fine,
 it's simply unused. Add either back only once something actually needs it.
 
+`.venv-tetra3-orig` must also pin `numpy<2` even though `reference-solutions/tetra3`'s
+own `setup.py` declares no numpy upper bound at all: its `tetra3.py` (line ~1395)
+calls the deprecated `np.math.factorial` shim, which NumPy removed in 2.0. An
+unpinned `pip install` resolves the latest NumPy 2.x and `solve_from_image`/
+`solve_from_centroids` then fail with `AttributeError: module 'numpy' has no
+attribute 'math'` on every call. `scipy` must be pinned below 1.18 to match (1.18+
+requires NumPy >= 2.0, so `numpy<2` and an unpinned scipy are mutually exclusive).
+
 ## (Re)create the environment
 
 From the repo root:
@@ -80,12 +88,14 @@ tools/parity/.venv/bin/python -m pip install -r tools/parity/requirements.txt
 tools/parity/.venv/bin/python -m pip install -e "reference-solutions/cedar-solve[cedar-detect]"
 ```
 
-The second venv, for tetra3-original:
+The second venv, for tetra3-original (see "Toolchain" above for why `numpy`/`scipy`
+must be pinned explicitly here even though `setup.py` declares no upper bound):
 
 ```bash
 python3 -m venv tools/parity/.venv-tetra3-orig
 tools/parity/.venv-tetra3-orig/bin/python -m pip install --upgrade pip setuptools wheel
 tools/parity/.venv-tetra3-orig/bin/python -m pip install -e reference-solutions/tetra3
+tools/parity/.venv-tetra3-orig/bin/python -m pip install "numpy<2" "scipy<1.18"
 ```
 
 Or restore its lock plus the editable reference:
