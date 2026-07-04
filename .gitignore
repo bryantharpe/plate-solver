@@ -19,8 +19,13 @@ tools/parity/_capture_binning/Cargo.lock
 # Parity venvs
 tools/parity/.venv
 tools/parity/.venv-tetra3-orig
-__pycache__/
 
 # feat-09 eval-harness: regenerable catalog + run output, not source
 tools/parity/benchmark/generated/*.bin
 tools/parity/benchmark/results.json
+
+# Gas Town (added by gt)
+.claude/
+.logs/
+__pycache__/
+state.json
