@@ -26,23 +26,23 @@
 
 ## 2. Harness
 
-- [ ] 2.1 `tools/parity/benchmark/servers.py`: subprocess lifecycle (spawn, health-check via a
+- [x] 2.1 `tools/parity/benchmark/servers.py`: subprocess lifecycle (spawn, health-check via a
       cheap RPC with a deadline, `atexit`/`SIGINT`/`SIGTERM`-guarded teardown) for
       `cedar-detect-server` and `ps-grpc`
-- [ ] 2.2 `tools/parity/benchmark/adapters.py`: uniform `detect(...)` /
+- [x] 2.2 `tools/parity/benchmark/adapters.py`: uniform `detect(...)` /
       `solve_from_image(...)` interface over `TetraOriginalAdapter` (subprocess),
       `CedarFlowAdapter` (gRPC `ExtractCentroids` + in-process cedar-solve `solve_from_centroids`),
       `PsGrpcAdapter` (gRPC `ExtractCentroids`/`SolveFromImage`/`SolveFromCentroids`)
-- [ ] 2.3 `tools/parity/benchmark/tetra3_original_runner.py`: runs under `.venv-tetra3-orig`,
+- [x] 2.3 `tools/parity/benchmark/tetra3_original_runner.py`: runs under `.venv-tetra3-orig`,
       loads `reference-solutions/tetra3/tetra3/data/default_database.npz` once, batches N
       iterations, prints one JSON blob
-- [ ] 2.4 Explicit shared parameters (`sigma=4.0`, `detect_hot_pixels=true`,
+- [x] 2.4 Explicit shared parameters (`sigma=4.0`, `detect_hot_pixels=true`,
       `normalize_rows=false`, no binning, `match_radius`, `match_threshold`, `distortion=0.0`)
       threaded through every adapter call, not left as divergent per-system defaults
-- [ ] 2.5 Dual timing capture in every adapter: client wall-clock (`time.perf_counter()`) and each
+- [x] 2.5 Dual timing capture in every adapter: client wall-clock (`time.perf_counter()`) and each
       system's self-reported algorithm-only time; new workflow's extraction time comes from a
       standalone `ExtractCentroids` call, never from `Solution.t_extract_ms`
-- [ ] 2.6 `tools/parity/benchmark/run_benchmark.py`: CLI entrypoint (configurable iteration/warmup
+- [x] 2.6 `tools/parity/benchmark/run_benchmark.py`: CLI entrypoint (configurable iteration/warmup
       counts, defaulting to detect warmup=3/N=20, solve warmup=1/N=5, stress-image N=1/5s
       timeout); writes `results.json` with run metadata (host arch/cpu count, shared params,
       iteration counts, which catalog each system used, known-limitations list)
