@@ -1324,6 +1324,7 @@ name = "ps-db"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "clap",
  "half",
  "kiddo",
  "memmap2",
