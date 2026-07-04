@@ -896,17 +896,19 @@ mod tests {
 
     #[test]
     fn combinations_4_basic() {
-        assert_eq!(combinations_4(0), Vec::<[usize; 4]>::new());
-        assert_eq!(combinations_4(3), Vec::<[usize; 4]>::new());
-        let combos = combinations_4(4);
+        assert_eq!(breadth_first_combinations_4(0).collect::<Vec<_>>(), Vec::<[usize; 4]>::new());
+        assert_eq!(breadth_first_combinations_4(3).collect::<Vec<_>>(), Vec::<[usize; 4]>::new());
+        let combos: Vec<_> = breadth_first_combinations_4(4).collect();
         assert_eq!(combos.len(), 1);
         assert_eq!(combos[0], [0, 1, 2, 3]);
     }
 
     #[test]
     fn combinations_4_five_elements() {
-        // C(5,4) = 5 combinations
-        let combos = combinations_4(5);
+        // C(5,4) = 5 combinations. Note: n=r+1 is a coincidence where lexicographic
+        // and colexicographic order coincide; this test does not prove breadth-first
+        // ordering is correct in general (see SP1.3 for n=6/n=7 proof).
+        let combos: Vec<_> = breadth_first_combinations_4(5).collect();
         assert_eq!(combos.len(), 5);
         assert_eq!(combos[0], [0, 1, 2, 3]);
         assert_eq!(combos[1], [0, 1, 2, 4]);
