@@ -111,11 +111,17 @@ def _run_solve(args: argparse.Namespace) -> Dict[str, Any]:
     # as NO_MATCH. It also has no 'P90E'/'MAXE' keys (older API, RMSE only).
     solved = last is not None and last.get("RA") is not None
     status = "MATCH_FOUND" if solved else "NO_MATCH"
-    matched_cat_ids = (
-        [int(x) for x in last["matched_catID"]]
-        if last is not None and last.get("matched_catID") is not None
-        else None
-    )
+    raw_cat_ids = last.get("matched_catID") if last is not None else None
+    if raw_cat_ids is None:
+        matched_cat_ids = None
+    else:
+        try:
+            matched_cat_ids = [int(x) for x in raw_cat_ids]
+        except TypeError:
+            # star_catalog_IDs can be 2D (a per-star tuple of catalog columns)
+            # rather than a flat scalar array; preserve structure instead of
+            # crashing on int(list).
+            matched_cat_ids = [list(x) for x in raw_cat_ids]
     return {
         "system": "tetra3_original",
         "wall_clock_s": wall_times,

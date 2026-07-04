@@ -12,8 +12,9 @@ three identically:
   ``tetra3`` package; see ``openspec/changes/feat-09-eval-harness/design.md``).
 - ``CedarFlowAdapter``: gRPC ``ExtractCentroids`` against a running
   ``cedar-detect-server``, then in-process cedar-solve ``solve_from_centroids``.
-- ``PsGrpcAdapter``: gRPC ``ExtractCentroids``/``SolveFromImage`` against a
-  running ``ps-grpc`` server.
+- ``PsGrpcAdapter``: gRPC ``ExtractCentroids``/``SolveFromCentroids`` (detect
+  and centroids-only calls) plus ``ExtractCentroids``/``SolveFromCentroids``
+  composed together for the full solve, against a running ``ps-grpc`` server.
 
 Explicit shared detection parameters (task 2.4) are the defaults for every
 adapter call: ``sigma=4.0`` (matches the value ``ps_solve::solve_from_image``
@@ -24,9 +25,8 @@ Dual timing capture (task 2.5): every result carries both client wall-clock
 (``time.perf_counter()``) and each system's self-reported algorithm-only
 time. ``ps-grpc``'s ``Solution.t_extract_ms`` is hard-coded to 0.0 in
 ``ps-grpc/src/service.rs`` (SolveFromImage and SolveFromCentroids both), so
-``PsGrpcAdapter.solve_from_image`` always makes a standalone
-``ExtractCentroids`` call to get a real self-reported extraction time -
-``Solution.t_extract_ms`` is never used as that value.
+``PsGrpcAdapter.solve_from_image`` always sources extraction timing from its
+own ``ExtractCentroids`` call rather than ``Solution.t_extract_ms``.
 """
 from __future__ import annotations
 
@@ -42,6 +42,24 @@ import numpy as np
 
 BENCHMARK_DIR = Path(__file__).resolve().parent
 GENERATED_DIR = BENCHMARK_DIR / "generated"
+
+# Every gRPC call in this module passes an explicit deadline - without one, a
+# hung/deadlocked server (e.g. on one of the corpus's two stress images,
+# included specifically to probe pathological input) would block the whole
+# benchmark run forever instead of surfacing as a per-image error.
+GRPC_CALL_TIMEOUT_S = 10.0
+
+# cedar-solve's tetra3.py defines these as module-level int constants (not
+# strings) - see reference-solutions/cedar-solve/tetra3/tetra3.py lines
+# 139-143. Mapped here so CedarFlowAdapter's "status" field matches the
+# string enum names PsGrpcAdapter/TetraOriginalAdapter both report.
+_CEDAR_SOLVE_STATUS_NAMES = {
+    1: "MATCH_FOUND",
+    2: "NO_MATCH",
+    3: "TIMEOUT",
+    4: "CANCELLED",
+    5: "TOO_FEW",
+}
 
 # Task 2.4: explicit shared detection parameters, threaded through every
 # adapter call instead of left at each system's divergent defaults.
@@ -91,7 +109,29 @@ def _build_centroids_request(pb2_module, width, height, image_data, sigma, detec
     return pb2_module.CentroidsRequest(**kwargs)
 
 
-def _make_detect_result(system: str, image_name: str, n_iterations: int, warmup: int,
+def _check_iterations(n_iterations: int, warmup: int) -> None:
+    if n_iterations < 1:
+        raise ValueError(f"n_iterations must be >= 1, got {n_iterations}")
+    if warmup < 0:
+        raise ValueError(f"warmup must be >= 0, got {warmup}")
+
+
+def _coerce_matched_cat_ids(raw_ids) -> Optional[List[Any]]:
+    """cedar-solve's/tetra3's ``matched_catID`` is a flat array of scalar IDs
+    when the loaded catalog's ``star_catalog_IDs`` is 1-D, but can be a
+    per-star tuple of catalog-specific columns when it's 2-D (see
+    reference-solutions/cedar-solve/tetra3/tetra3.py's ``star_catalog_IDs``
+    handling). Preserve whichever shape it actually is instead of assuming
+    scalar and crashing on ``int(list)``."""
+    if raw_ids is None:
+        return None
+    try:
+        return [int(x) for x in raw_ids]
+    except TypeError:
+        return [list(x) for x in raw_ids]
+
+
+def _make_detect_result(*, system: str, image_name: str, n_iterations: int, warmup: int,
                          wall_clock_s: List[float], algorithm_s: List[Optional[float]],
                          noise_estimate: Optional[float], hot_pixel_count: Optional[int],
                          centroids_yx: List[tuple]) -> Dict[str, Any]:
@@ -108,12 +148,12 @@ def _make_detect_result(system: str, image_name: str, n_iterations: int, warmup:
     }
 
 
-def _make_solve_result(system: str, image_name: str, catalog: str, n_iterations: int, warmup: int,
+def _make_solve_result(*, system: str, image_name: str, catalog: str, n_iterations: int, warmup: int,
                         wall_clock_s: List[float], t_extract_ms: List[Optional[float]],
-                        t_solve_ms: List[Optional[float]], status: str,
+                        t_solve_ms: List[Optional[float]], status: Optional[str],
                         ra_deg: Optional[float], dec_deg: Optional[float], roll_deg: Optional[float],
                         fov_deg: Optional[float], matches: Optional[int],
-                        matched_cat_ids: Optional[List[int]], rmse_arcsec: Optional[float],
+                        matched_cat_ids: Optional[List[Any]], rmse_arcsec: Optional[float],
                         p90e_arcsec: Optional[float], maxe_arcsec: Optional[float]) -> Dict[str, Any]:
     return {
         "system": system,
@@ -148,7 +188,7 @@ class _GrpcExtractMixin:
             self._pb2, width, height, image_data, sigma, detect_hot_pixels, normalize_rows, binning
         )
         t0 = time.perf_counter()
-        resp = self._stub.ExtractCentroids(req)
+        resp = self._stub.ExtractCentroids(req, timeout=GRPC_CALL_TIMEOUT_S)
         wall = time.perf_counter() - t0
         algo_s = resp.algorithm_time.ToTimedelta().total_seconds()
         centroids_yx = [(c.centroid_position.y, c.centroid_position.x) for c in resp.star_candidates]
@@ -159,6 +199,7 @@ class _GrpcExtractMixin:
                detect_hot_pixels: bool = SHARED_PARAMS["detect_hot_pixels"],
                normalize_rows: bool = SHARED_PARAMS["normalize_rows"],
                binning: Optional[int] = SHARED_PARAMS["binning"]) -> Dict[str, Any]:
+        _check_iterations(n_iterations, warmup)
         width, height, image_data = _load_image_grayscale(image_path)
         wall_times: List[float] = []
         algo_times: List[Optional[float]] = []
@@ -172,23 +213,26 @@ class _GrpcExtractMixin:
                 wall_times.append(wall)
                 algo_times.append(algo_s)
         return _make_detect_result(
-            self.system, image_path.name, n_iterations, warmup, wall_times, algo_times,
-            noise_estimate, hot_pixel_count, centroids_yx
+            system=self.system, image_name=image_path.name, n_iterations=n_iterations, warmup=warmup,
+            wall_clock_s=wall_times, algorithm_s=algo_times,
+            noise_estimate=noise_estimate, hot_pixel_count=hot_pixel_count, centroids_yx=centroids_yx,
         )
 
 
 class PsGrpcAdapter(_GrpcExtractMixin):
     """Measures the new Rust workflow via ``ps-grpc``'s gRPC interface.
 
-    ``solve_from_image`` times a single ``SolveFromImage`` call (the same
-    one-shot RPC a real client would use - image sent once), plus an untimed
-    standalone ``ExtractCentroids`` call purely as a side-channel to recover a
-    real self-reported extraction time (``Solution.t_extract_ms`` is
-    hard-coded 0.0 on both ``SolveFromImage`` and ``SolveFromCentroids`` -
-    see design.md). ``SolveFromCentroids`` is intentionally not used to
-    compose extract+solve here: that would add a second image transfer and a
-    second network round-trip that a real client would never pay, biasing
-    the wall-clock measurement against this system.
+    ``solve_from_image`` composes ``ExtractCentroids`` + ``SolveFromCentroids``
+    (per spec.md's "New workflow measured via its own gRPC server" scenario,
+    which names all three RPCs) rather than the single fused ``SolveFromImage``
+    call: ``Solution.t_extract_ms`` is hard-coded 0.0 on BOTH RPCs
+    (ps-grpc/src/service.rs), so a standalone ``ExtractCentroids`` call is the
+    only source of a real self-reported extraction time either way - composing
+    it this way gets that timing from the same call that also produces the
+    centroids passed to ``SolveFromCentroids``, instead of paying for a second,
+    redundant extraction just to recover the timing. Wall-clock covers both
+    RPCs combined, matching how ``CedarFlowAdapter`` also measures extract+solve
+    as one combined wall-clock span.
     """
 
     system = "ps_grpc"
@@ -213,26 +257,28 @@ class PsGrpcAdapter(_GrpcExtractMixin):
                           match_radius: float = SHARED_PARAMS["match_radius"],
                           match_threshold: float = SHARED_PARAMS["match_threshold"],
                           distortion: float = SHARED_PARAMS["distortion"]) -> Dict[str, Any]:
+        _check_iterations(n_iterations, warmup)
         width, height, image_data = _load_image_grayscale(image_path)
         wall_times: List[float] = []
         t_extract_list: List[Optional[float]] = []
         t_solve_list: List[Optional[float]] = []
         last = None
         for i in range(warmup + n_iterations):
-            # Standalone ExtractCentroids call: the ONLY source of a real
-            # self-reported extraction time for ps-grpc, since
-            # Solution.t_extract_ms is hard-coded 0.0 (design.md).
-            _, extract_algo_s, _, _, _ = self._extract_once(
-                width, height, image_data, sigma, detect_hot_pixels, normalize_rows, binning
-            )
-
+            t0 = time.perf_counter()
             extract_req = _build_centroids_request(
                 self._pb2, width, height, image_data, sigma, detect_hot_pixels, normalize_rows, binning
             )
+            extract_resp = self._stub.ExtractCentroids(extract_req, timeout=GRPC_CALL_TIMEOUT_S)
+            extract_algo_s = extract_resp.algorithm_time.ToTimedelta().total_seconds()
+            centroids = [
+                self._pb2.ImageCoord(x=c.centroid_position.x, y=c.centroid_position.y)
+                for c in extract_resp.star_candidates
+            ]
+
             params_kwargs = dict(
                 match_radius=match_radius,
                 match_threshold=match_threshold,
-                solve_timeout_ms=int(timeout_s * 1000),
+                solve_timeout_ms=int(round(timeout_s * 1000)),
                 distortion=distortion,
                 return_matches=True,
             )
@@ -240,13 +286,18 @@ class PsGrpcAdapter(_GrpcExtractMixin):
                 params_kwargs["fov_estimate"] = fov_estimate
             if fov_max_error is not None:
                 params_kwargs["fov_max_error"] = fov_max_error
-            req = self._pb2.SolveFromImageRequest(
-                extract=extract_req, params=self._pb2.SolveParams(**params_kwargs)
+            solve_req = self._pb2.SolveFromCentroidsRequest(
+                centroids=centroids, width=width, height=height,
+                params=self._pb2.SolveParams(**params_kwargs),
             )
-            t0 = time.perf_counter()
-            solution = self._stub.SolveFromImage(req, timeout=timeout_s + 5.0)
+            solution = self._stub.SolveFromCentroids(solve_req, timeout=timeout_s + GRPC_CALL_TIMEOUT_S)
             wall = time.perf_counter() - t0
 
+            assert solution.t_extract_ms == 0.0, (
+                "ps-grpc's Solution.t_extract_ms is no longer hard-coded to 0.0 - "
+                "the standalone ExtractCentroids timing workaround in this adapter "
+                "can be removed (see design.md's C2-adjacent note)."
+            )
             if i >= warmup:
                 wall_times.append(wall)
                 t_extract_list.append(extract_algo_s * 1000.0)
@@ -257,7 +308,7 @@ class PsGrpcAdapter(_GrpcExtractMixin):
         if status_name == "MATCH_FOUND":
             ra_deg, dec_deg, roll_deg, fov_deg = last.ra, last.dec, last.roll, last.fov
             matches = last.matches
-            matched_cat_ids = [m.cat_id for m in last.matched] if last.matched else None
+            matched_cat_ids = [m.cat_id for m in last.matched]
             rmse_arcsec, p90e_arcsec, maxe_arcsec = last.rmse, last.p90e, last.maxe
         else:
             # proto3 scalar fields default to 0.0/0 rather than being unset;
@@ -269,10 +320,12 @@ class PsGrpcAdapter(_GrpcExtractMixin):
             matched_cat_ids = None
             rmse_arcsec = p90e_arcsec = maxe_arcsec = None
         return _make_solve_result(
-            self.system, image_path.name, self.catalog, n_iterations, warmup,
-            wall_times, t_extract_list, t_solve_list, status_name,
-            ra_deg, dec_deg, roll_deg, fov_deg, matches, matched_cat_ids,
-            rmse_arcsec, p90e_arcsec, maxe_arcsec,
+            system=self.system, image_name=image_path.name, catalog=self.catalog,
+            n_iterations=n_iterations, warmup=warmup,
+            wall_clock_s=wall_times, t_extract_ms=t_extract_list, t_solve_ms=t_solve_list,
+            status=status_name, ra_deg=ra_deg, dec_deg=dec_deg, roll_deg=roll_deg, fov_deg=fov_deg,
+            matches=matches, matched_cat_ids=matched_cat_ids,
+            rmse_arcsec=rmse_arcsec, p90e_arcsec=p90e_arcsec, maxe_arcsec=maxe_arcsec,
         )
 
 
@@ -303,6 +356,7 @@ class CedarFlowAdapter(_GrpcExtractMixin):
                           match_radius: float = SHARED_PARAMS["match_radius"],
                           match_threshold: float = SHARED_PARAMS["match_threshold"],
                           distortion: float = SHARED_PARAMS["distortion"]) -> Dict[str, Any]:
+        _check_iterations(n_iterations, warmup)
         width, height, image_data = _load_image_grayscale(image_path)
         wall_times: List[float] = []
         t_extract_list: List[Optional[float]] = []
@@ -335,15 +389,21 @@ class CedarFlowAdapter(_GrpcExtractMixin):
                 t_solve_list.append(sol.get("T_solve"))
             last = sol
 
-        matched_cat_ids = (
-            [int(x) for x in last["matched_catID"]] if last.get("matched_catID") is not None else None
-        )
+        # cedar-solve's own status field is an int (MATCH_FOUND=1, NO_MATCH=2,
+        # TIMEOUT=3, CANCELLED=4, TOO_FEW=5 - tetra3.py lines 139-143), not a
+        # string; normalize it so this matches PsGrpcAdapter's/
+        # TetraOriginalAdapter's string-enum-name convention.
+        status_code = last.get("status")
+        status_name = _CEDAR_SOLVE_STATUS_NAMES.get(status_code, str(status_code)) if status_code is not None else None
+        matched_cat_ids = _coerce_matched_cat_ids(last.get("matched_catID"))
         return _make_solve_result(
-            self.system, image_path.name, self.catalog, n_iterations, warmup,
-            wall_times, t_extract_list, t_solve_list, last.get("status"),
-            last.get("RA"), last.get("Dec"), last.get("Roll"), last.get("FOV"),
-            last.get("Matches"), matched_cat_ids,
-            last.get("RMSE"), last.get("P90E"), last.get("MAXE"),
+            system=self.system, image_name=image_path.name, catalog=self.catalog,
+            n_iterations=n_iterations, warmup=warmup,
+            wall_clock_s=wall_times, t_extract_ms=t_extract_list, t_solve_ms=t_solve_list,
+            status=status_name,
+            ra_deg=last.get("RA"), dec_deg=last.get("Dec"), roll_deg=last.get("Roll"), fov_deg=last.get("FOV"),
+            matches=last.get("Matches"), matched_cat_ids=matched_cat_ids,
+            rmse_arcsec=last.get("RMSE"), p90e_arcsec=last.get("P90E"), maxe_arcsec=last.get("MAXE"),
         )
 
 
@@ -404,6 +464,7 @@ class TetraOriginalAdapter:
         # detect_hot_pixels/normalize_rows/binning are cedar-detect-specific
         # knobs with no equivalent in original tetra3's centroid extractor;
         # only sigma is a truly shared parameter here (see design.md).
+        _check_iterations(n_iterations, warmup)
         payload = self._run_subprocess(
             "detect", image_path, n_iterations, warmup, sigma,
             fov_estimate=None, fov_max_error=None,
@@ -412,10 +473,10 @@ class TetraOriginalAdapter:
             distortion=SHARED_PARAMS["distortion"], timeout_s=5.0,
         )
         return _make_detect_result(
-            self.system, image_path.name, n_iterations, warmup,
-            payload["wall_clock_s"], payload["algorithm_s"],
-            payload.get("noise_estimate"), payload.get("hot_pixel_count"),
-            payload.get("centroids_yx", []),
+            system=self.system, image_name=image_path.name, n_iterations=n_iterations, warmup=warmup,
+            wall_clock_s=payload["wall_clock_s"], algorithm_s=payload["algorithm_s"],
+            noise_estimate=payload.get("noise_estimate"), hot_pixel_count=payload.get("hot_pixel_count"),
+            centroids_yx=payload.get("centroids_yx", []),
         )
 
     def solve_from_image(self, image_path: Path, n_iterations: int, warmup: int,
@@ -428,15 +489,19 @@ class TetraOriginalAdapter:
                           match_radius: float = SHARED_PARAMS["match_radius"],
                           match_threshold: float = SHARED_PARAMS["match_threshold"],
                           distortion: float = SHARED_PARAMS["distortion"]) -> Dict[str, Any]:
+        _check_iterations(n_iterations, warmup)
         payload = self._run_subprocess(
             "solve", image_path, n_iterations, warmup, sigma,
             fov_estimate, fov_max_error, match_radius, match_threshold, distortion, timeout_s,
         )
         return _make_solve_result(
-            self.system, image_path.name, self.catalog, n_iterations, warmup,
-            payload["wall_clock_s"], payload["t_extract_ms"], payload["t_solve_ms"],
-            payload["status"], payload.get("ra_deg"), payload.get("dec_deg"),
-            payload.get("roll_deg"), payload.get("fov_deg"), payload.get("matches"),
-            payload.get("matched_cat_ids"), payload.get("rmse_arcsec"),
-            payload.get("p90e_arcsec"), payload.get("maxe_arcsec"),
+            system=self.system, image_name=image_path.name, catalog=self.catalog,
+            n_iterations=n_iterations, warmup=warmup,
+            wall_clock_s=payload["wall_clock_s"], t_extract_ms=payload["t_extract_ms"],
+            t_solve_ms=payload["t_solve_ms"], status=payload["status"],
+            ra_deg=payload.get("ra_deg"), dec_deg=payload.get("dec_deg"),
+            roll_deg=payload.get("roll_deg"), fov_deg=payload.get("fov_deg"),
+            matches=payload.get("matches"), matched_cat_ids=payload.get("matched_cat_ids"),
+            rmse_arcsec=payload.get("rmse_arcsec"), p90e_arcsec=payload.get("p90e_arcsec"),
+            maxe_arcsec=payload.get("maxe_arcsec"),
         )

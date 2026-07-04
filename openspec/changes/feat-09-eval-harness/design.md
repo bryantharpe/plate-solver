@@ -88,6 +88,14 @@ design, each verified by hand against the actual files rather than assumed:
 - **gRPC is the measurement interface for cedar-detect and ps-grpc**, called directly rather than
   through any additional client wrapper, per the explicit instruction that library performance is
   the target and gRPC is an acceptable, already-fair interface for the two systems that expose it.
+- **`PsGrpcAdapter.solve_from_image` composes `ExtractCentroids` + `SolveFromCentroids`**, not the
+  single fused `SolveFromImage` RPC named alongside them in `spec.md`'s scenario text. Since
+  `Solution.t_extract_ms` is hard-coded 0.0 on *both* RPCs (`ps-grpc/src/service.rs`), a standalone
+  `ExtractCentroids` call is required either way to get a real self-reported extraction time;
+  composing it this way reuses that same call's centroids for `SolveFromCentroids` instead of
+  extracting twice per iteration, and gives `ps_grpc` the same "extract via gRPC, then solve"
+  two-step structure `cedar_flow` uses, rather than `ps_grpc` measuring one fused call against
+  `cedar_flow`'s two.
 - **Explicit, shared detection parameters** (`sigma=4.0`, `detect_hot_pixels=true`,
   `normalize_rows=false`, no binning) are passed to every system rather than left at
   divergent defaults — `sigma=4.0` specifically matches the value the new workflow's

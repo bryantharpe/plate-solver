@@ -129,9 +129,13 @@ class ManagedServer:
 
 
 # Global registry so atexit/signal handlers can clean up every server started
-# in this process, including ones a caller forgot to stop().
+# in this process, including ones a caller forgot to stop(). RLock (not Lock):
+# a SIGINT/SIGTERM can interrupt the main thread while it's already inside
+# _register()/_unregister()'s critical section - _signal_handler then calls
+# _cleanup_all() on that same thread, which must be able to re-acquire the
+# lock it's already holding rather than deadlock against itself.
 _active: List[ManagedServer] = []
-_active_lock = threading.Lock()
+_active_lock = threading.RLock()
 
 
 def _register(server: ManagedServer) -> None:
