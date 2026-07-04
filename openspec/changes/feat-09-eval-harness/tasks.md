@@ -1,27 +1,27 @@
 ## 1. Environment & fixtures
 
-- [ ] 1.1 Human-in-the-loop: install `libjpeg-dev`/`zlib1g-dev` (needed for `Pillow<9` to build
+- [x] 1.1 Human-in-the-loop: install `libjpeg-dev`/`zlib1g-dev` (needed for `Pillow<9` to build
       from source on linux/aarch64 hosts; skip if the host already has usable wheels)
-- [ ] 1.2 Create `tools/parity/.venv-tetra3-orig`, `pip install -e reference-solutions/tetra3`,
+- [x] 1.2 Create `tools/parity/.venv-tetra3-orig`, `pip install -e reference-solutions/tetra3`,
       freeze to `tools/parity/requirements-tetra3-orig.txt`
-- [ ] 1.3 Extend `tools/parity/.venv` with cedar-solve's `[cedar-detect]` extra (`grpcio`,
+- [x] 1.3 Extend `tools/parity/.venv` with cedar-solve's `[cedar-detect]` extra (`grpcio`,
       `protobuf`) plus `grpcio-tools`; re-freeze `tools/parity/requirements.txt`; document both
       venvs and why they're separate in `tools/parity/README.md`
-- [ ] 1.4 Release-build `ps-grpc` (`cargo build --release -p ps-grpc`) and `cedar-detect-server`
+- [x] 1.4 Release-build `ps-grpc` (`cargo build --release -p ps-grpc`) and `cedar-detect-server`
       (`cargo build --release --manifest-path reference-solutions/cedar-detect/Cargo.toml --bin
       cedar-detect-server`)
-- [ ] 1.5 Generate Python gRPC stubs for `plate_solver.proto` via a new
+- [x] 1.5 Generate Python gRPC stubs for `plate_solver.proto` via a new
       `tools/parity/benchmark/compile_plate_solver_proto.py` (mirroring
       `reference-solutions/cedar-solve/scripts/compile_proto.py`'s invocation shape); commit the
       generated `tools/parity/benchmark/generated/plate_solver_pb2*.py`
-- [ ] 1.6 Add `ps-db/examples/npz_to_native.rs` (`import_npz` → `save_native`); run it once against
+- [x] 1.6 Add `ps-db/examples/npz_to_native.rs` (`import_npz` → `save_native`); run it once against
       `reference-solutions/cedar-solve/tetra3/data/default_database.npz` to produce the gitignored
       `tools/parity/benchmark/generated/shared_catalog.bin`
-- [ ] 1.7 Add `tools/parity/benchmark/corpus.py`: the 11-image list (9 astronomical + 2 stress),
+- [x] 1.7 Add `tools/parity/benchmark/corpus.py`: the 11-image list (9 astronomical + 2 stress),
       sourced from `reference-solutions/cedar-detect/test_data/`
-- [ ] 1.8 `.gitignore`: `tools/parity/.venv-tetra3-orig`, `tools/parity/benchmark/generated/*.bin`,
+- [x] 1.8 `.gitignore`: `tools/parity/.venv-tetra3-orig`, `tools/parity/benchmark/generated/*.bin`,
       `tools/parity/benchmark/results.json`
-- [ ] 1.9 Exit check: spawn each server standalone once, call one RPC by hand (`GetInfo` for
+- [x] 1.9 Exit check: spawn each server standalone once, call one RPC by hand (`GetInfo` for
       ps-grpc, a tiny `ExtractCentroids` for cedar-detect), confirm both respond
 
 ## 2. Harness
