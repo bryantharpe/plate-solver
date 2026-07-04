@@ -917,6 +917,92 @@ mod tests {
         assert_eq!(combos[4], [1, 2, 3, 4]);
     }
 
+    #[test]
+    fn breadth_first_combinations_4_matches_reference() {
+        use std::collections::BTreeSet;
+
+        // ASSERTION 1: n=6 cross-check
+        // Reference-generated literal from: python3 -c "import sys; sys.path.insert(0, 'reference-solutions/cedar-solve/tetra3'); from breadth_first_combinations import breadth_first_combinations; print(list(breadth_first_combinations(range(6), 4)))"
+        // Run 2026-07-04
+        let expected_n6: Vec<[usize; 4]> = vec![
+            [0, 1, 2, 3], [0, 1, 2, 4], [0, 1, 3, 4], [0, 2, 3, 4], [1, 2, 3, 4],
+            [0, 1, 2, 5], [0, 1, 3, 5], [0, 2, 3, 5], [1, 2, 3, 5], [0, 1, 4, 5],
+            [0, 2, 4, 5], [1, 2, 4, 5], [0, 3, 4, 5], [1, 3, 4, 5], [2, 3, 4, 5],
+        ];
+        let combos_n6: Vec<_> = breadth_first_combinations_4(6).collect();
+        assert_eq!(combos_n6, expected_n6, "n=6 breadth-first order must match reference exactly");
+
+        // ASSERTION 2: n=7 cross-check
+        // n=7 is n=6 followed by all combos containing index 6
+        let expected_n7_suffix: Vec<[usize; 4]> = vec![
+            [0, 1, 2, 6], [0, 1, 3, 6], [0, 2, 3, 6], [1, 2, 3, 6], [0, 1, 4, 6],
+            [0, 2, 4, 6], [1, 2, 4, 6], [0, 3, 4, 6], [1, 3, 4, 6], [2, 3, 4, 6],
+            [0, 1, 5, 6], [0, 2, 5, 6], [1, 2, 5, 6], [0, 3, 5, 6], [1, 3, 5, 6],
+            [2, 3, 5, 6], [0, 4, 5, 6], [1, 4, 5, 6], [2, 4, 5, 6], [3, 4, 5, 6],
+        ];
+        let mut expected_n7 = expected_n6.clone();
+        expected_n7.extend(expected_n7_suffix);
+        assert_eq!(expected_n7.len(), 35, "n=7 should have 35 combos (C(7,4))");
+
+        let combos_n7: Vec<_> = breadth_first_combinations_4(7).collect();
+        assert_eq!(combos_n7, expected_n7, "n=7 breadth-first order must match reference exactly");
+
+        // ASSERTION 3: Prefix-property assertion
+        // The defining structural feature of breadth-first order is that n=7's sequence is
+        // n=6's sequence followed by every combo containing index 6. This is a good sanity
+        // check independent of the literals above.
+        let combos_n7_first_15 = combos_n7.iter().take(15).copied().collect::<Vec<_>>();
+        assert_eq!(
+            combos_n7_first_15, expected_n6,
+            "n=7's first 15 combos must equal n=6's full sequence (breadth-first prefix property)"
+        );
+
+        // ASSERTION 4: n=10 and n=20 count/set assertions
+        // Verify count matches binomial coefficient C(n,4) = n*(n-1)*(n-2)*(n-3)/24
+        let combos_n10: Vec<_> = breadth_first_combinations_4(10).collect();
+        let expected_count_10 = 10 * 9 * 8 * 7 / 24; // C(10,4) = 210
+        assert_eq!(
+            combos_n10.len(),
+            expected_count_10,
+            "n=10 should have C(10,4)={} combos",
+            expected_count_10
+        );
+
+        let combos_n20: Vec<_> = breadth_first_combinations_4(20).collect();
+        let expected_count_20 = 20 * 19 * 18 * 17 / 24; // C(20,4) = 4845
+        assert_eq!(
+            combos_n20.len(),
+            expected_count_20,
+            "n=20 should have C(20,4)={} combos",
+            expected_count_20
+        );
+
+        // For both n=10 and n=20, verify that the *set* of combos matches a local
+        // lexicographic generator (order not compared here, just membership).
+        for n in [10, 20].iter() {
+            let breadth_first_set: BTreeSet<[usize; 4]> =
+                breadth_first_combinations_4(*n).collect();
+
+            // Build lexicographic set: four nested loops
+            let mut lexicographic_set = BTreeSet::new();
+            for a in 0..*n {
+                for b in (a + 1)..*n {
+                    for c in (b + 1)..*n {
+                        for d in (c + 1)..*n {
+                            lexicographic_set.insert([a, b, c, d]);
+                        }
+                    }
+                }
+            }
+
+            assert_eq!(
+                breadth_first_set, lexicographic_set,
+                "n={} breadth-first set must equal lexicographic set (same membership, order differs)",
+                n
+            );
+        }
+    }
+
     /// Helper: build a mock DB with a single pattern of 4 catalog stars.
     fn build_mock_db_with_pattern(
         cat_vectors: &[[f64; 3]],
