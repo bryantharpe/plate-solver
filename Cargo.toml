@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["ps-core", "ps-detect", "ps-db", "ps-dbgen", "ps-solve", "ps-grpc", "ps-web"]
-exclude = ["tools/parity/_capture_binning"]
+exclude = ["tools/parity/_capture_binning", "reference-solutions/cedar-detect"]
 
 [workspace.dependencies]
 # Math
