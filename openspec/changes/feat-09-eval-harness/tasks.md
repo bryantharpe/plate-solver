@@ -64,10 +64,10 @@
 
 ## 4. Report generation
 
-- [ ] 4.1 `tools/parity/benchmark/report.py` (stdlib only: `json`, `statistics`, `html`): reads
+- [x] 4.1 `tools/parity/benchmark/report.py` (stdlib only: `json`, `statistics`, `html`): reads
       `results.json`, deterministically emits `docs/benchmarks/report.md` and
       `docs/benchmarks/report.html` (self-contained, no CDN/JS framework)
-- [ ] 4.2 Report content: headline speedup summary; methodology & environment disclosure
+- [x] 4.2 Report content: headline speedup summary; methodology & environment disclosure
       (Linux/aarch64 host, not the PRD's RPi-4B/mobile target; iteration/warmup counts;
       cross-catalog caveat; `C1`/`C2` citations); per-image tables (wall-clock + self-reported,
       detect + solve, all three systems); aggregate median-speedup table over the 9 astronomical
