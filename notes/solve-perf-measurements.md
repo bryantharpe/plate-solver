@@ -91,3 +91,23 @@ This confirms the SP0.2 decision gate's prediction exactly: since `combos_examin
 **Parity**: re-verified via `parity.py` on this same run — all 9 `ps_grpc_vs_cedar_flow`/`primary_same_catalog` comparisons still `flagged: false`, `matched_cat_ids.exact: true`, `symmetric_difference_count: 0` (see SP2.1's Run Log entry in `plan.md` for the full proof; this run reconfirms it incidentally as a byproduct of the same harness invocation).
 
 **Conclusion:** SP1.1 (lazy breadth-first iterator) alone closes the gap from 0.27× to 1.55× vs cedar_flow — solidly past the ≥1.0× threshold. Per SP2.2's decision rule, **SP3 (profiling) is skipped**; proceed to **SP4** (finalize/land).
+
+---
+
+# SP4 — Final Summary (2026-07-04)
+
+**Effort:** close the `ps-solve` vs cedar-solve solve-stage latency gap (feat-10 solve-latency fix, `notes/solve-perf-implementation-plan.md`), without regressing accuracy, without touching `ps-detect`.
+
+**Result: 0.27× → 1.55× (independently re-measured 1.849×) vs cedar_flow on solve, median over 9 astronomical images.** Zero accuracy regression (SP2.1: all 9 `ps_grpc_vs_cedar_flow` matched-catalog-ID sets exact, RA/Dec within 10 arcsec, unchanged from the pre-change baseline; SP2.2: reconfirmed as a byproduct).
+
+**What actually fixed it:** SP1.1 replaced the eager `combinations_4(n) -> Vec<[usize;4]>` (which allocated and populated *every* 4-star combination up front — up to ~618 MiB at `n≈150` — before the solve loop could examine even the first one) with a lazy, allocation-free breadth-first (colexicographic) iterator, verified byte-identical in traversal order to cedar-solve's own `breadth_first_combinations` reference generator (SP1.3, independently re-checked by ps-judge against the actual Python module).
+
+**The surprising, load-bearing finding (SP0.2/SP2.2): the win came from laziness, not from ordering.** `combos_examined` is bit-for-bit identical before and after SP1.1 on all 9 corpus images (8 match on the very first or second combination — where lex and colex order are identical regardless — and the 9th, hale_bopp, exhausts the full space either way, since order can't change a full-space walk). The entire 0.27×→1.55× improvement is the C1 memory-allocation removal alone; the ordering fix, while correctly implemented and verified, made no measurable difference on this corpus. This matters for future readers: don't assume "breadth-first order" was the win — it was "stop building the whole combinatorial space before you need it."
+
+**Decision: keep the `combos_examined` counter (SP0.1).** Recommended and adopted — it's a cheap, additive `u64` field with no perf cost, it's what let this investigation actually distinguish "ordering helped" from "laziness helped" instead of guessing, and the plan's own throughline is "measure, don't guess." No reason to remove it.
+
+**Gates, final state:** `cargo test --workspace` green throughout every bead; `cargo clippy -p ps-solve` 0 errors; parity identical-green vs the pre-change baseline at every checkpoint (SP2.1, reconfirmed SP2.2); `ps-detect` untouched (confirmed via `git status`/diff scope on every bead); no tolerance loosened, no test `#[ignore]`d, no assertion weakened, at any point.
+
+**Skipped (by measurement, not by omission):** SP3.1 (profile the residual gap) and SP3.2 (trim allocation churn) — both conditional on a gap remaining after SP2.2, and no gap remains (1.55× ≥ 1.0× threshold). If a future workload or corpus shows a different pattern (e.g. images that need many more combos to match), re-open SP3 guided by the `combos_examined` counter this effort added.
+
+**Every bead (SP0.1–SP4) shipped through the full `ps-coder` → `ps-judge` grind loop** — every diff independently gated (`cargo build`/`test`/`clippy`) by the orchestrator and independently reviewed by `ps-judge`, with `ps-judge` re-running measurements from scratch (not trusting pasted numbers) on the two highest-stakes beads (SP1.3's reference cross-check, SP2.1's parity STOP-gate, SP2.2's decision gate).
