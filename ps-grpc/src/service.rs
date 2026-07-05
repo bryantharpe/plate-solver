@@ -110,29 +110,41 @@ impl PlateSolver for PlateSolverService {
     ) -> Result<Response<CentroidsResult>, Status> {
         let req = request.into_inner();
 
-        // Extract input image.
+        // Move the input image out of the request so its inline `image_data`
+        // buffer can be moved into GrayImage without a full-frame clone
+        // (~0.79 MB at 1024x768). `req` keeps the other CentroidsRequest fields
+        // (sigma, binning, etc.) for use below.
         let input_image = req
             .input_image
-            .as_ref()
             .ok_or_else(|| Status::invalid_argument("missing input_image"))?;
 
         // reopen_shmem: we open fresh per request, so reopen is implicit.
         let _reopen = input_image.reopen_shmem;
 
-        // Resolve image bytes (shmem or inline).
-        let image_bytes = if let Some(ref shmem_name) = input_image.shmem_name {
+        let width = input_image.width as u32;
+        let height = input_image.height as u32;
+
+        // Resolve image bytes (shmem or inline). The inline path moves
+        // `image_data` directly (no clone). The shmem path must copy out of
+        // the mmap because GrayImage::from_raw consumes an owned Vec; making
+        // it zero-copy would require a borrowed-image API through ps-detect,
+        // which is out of scope here (ps-detect is untouched per FU-A).
+        let image_bytes = if let Some(shmem_name) = input_image.shmem_name {
             let path = format!("/dev/shm/{}", shmem_name);
             let file = File::open(&path)
                 .map_err(|e| Status::internal(format!("shmem open failed: {}: {}", path, e)))?;
             let mmap = unsafe { MmapOptions::new().map(&file) }
                 .map_err(|e| Status::internal(format!("shmem mmap failed: {}: {}", path, e)))?;
+            // Zero-copy shmem is out of scope: it would require a borrowed-image
+            // (&[u8] / mmap-backed) API through ps-detect, which is untouched per
+            // the FU-A constraints. GrayImage::from_raw needs an owned Vec, so
+            // the mmap bytes are copied here. Unblocking zero-copy means
+            // threading a borrowed image through ps-detect's whole detect
+            // pipeline (get_stars_from_image and every stage it calls).
             mmap.to_vec()
         } else {
-            input_image.image_data.clone()
+            input_image.image_data
         };
-
-        let width = input_image.width as u32;
-        let height = input_image.height as u32;
 
         // Validate dimensions.
         let expected_len = (width * height) as usize;
@@ -283,32 +295,40 @@ impl PlateSolver for PlateSolverService {
     ) -> Result<Response<Solution>, Status> {
         let req = request.into_inner();
 
-        // Extract the CentroidsRequest.
+        // Take the CentroidsRequest + its input image out of the request so the
+        // inline buffer can be moved into GrayImage without a full-frame clone
+        // (~0.79 MB at 1024x768). `req` keeps `params` for use below.
         let extract_req = req
             .extract
-            .as_ref()
             .ok_or_else(|| Status::invalid_argument("missing extract"))?;
-
-        // Extract input image.
         let input_image = extract_req
             .input_image
-            .as_ref()
             .ok_or_else(|| Status::invalid_argument("missing input_image in extract"))?;
 
-        // Resolve image bytes (shmem or inline).
-        let image_bytes = if let Some(ref shmem_name) = input_image.shmem_name {
+        let width = input_image.width as u32;
+        let height = input_image.height as u32;
+
+        // Resolve image bytes (shmem or inline). The inline path moves
+        // `image_data` directly (no clone). The shmem path must copy out of
+        // the mmap because GrayImage::from_raw consumes an owned Vec; making
+        // it zero-copy would require a borrowed-image API through ps-detect,
+        // which is out of scope here (ps-detect is untouched per FU-A).
+        let image_bytes = if let Some(shmem_name) = input_image.shmem_name {
             let path = format!("/dev/shm/{}", shmem_name);
             let file = File::open(&path)
                 .map_err(|e| Status::internal(format!("shmem open failed: {}: {}", path, e)))?;
             let mmap = unsafe { MmapOptions::new().map(&file) }
                 .map_err(|e| Status::internal(format!("shmem mmap failed: {}: {}", path, e)))?;
+            // Zero-copy shmem is out of scope: it would require a borrowed-
+            // image (&[u8] / mmap-backed) API through ps-detect, which is
+            // untouched per the FU-A constraints. GrayImage::from_raw needs
+            // an owned Vec, so the mmap bytes are copied here. Unblocking
+            // zero-copy means threading a borrowed image through ps-detect's
+            // whole detect pipeline.
             mmap.to_vec()
         } else {
-            input_image.image_data.clone()
+            input_image.image_data
         };
-
-        let width = input_image.width as u32;
-        let height = input_image.height as u32;
 
         // Validate dimensions.
         let expected_len = (width * height) as usize;
