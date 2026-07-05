@@ -332,11 +332,11 @@ impl PlateSolver for PlateSolverService {
         let solve_params = map_params(params_msg);
         let return_matches = params_msg.return_matches;
 
-        // Call ps_solve::solve_from_image directly.
-        // t_extract_ms = 0.0 since solve_from_image handles extraction internally.
+        // Call ps_solve::solve_from_image directly. It self-reports the extraction
+        // wall-clock in `t_extract` (seconds); convert to ms for the wire field.
         let sol = ps_solve_image(&self.db, &image, &solve_params);
 
-        let solution_proto = map_solution(&sol, return_matches, 0.0);
+        let solution_proto = map_solution(&sol, return_matches, sol.t_extract * 1000.0);
 
         Ok(Response::new(solution_proto))
     }
@@ -685,6 +685,14 @@ mod tests {
             ProtoSolveStatus::MatchFound as i32,
             "expected MATCH_FOUND (0), got status={}",
             resp.status
+        );
+
+        // FUA.1: SolveFromImage self-reports real extraction time (not hard-coded 0.0).
+        // SolveFromCentroids legitimately reports 0.0 (no extraction); SolveFromImage does not.
+        assert!(
+            resp.t_extract_ms > 0.0,
+            "SolveFromImage should report t_extract_ms > 0, got {}",
+            resp.t_extract_ms
         );
     }
 

@@ -45,6 +45,9 @@ pub struct Solution {
     pub prob: f64,
     /// Solve wall-clock time, seconds.
     pub t_solve: f64,
+    /// Extraction (star-detect + centroid) wall-clock time, seconds.
+    /// Set by `solve_from_image`; 0.0 for `solve_from_centroids` (no extraction).
+    pub t_extract: f64,
     /// Status of the solve attempt.
     pub status: SolveStatus,
     /// Matched centroid positions (y,x), if requested.
@@ -73,6 +76,7 @@ impl Solution {
             matches: 0,
             prob: 1.0,
             t_solve,
+            t_extract: 0.0,
             matched_centroids: None,
             matched_stars: None,
             matched_cat_ids: None,
@@ -558,6 +562,7 @@ pub fn solve_from_centroids(
                     matches: num_star_matches,
                     prob: prob_mismatch,
                     t_solve: t0.elapsed().as_secs_f64(),
+                    t_extract: 0.0,
                     matched_centroids: Some(matched_centroids_out),
                     matched_stars: Some(matched_stars_out),
                     matched_cat_ids: Some(matched_cat_ids_out),
@@ -658,6 +663,9 @@ fn breadth_first_combinations_4(n: usize) -> BreadthFirstCombinations4 {
 /// Solve from a raw grayscale image (detects stars then solves).
 pub fn solve_from_image(db: &Database, image: &GrayImage, params: &SolveParams) -> Solution {
     let (width, height) = (image.width() as usize, image.height() as usize);
+    // Time the extraction (detection + centroid collection); `solve_from_centroids`
+    // measures only the solve region, so t_extract is stamped on its result.
+    let t_extract_start = Instant::now();
     let (stars, _, _, _) = ps_detect::get_stars_from_image(
         image, 1.0,   // noise_estimate (floored to NOISE_FLOOR internally)
         4.0,   // sigma
@@ -670,7 +678,10 @@ pub fn solve_from_image(db: &Database, image: &GrayImage, params: &SolveParams) 
         .iter()
         .map(|s| [s.centroid_y as f64, s.centroid_x as f64])
         .collect();
-    solve_from_centroids(db, &centroids, (height, width), params)
+    let t_extract = t_extract_start.elapsed().as_secs_f64();
+    let mut sol = solve_from_centroids(db, &centroids, (height, width), params);
+    sol.t_extract = t_extract;
+    sol
 }
 
 /// Sort 4 pattern vectors by ascending Euclidean distance from their centroid.
