@@ -527,9 +527,9 @@ mod tests {
     fn make_shmem_request(shmem_name: String) -> CentroidsRequest {
         CentroidsRequest {
             input_image: Some(Image {
-                width: 0,
-                height: 0,
-                image_data: vec![],
+                width: 1,
+                height: 1,
+                image_data: vec![0],
                 shmem_name: Some(shmem_name),
                 reopen_shmem: false,
             }),

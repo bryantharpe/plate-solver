@@ -1,5 +1,5 @@
 use ps_db::{importer, loader};
-use ps_solve::{solve_from_image, SolveParams};
+use ps_solve::{solve_from_image, DetectParams, SolveParams};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -43,7 +43,7 @@ fn main() {
         };
 
         let t0 = Instant::now();
-        let sol = solve_from_image(&db, &img, &params);
+        let sol = solve_from_image(&db, &img, &params, &DetectParams::default());
         let wall = t0.elapsed().as_secs_f64();
 
         println!(
