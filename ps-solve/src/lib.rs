@@ -1703,10 +1703,11 @@ mod tests {
             ..Default::default()
         };
 
-        let sol_default = solve_from_image(&db, &img, &params, &DetectParams::default());
+        let view = ps_detect::as_view(&img);
+        let sol_default = solve_from_image(&db, &view, &params, &DetectParams::default());
         let sol_sigma8 = solve_from_image(
             &db,
-            &img,
+            &view,
             &params,
             &DetectParams { sigma: 8.0, ..DetectParams::default() },
         );
