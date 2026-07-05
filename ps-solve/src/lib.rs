@@ -45,6 +45,9 @@ pub struct Solution {
     pub prob: f64,
     /// Solve wall-clock time, seconds.
     pub t_solve: f64,
+    /// Extraction (star-detect + centroid) wall-clock time, seconds.
+    /// Set by `solve_from_image`; 0.0 for `solve_from_centroids` (no extraction).
+    pub t_extract: f64,
     /// Status of the solve attempt.
     pub status: SolveStatus,
     /// Matched centroid positions (y,x), if requested.
@@ -53,11 +56,13 @@ pub struct Solution {
     pub matched_stars: Option<Vec<[f64; 3]>>,
     /// Matched catalog IDs, if requested.
     pub matched_cat_ids: Option<Vec<u32>>,
+    /// Number of 4-star combinations examined before stopping.
+    pub combos_examined: u64,
 }
 
 impl Solution {
     /// Construct a failure result.
-    pub fn failure(status: SolveStatus, t_solve: f64) -> Self {
+    pub fn failure(status: SolveStatus, t_solve: f64, combos_examined: u64) -> Self {
         Self {
             status,
             ra: 0.0,
@@ -71,9 +76,11 @@ impl Solution {
             matches: 0,
             prob: 1.0,
             t_solve,
+            t_extract: 0.0,
             matched_centroids: None,
             matched_stars: None,
             matched_cat_ids: None,
+            combos_examined,
         }
     }
 }
@@ -137,7 +144,7 @@ pub fn solve_from_centroids(
 
     // SV2 step 3: Pre-cluster-bust TooFew guard
     if star_centroids.len() < 4 {
-        return Solution::failure(SolveStatus::TooFew, 0.0);
+        return Solution::failure(SolveStatus::TooFew, 0.0, 0);
     }
 
     // SV2 step 4: Cluster-bust on ALL raw star_centroids
@@ -186,8 +193,10 @@ pub fn solve_from_centroids(
     let cancel_flag = params.cancel_flag.clone();
 
     let mut status = SolveStatus::NoMatch;
+    let mut combos_examined: u64 = 0;
 
-    'outer: for combo in combinations_4(num_pattern_centroids) {
+    'outer: for combo in breadth_first_combinations_4(num_pattern_centroids) {
+        combos_examined += 1;
         // Timeout check
         if let Some(tmax) = solve_timeout_secs {
             if t0.elapsed().as_secs_f64() > tmax {
@@ -553,15 +562,17 @@ pub fn solve_from_centroids(
                     matches: num_star_matches,
                     prob: prob_mismatch,
                     t_solve: t0.elapsed().as_secs_f64(),
+                    t_extract: 0.0,
                     matched_centroids: Some(matched_centroids_out),
                     matched_stars: Some(matched_stars_out),
                     matched_cat_ids: Some(matched_cat_ids_out),
+                    combos_examined,
                 };
             }
         }
     }
 
-    Solution::failure(status, t0.elapsed().as_secs_f64())
+    Solution::failure(status, t0.elapsed().as_secs_f64(), combos_examined)
 }
 
 /// Cluster-bust centroids: greedy O(n^2) pass keeping stars separated
@@ -591,24 +602,70 @@ pub fn cluster_bust_centroids(centroids: &[[f64; 2]], separation_pixels: f64) ->
     kept
 }
 
-/// Generate all 4-element combinations of indices [0..n) in lexicographic order.
-fn combinations_4(n: usize) -> Vec<[usize; 4]> {
-    let mut result = Vec::new();
-    for a in 0..n {
-        for b in (a + 1)..n {
-            for c in (b + 1)..n {
-                for d in (c + 1)..n {
-                    result.push([a, b, c, d]);
+/// Lazily yields all 4-element combinations of `[0, n)` in the same
+/// breadth-first ("brightest first") order as cedar-solve's
+/// `breadth_first_combinations` (tetra3/breadth_first_combinations.py),
+/// which for fixed r is colexicographic order: combinations sorted
+/// ascending by largest element, then by second-largest, and so on.
+/// A valid match among the brightest stars is therefore reached after
+/// ~C(d,4) combos (d = its largest index) instead of potentially most
+/// of C(n,4) under the old lexicographic order.
+///
+/// Also replaces an eager `Vec<[usize; 4]>` that allocated C(n,4)*32 B
+/// up front (~618 MiB at n = 150, the bundled DB's
+/// verification_stars_per_fov), so timeout/cancel checks fire at the
+/// same per-combo cadence with no allocation.
+struct BreadthFirstCombinations4 {
+    n: usize,
+    cur: [usize; 4],
+    done: bool,
+}
+
+impl BreadthFirstCombinations4 {
+    fn new(n: usize) -> Self {
+        // done = n < 4 short-circuits the empty case AND guards the
+        // bound arithmetic in next() from ever running with n < 4.
+        Self { n, cur: [0, 1, 2, 3], done: n < 4 }
+    }
+}
+
+impl Iterator for BreadthFirstCombinations4 {
+    type Item = [usize; 4];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+        let out = self.cur;
+        // Colex successor: find the smallest position that can advance
+        // (bounded by the element above it, or n at the top), bump it,
+        // and reset everything below to the minimal values 0..i.
+        for i in 0..4 {
+            let bound = if i < 3 { self.cur[i + 1] } else { self.n };
+            if self.cur[i] + 1 < bound {
+                self.cur[i] += 1;
+                for j in 0..i {
+                    self.cur[j] = j;
                 }
+                return Some(out);
             }
         }
+        self.done = true;
+        Some(out) // the final combination is still yielded
     }
-    result
+}
+
+/// Lazy breadth-first (colex) 4-combinations of `[0, n)`. No allocation.
+fn breadth_first_combinations_4(n: usize) -> BreadthFirstCombinations4 {
+    BreadthFirstCombinations4::new(n)
 }
 
 /// Solve from a raw grayscale image (detects stars then solves).
 pub fn solve_from_image(db: &Database, image: &GrayImage, params: &SolveParams) -> Solution {
     let (width, height) = (image.width() as usize, image.height() as usize);
+    // Time the extraction (detection + centroid collection); `solve_from_centroids`
+    // measures only the solve region, so t_extract is stamped on its result.
+    let t_extract_start = Instant::now();
     let (stars, _, _, _) = ps_detect::get_stars_from_image(
         image, 1.0,   // noise_estimate (floored to NOISE_FLOOR internally)
         4.0,   // sigma
@@ -621,7 +678,10 @@ pub fn solve_from_image(db: &Database, image: &GrayImage, params: &SolveParams) 
         .iter()
         .map(|s| [s.centroid_y as f64, s.centroid_x as f64])
         .collect();
-    solve_from_centroids(db, &centroids, (height, width), params)
+    let t_extract = t_extract_start.elapsed().as_secs_f64();
+    let mut sol = solve_from_centroids(db, &centroids, (height, width), params);
+    sol.t_extract = t_extract;
+    sol
 }
 
 /// Sort 4 pattern vectors by ascending Euclidean distance from their centroid.
@@ -758,7 +818,7 @@ mod tests {
 
     #[test]
     fn solution_failure_constructor() {
-        let sol = Solution::failure(SolveStatus::TooFew, 0.123);
+        let sol = Solution::failure(SolveStatus::TooFew, 0.123, 0);
         assert_eq!(sol.status, SolveStatus::TooFew);
         assert_eq!(sol.matches, 0);
         assert!((sol.t_solve - 0.123).abs() < 1e-12);
@@ -847,23 +907,111 @@ mod tests {
 
     #[test]
     fn combinations_4_basic() {
-        assert_eq!(combinations_4(0), Vec::<[usize; 4]>::new());
-        assert_eq!(combinations_4(3), Vec::<[usize; 4]>::new());
-        let combos = combinations_4(4);
+        assert_eq!(breadth_first_combinations_4(0).collect::<Vec<_>>(), Vec::<[usize; 4]>::new());
+        assert_eq!(breadth_first_combinations_4(3).collect::<Vec<_>>(), Vec::<[usize; 4]>::new());
+        let combos: Vec<_> = breadth_first_combinations_4(4).collect();
         assert_eq!(combos.len(), 1);
         assert_eq!(combos[0], [0, 1, 2, 3]);
     }
 
     #[test]
     fn combinations_4_five_elements() {
-        // C(5,4) = 5 combinations
-        let combos = combinations_4(5);
+        // C(5,4) = 5 combinations. Note: n=r+1 is a coincidence where lexicographic
+        // and colexicographic order coincide; this test does not prove breadth-first
+        // ordering is correct in general (see SP1.3 for n=6/n=7 proof).
+        let combos: Vec<_> = breadth_first_combinations_4(5).collect();
         assert_eq!(combos.len(), 5);
         assert_eq!(combos[0], [0, 1, 2, 3]);
         assert_eq!(combos[1], [0, 1, 2, 4]);
         assert_eq!(combos[2], [0, 1, 3, 4]);
         assert_eq!(combos[3], [0, 2, 3, 4]);
         assert_eq!(combos[4], [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn breadth_first_combinations_4_matches_reference() {
+        use std::collections::BTreeSet;
+
+        // ASSERTION 1: n=6 cross-check
+        // Reference-generated literal from: python3 -c "import sys; sys.path.insert(0, 'reference-solutions/cedar-solve/tetra3'); from breadth_first_combinations import breadth_first_combinations; print(list(breadth_first_combinations(range(6), 4)))"
+        // Run 2026-07-04
+        let expected_n6: Vec<[usize; 4]> = vec![
+            [0, 1, 2, 3], [0, 1, 2, 4], [0, 1, 3, 4], [0, 2, 3, 4], [1, 2, 3, 4],
+            [0, 1, 2, 5], [0, 1, 3, 5], [0, 2, 3, 5], [1, 2, 3, 5], [0, 1, 4, 5],
+            [0, 2, 4, 5], [1, 2, 4, 5], [0, 3, 4, 5], [1, 3, 4, 5], [2, 3, 4, 5],
+        ];
+        let combos_n6: Vec<_> = breadth_first_combinations_4(6).collect();
+        assert_eq!(combos_n6, expected_n6, "n=6 breadth-first order must match reference exactly");
+
+        // ASSERTION 2: n=7 cross-check
+        // n=7 is n=6 followed by all combos containing index 6
+        let expected_n7_suffix: Vec<[usize; 4]> = vec![
+            [0, 1, 2, 6], [0, 1, 3, 6], [0, 2, 3, 6], [1, 2, 3, 6], [0, 1, 4, 6],
+            [0, 2, 4, 6], [1, 2, 4, 6], [0, 3, 4, 6], [1, 3, 4, 6], [2, 3, 4, 6],
+            [0, 1, 5, 6], [0, 2, 5, 6], [1, 2, 5, 6], [0, 3, 5, 6], [1, 3, 5, 6],
+            [2, 3, 5, 6], [0, 4, 5, 6], [1, 4, 5, 6], [2, 4, 5, 6], [3, 4, 5, 6],
+        ];
+        let mut expected_n7 = expected_n6.clone();
+        expected_n7.extend(expected_n7_suffix);
+        assert_eq!(expected_n7.len(), 35, "n=7 should have 35 combos (C(7,4))");
+
+        let combos_n7: Vec<_> = breadth_first_combinations_4(7).collect();
+        assert_eq!(combos_n7, expected_n7, "n=7 breadth-first order must match reference exactly");
+
+        // ASSERTION 3: Prefix-property assertion
+        // The defining structural feature of breadth-first order is that n=7's sequence is
+        // n=6's sequence followed by every combo containing index 6. This is a good sanity
+        // check independent of the literals above.
+        let combos_n7_first_15 = combos_n7.iter().take(15).copied().collect::<Vec<_>>();
+        assert_eq!(
+            combos_n7_first_15, expected_n6,
+            "n=7's first 15 combos must equal n=6's full sequence (breadth-first prefix property)"
+        );
+
+        // ASSERTION 4: n=10 and n=20 count/set assertions
+        // Verify count matches binomial coefficient C(n,4) = n*(n-1)*(n-2)*(n-3)/24
+        let combos_n10: Vec<_> = breadth_first_combinations_4(10).collect();
+        let expected_count_10 = 10 * 9 * 8 * 7 / 24; // C(10,4) = 210
+        assert_eq!(
+            combos_n10.len(),
+            expected_count_10,
+            "n=10 should have C(10,4)={} combos",
+            expected_count_10
+        );
+
+        let combos_n20: Vec<_> = breadth_first_combinations_4(20).collect();
+        let expected_count_20 = 20 * 19 * 18 * 17 / 24; // C(20,4) = 4845
+        assert_eq!(
+            combos_n20.len(),
+            expected_count_20,
+            "n=20 should have C(20,4)={} combos",
+            expected_count_20
+        );
+
+        // For both n=10 and n=20, verify that the *set* of combos matches a local
+        // lexicographic generator (order not compared here, just membership).
+        for n in [10, 20].iter() {
+            let breadth_first_set: BTreeSet<[usize; 4]> =
+                breadth_first_combinations_4(*n).collect();
+
+            // Build lexicographic set: four nested loops
+            let mut lexicographic_set = BTreeSet::new();
+            for a in 0..*n {
+                for b in (a + 1)..*n {
+                    for c in (b + 1)..*n {
+                        for d in (c + 1)..*n {
+                            lexicographic_set.insert([a, b, c, d]);
+                        }
+                    }
+                }
+            }
+
+            assert_eq!(
+                breadth_first_set, lexicographic_set,
+                "n={} breadth-first set must equal lexicographic set (same membership, order differs)",
+                n
+            );
+        }
     }
 
     /// Helper: build a mock DB with a single pattern of 4 catalog stars.

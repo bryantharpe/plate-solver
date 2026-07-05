@@ -48,9 +48,10 @@ import servers  # noqa: E402
 from adapters import SHARED_PARAMS, CedarFlowAdapter, PsGrpcAdapter, TetraOriginalAdapter  # noqa: E402
 
 KNOWN_LIMITATIONS = [
-    "ps_grpc's Solution.t_extract_ms is hard-coded 0.0 in ps-grpc/src/service.rs for both "
-    "SolveFromCentroids and SolveFromImage; this harness gets a real self-reported extraction "
-    "time via a standalone ExtractCentroids call instead (see design.md).",
+    "ps_grpc's Solution.t_extract_ms is 0.0 for SolveFromCentroids in ps-grpc/src/service.rs "
+    "(correct - no extraction happens there); SolveFromImage now self-reports a real extraction "
+    "time. This harness still measures the new workflow's extraction via a standalone "
+    "ExtractCentroids call rather than the field (see design.md).",
     "ps_solve::solve_from_image hard-codes sigma=4.0, noise_estimate=1.0, binning=1 regardless of "
     "request parameters (CODEBASE-REVIEW.md C2) - a measurement caveat, not fixed by this change.",
     "tetra3_original uses its own bundled default_database.npz (different build than cedar-solve's "
