@@ -4,11 +4,11 @@
 //! The darkest cut (lowest mean) is selected to avoid bright interlopers.
 
 use crate::histogram::{remove_stars_from_histogram, stats_for_histogram, HistogramStats};
-use crate::GrayImage;
+use crate::GrayImageView;
 use imageproc::rect::Rect;
 
 /// Build a 256-bin histogram of all pixels in the given ROI.
-fn histogram_for_roi(image: &GrayImage, roi: &Rect) -> [u32; 256] {
+fn histogram_for_roi(image: &GrayImageView<'_>, roi: &Rect) -> [u32; 256] {
     let mut histogram = [0_u32; 256];
     let (width, _height) = image.dimensions();
     let width = width as usize;
@@ -33,7 +33,7 @@ fn histogram_for_roi(image: &GrayImage, roi: &Rect) -> [u32; 256] {
 }
 
 /// Compute de-starred statistics for the given ROI.
-fn stats_for_roi(image: &GrayImage, roi: &Rect) -> HistogramStats {
+fn stats_for_roi(image: &GrayImageView<'_>, roi: &Rect) -> HistogramStats {
     let mut hist = histogram_for_roi(image, roi);
     remove_stars_from_histogram(&mut hist, 8.0);
     stats_for_histogram(&hist)
@@ -44,7 +44,7 @@ fn stats_for_roi(image: &GrayImage, roi: &Rect) -> HistogramStats {
 /// Samples three horizontal cuts along the image's midline, computes
 /// de-starred statistics for each, and returns the standard deviation
 /// of the darkest cut (lowest mean).
-pub fn estimate_noise_from_image(image: &GrayImage) -> f64 {
+pub fn estimate_noise_from_image(image: &GrayImageView<'_>) -> f64 {
     let (width, height) = image.dimensions();
 
     let cut_size = std::cmp::min(50, width / 4);
@@ -78,7 +78,7 @@ pub fn estimate_noise_from_image(image: &GrayImage) -> f64 {
 /// Estimate the background and noise level of the given image region.
 ///
 /// Returns `(mean, stddev)` for the de-starred pixel distribution in `roi`.
-pub fn estimate_background_from_image_region(image: &GrayImage, roi: &Rect) -> (f64, f64) {
+pub fn estimate_background_from_image_region(image: &GrayImageView<'_>, roi: &Rect) -> (f64, f64) {
     let stats = stats_for_roi(image, roi);
     (stats.mean, stats.stddev)
 }
@@ -96,7 +96,8 @@ mod tests {
             pixel.0[0] = 50;
         }
         let roi = Rect::at(0, 0).of_size(10, 10);
-        let hist = histogram_for_roi(&img, &roi);
+        let view = crate::as_view(&img);
+        let hist = histogram_for_roi(&view, &roi);
         assert_eq!(hist[50], 100);
         assert_eq!(hist.iter().sum::<u32>(), 100);
     }
@@ -115,7 +116,8 @@ mod tests {
             }
         }
         let roi = Rect::at(2, 2).of_size(5, 5);
-        let hist = histogram_for_roi(&img, &roi);
+        let view = crate::as_view(&img);
+        let hist = histogram_for_roi(&view, &roi);
         // All 25 pixels in ROI should be value 20
         assert_eq!(hist[20], 25);
     }
@@ -124,7 +126,8 @@ mod tests {
     fn test_estimate_noise_uniform_image() {
         // Uniform image has zero noise
         let img = ImgGrayImage::new(100, 100);
-        let noise = estimate_noise_from_image(&img);
+        let view = crate::as_view(&img);
+        let noise = estimate_noise_from_image(&view);
         assert_eq!(noise, 0.0);
     }
 
@@ -136,7 +139,8 @@ mod tests {
             pixel.0[0] = 50;
         }
         let roi = Rect::at(0, 0).of_size(100, 50);
-        let (mean, stddev) = estimate_background_from_image_region(&img, &roi);
+        let view = crate::as_view(&img);
+        let (mean, stddev) = estimate_background_from_image_region(&view, &roi);
         assert_eq!(mean, 50.0);
         assert_eq!(stddev, 0.0);
     }

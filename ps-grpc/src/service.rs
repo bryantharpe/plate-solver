@@ -10,7 +10,7 @@ use memmap2::MmapOptions;
 use prost_types::Duration;
 use ps_db::Database;
 use ps_detect::noise::estimate_noise_from_image;
-use ps_detect::{get_stars_from_image, GrayImage};
+use ps_detect::{get_stars_from_image, GrayImage, as_view};
 use ps_solve::{
     solve_from_centroids as ps_solve_centroids, solve_from_image as ps_solve_image,
     SolveParams as PsSolveParams, SolveStatus as PsSolveStatus,
@@ -48,8 +48,11 @@ fn map_solution(sol: &ps_solve::Solution, return_matches: bool, t_extract_ms: f6
         && sol.matched_stars.is_some()
         && sol.matched_cat_ids.is_some()
     {
+        #[allow(clippy::unnecessary_unwrap)]
         let centroids = sol.matched_centroids.as_ref().unwrap();
+        #[allow(clippy::unnecessary_unwrap)]
         let stars = sol.matched_stars.as_ref().unwrap();
+        #[allow(clippy::unnecessary_unwrap)]
         let cat_ids = sol.matched_cat_ids.as_ref().unwrap();
         centroids
             .iter()
@@ -163,7 +166,8 @@ impl PlateSolver for PlateSolverService {
             .ok_or_else(|| Status::invalid_argument("failed to construct GrayImage"))?;
 
         // Estimate noise.
-        let noise_estimate = estimate_noise_from_image(&image);
+        let image_view = as_view(&image);
+        let noise_estimate = estimate_noise_from_image(&image_view);
 
         // Parameters from request.
         let sigma = req.sigma;
@@ -195,7 +199,7 @@ impl PlateSolver for PlateSolverService {
         // Run detection.
         let start = Instant::now();
         let (stars, hot_pixel_count, binned_image, _histogram) = get_stars_from_image(
-            &image,
+            &image_view,
             noise_estimate,
             sigma,
             normalize_rows,
@@ -354,7 +358,8 @@ impl PlateSolver for PlateSolverService {
 
         // Call ps_solve::solve_from_image directly. It self-reports the extraction
         // wall-clock in `t_extract` (seconds); convert to ms for the wire field.
-        let sol = ps_solve_image(&self.db, &image, &solve_params);
+        let image_view = as_view(&image);
+        let sol = ps_solve_image(&self.db, &image_view, &solve_params);
 
         let solution_proto = map_solution(&sol, return_matches, sol.t_extract * 1000.0);
 

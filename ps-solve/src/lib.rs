@@ -3,10 +3,10 @@
 //! Accepts star centroids (or a raw image) and a pattern database,
 //! and returns the orientation of the field.
 
-use image::GrayImage;
 use nalgebra::Vector3;
 pub use ps_db::Database;
 pub use ps_detect::StarDescription;
+use ps_detect::GrayImageView;
 use std::f64::consts::PI;
 use std::time::Instant;
 
@@ -448,7 +448,7 @@ pub fn solve_from_centroids(
                 let matched_catalog_vectors_as_slices = &matched_catalog_vectors;
 
                 let (fov_refined, distortion_final) = match params.distortion {
-                    Some(k) if k == 0.0 => {
+                    Some(0.0) => {
                         // No distortion: refine FOV without distortion
                         let fov_r = ps_core::fov::refine_fov_no_distortion(
                             fov,
@@ -463,7 +463,7 @@ pub fn solve_from_centroids(
                         let r_mat_arr: [[f64; 3]; 3] =
                             std::array::from_fn(|i| std::array::from_fn(|j| r_refined[(i, j)]));
                         let matched_centroids_slice: Vec<[f64; 2]> =
-                            matched_image_centroids.iter().map(|&c| c).collect();
+                            matched_image_centroids.to_vec();
                         let (fov_r, k_r) = ps_core::fov::refine_fov_with_distortion(
                             &matched_centroids_slice,
                             matched_catalog_vectors_as_slices,
@@ -518,7 +518,7 @@ pub fn solve_from_centroids(
 
                 // matched_centroids
                 let matched_centroids_out: Vec<[f64; 2]> =
-                    matched_image_centroids.iter().map(|&c| c).collect();
+                    matched_image_centroids.to_vec();
 
                 // matched_stars: for each match, look up RA/Dec/mag from star_table
                 // matched_pairs[k][1] -> index into nearby_cat_vectors_trimmed
@@ -661,7 +661,7 @@ fn breadth_first_combinations_4(n: usize) -> BreadthFirstCombinations4 {
 }
 
 /// Solve from a raw grayscale image (detects stars then solves).
-pub fn solve_from_image(db: &Database, image: &GrayImage, params: &SolveParams) -> Solution {
+pub fn solve_from_image(db: &Database, image: &GrayImageView<'_>, params: &SolveParams) -> Solution {
     let (width, height) = (image.width() as usize, image.height() as usize);
     // Time the extraction (detection + centroid collection); `solve_from_centroids`
     // measures only the solve region, so t_extract is stamped on its result.
@@ -676,7 +676,7 @@ pub fn solve_from_image(db: &Database, image: &GrayImage, params: &SolveParams) 
     );
     let centroids: Vec<[f64; 2]> = stars
         .iter()
-        .map(|s| [s.centroid_y as f64, s.centroid_x as f64])
+        .map(|s| [s.centroid_y, s.centroid_x])
         .collect();
     let t_extract = t_extract_start.elapsed().as_secs_f64();
     let mut sol = solve_from_centroids(db, &centroids, (height, width), params);
@@ -742,7 +742,9 @@ fn find_centroid_matches(
     let r_sq = r * r;
     let mut matches: Vec<[usize; 2]> = Vec::new();
 
+    #[allow(clippy::needless_range_loop)]
     for i in 0..image_centroids.len() {
+        #[allow(clippy::needless_range_loop)]
         for j in 0..catalog_centroids.len() {
             let dy = image_centroids[i][0] - catalog_centroids[j][0];
             let dx = image_centroids[i][1] - catalog_centroids[j][1];
@@ -1601,7 +1603,7 @@ mod tests {
             solve_timeout: Some(120000),
             ..Default::default()
         };
-        let sol = solve_from_image(&db, &img, &params);
+        let sol = solve_from_image(&db, &ps_detect::as_view(&img), &params);
 
         assert_eq!(
             sol.status,
@@ -1655,11 +1657,12 @@ mod tests {
         let ref_ra = 230.668224_f64;
         let ref_dec = 11.03581_f64;
 
+        let img_view = ps_detect::as_view(&img);
         for sigma in [2.0, 3.0, 4.0, 5.0, 6.0] {
             for binning in [1u32, 2] {
                 for normalize in [false, true] {
                     let (stars, _, _, _) = ps_detect::get_stars_from_image(
-                        &img, 1.0, sigma, normalize, binning, true, false,
+                        &img_view, 1.0, sigma, normalize, binning, true, false,
                     );
                     if stars.len() < 4 {
                         continue;

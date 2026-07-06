@@ -12,6 +12,7 @@ use std::path::Path;
 
 use ps_detect::gate::{reject_hot_pixels, scan_image_for_candidates};
 use ps_detect::io::load_grayscale;
+use ps_detect::as_view;
 
 fn fixture_path(name: &str) -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -90,7 +91,8 @@ fn gate_hot_pixel_count_parity() {
             .expect(&format!("sigma not a number for {}", filename));
 
         // Scan for 1-D candidates (binning=1, using full-res image)
-        let candidates = scan_image_for_candidates(&img, noise_estimate, sigma);
+        let view = as_view(&img);
+        let candidates = scan_image_for_candidates(&view, noise_estimate, sigma);
 
         // Compute sigma_noise_2 for hot-pixel rejection (must match scan thresholds)
         let sigma_noise_2 = std::cmp::max((2.0 * sigma * noise_estimate + 0.5) as i16, 2);

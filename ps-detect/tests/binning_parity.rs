@@ -8,6 +8,7 @@ use std::path::Path;
 
 use ps_detect::binning::bin_2x2;
 use ps_detect::io::load_grayscale;
+use ps_detect::as_view;
 
 fn fixture_path(name: &str) -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -76,7 +77,8 @@ fn binning_2x2_parity() {
     let img =
         load_grayscale(&img_path).unwrap_or_else(|e| panic!("load {}: {}", img_path.display(), e));
 
-    let binned = bin_2x2(&img);
+    let view = as_view(&img);
+    let binned = bin_2x2(&view);
     let (bw, bh) = binned.dimensions();
     assert!(bw >= rw as u32, "binned width {} < region width {}", bw, rw);
     assert!(

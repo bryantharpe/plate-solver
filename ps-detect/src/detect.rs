@@ -7,13 +7,13 @@ use crate::binning::{bin_and_histogram_2x2, Binned2x2Result};
 use crate::blob::{form_blobs_from_candidates, gate_star_2d};
 use crate::gate::{all_bright_are_hot, scan_image_for_candidates, CandidateFrom1D};
 use crate::noise::estimate_noise_from_image;
-use crate::GrayImage;
+use crate::{GrayImage, GrayImageView, as_view};
 use crate::StarDescription;
 use crate::NOISE_FLOOR;
 use std::cmp;
 
 pub fn get_stars_from_image(
-    image: &GrayImage,
+    image: &GrayImageView<'_>,
     noise_estimate: f64,
     sigma: f64,
     normalize_rows: bool,
@@ -95,41 +95,42 @@ pub fn get_stars_from_image(
         histogram: histogram_2x,
     } = bin_and_histogram_2x2(image, normalize_rows);
 
-    // higher_res_image: one binning level below detect_image, used for centroiding.
-    let higher_res_image: &GrayImage;
-    let detect_image: &GrayImage;
+    // Determine which binned images to use for detection and centroiding.
     let binned_4x;
     let binned_8x;
 
-    if binning == 2 {
-        detect_image = &binned_2x;
-        higher_res_image = image;
+    let (detect_image_ref, higher_res_image_ref) = if binning == 2 {
+        (&binned_2x, None)
     } else {
         let Binned2x2Result {
             binned: b4x,
             histogram: _,
-        } = bin_and_histogram_2x2(&binned_2x, /*normalize_rows=*/ false);
+        } = bin_and_histogram_2x2(&as_view(&binned_2x), /*normalize_rows=*/ false);
         binned_4x = b4x;
         if binning == 4 {
-            detect_image = &binned_4x;
-            higher_res_image = &binned_2x;
+            (&binned_4x, Some(&binned_2x))
         } else {
             // binning == 8
             let Binned2x2Result {
                 binned: b8x,
                 histogram: _,
-            } = bin_and_histogram_2x2(&binned_4x, /*normalize_rows=*/ false);
+            } = bin_and_histogram_2x2(&as_view(&binned_4x), /*normalize_rows=*/ false);
             binned_8x = b8x;
-            detect_image = &binned_8x;
-            higher_res_image = &binned_4x;
+            (&binned_8x, Some(&binned_4x))
         }
-    }
+    };
 
-    let noise_estimate_binned = f64::max(estimate_noise_from_image(detect_image), NOISE_FLOOR);
+    let detect_image_view = as_view(detect_image_ref);
+    let higher_res_image_view: GrayImageView<'_> = match higher_res_image_ref {
+        Some(img) => as_view(img),
+        None => image.clone(), // binning==2: higher_res_image is the original full-res input
+    };
+
+    let noise_estimate_binned = f64::max(estimate_noise_from_image(&detect_image_view), NOISE_FLOOR);
 
     let sigma_noise_2 = cmp::max((2.0 * sigma * noise_estimate_binned + 0.5) as i16, 2);
 
-    let candidates_1d = scan_image_for_candidates(detect_image, noise_estimate_binned, sigma);
+    let candidates_1d = scan_image_for_candidates(&detect_image_view, noise_estimate_binned, sigma);
     let mut filtered_candidates: Vec<CandidateFrom1D> = Vec::new();
     let mut max_y = 0usize;
 
@@ -148,8 +149,8 @@ pub fn get_stars_from_image(
     for blob in form_blobs_from_candidates(filtered_candidates, max_y) {
         if let Some(star) = gate_star_2d(
             &blob,
-            detect_image,
-            higher_res_image,
+            &detect_image_view,
+            &higher_res_image_view,
             binning,
             noise_estimate_binned,
             sigma,

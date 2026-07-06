@@ -1464,6 +1464,7 @@ dependencies = [
  "image",
  "mime_guess",
  "ps-db",
+ "ps-detect",
  "ps-solve",
  "rust-embed",
  "serde",

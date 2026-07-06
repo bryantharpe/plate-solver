@@ -4,7 +4,7 @@
 //! brightness criteria to confirm each blob is a genuine star.
 
 use crate::gate::CandidateFrom1D;
-use crate::GrayImage;
+use crate::GrayImageView;
 use crate::StarDescription;
 use imageproc::rect::Rect;
 use std::cmp;
@@ -27,7 +27,7 @@ struct LabeledCandidate {
 // ---------------------------------------------------------------------------
 
 #[inline(always)]
-fn for_each_pixel_in_roi<F>(image: &GrayImage, roi: &Rect, mut f: F)
+fn for_each_pixel_in_roi<F>(image: &GrayImageView<'_>, roi: &Rect, mut f: F)
 where
     F: FnMut(i32, i32, u8),
 {
@@ -57,7 +57,7 @@ where
 }
 
 #[inline(always)]
-fn for_each_perimeter_pixel<F>(image: &GrayImage, roi: &Rect, mut f: F)
+fn for_each_perimeter_pixel<F>(image: &GrayImageView<'_>, roi: &Rect, mut f: F)
 where
     F: FnMut(i32, i32, u8),
 {
@@ -113,7 +113,7 @@ where
 /// the inner pixels are background-subtracted and summed.
 ///
 /// Returns `(brightness, num_saturated, peak_value)`.
-fn compute_brightness(image: &GrayImage, bounding_box: &Rect) -> (f64, u16, u8) {
+fn compute_brightness(image: &GrayImageView<'_>, bounding_box: &Rect) -> (f64, u16, u8) {
     let mut boundary_sum: i32 = 0;
     let mut boundary_count: i32 = 0;
     for_each_perimeter_pixel(image, bounding_box, |_x, _y, pixel_value| {
@@ -141,7 +141,7 @@ fn compute_brightness(image: &GrayImage, bounding_box: &Rect) -> (f64, u16, u8) 
 }
 
 /// Compute sub-pixel peak coordinates via projection + quadratic interpolation.
-fn compute_peak_coord(image: &GrayImage, bounding_box: &Rect) -> (f64, f64) {
+fn compute_peak_coord(image: &GrayImageView<'_>, bounding_box: &Rect) -> (f64, f64) {
     let mut horizontal_projection = vec![0u32; bounding_box.width() as usize];
     let mut vertical_projection = vec![0u32; bounding_box.height() as usize];
     let x0 = bounding_box.left();
@@ -274,10 +274,11 @@ pub fn form_blobs_from_candidates(candidates: Vec<CandidateFrom1D>, max_y: usize
 /// Uses concentric boxes (core / neighbors / margin / perimeter) to verify
 /// that the blob is a genuine star-like spot, then computes centroid and
 /// brightness via the higher-resolution image.
+#[allow(clippy::too_many_arguments)]
 pub fn gate_star_2d(
     blob: &Blob,
-    image: &GrayImage,
-    higher_res_image: &GrayImage,
+    image: &GrayImageView<'_>,
+    higher_res_image: &GrayImageView<'_>,
     binning: u32,
     noise_estimate: f64,
     sigma: f64,
@@ -462,8 +463,9 @@ mod tests {
     #[test]
     fn test_for_each_pixel_in_roi_1x1() {
         let image = GrayImage::from_raw(1, 1, vec![127u8]).unwrap();
+        let view = crate::as_view(&image);
         let mut pixels = Vec::new();
-        for_each_pixel_in_roi(&image, &Rect::at(0, 0).of_size(1, 1), |x, y, p| {
+        for_each_pixel_in_roi(&view, &Rect::at(0, 0).of_size(1, 1), |x, y, p| {
             pixels.push((x, y, p));
         });
         assert_eq!(pixels, vec![(0, 0, 127)]);
@@ -472,8 +474,9 @@ mod tests {
     #[test]
     fn test_for_each_pixel_in_roi_3x3() {
         let image = GrayImage::from_raw(3, 3, vec![0, 1, 2, 127, 253, 254, 255, 0, 1]).unwrap();
+        let view = crate::as_view(&image);
         let mut pixels = Vec::new();
-        for_each_pixel_in_roi(&image, &Rect::at(0, 0).of_size(3, 3), |x, y, p| {
+        for_each_pixel_in_roi(&view, &Rect::at(0, 0).of_size(3, 3), |x, y, p| {
             pixels.push((x, y, p));
         });
         assert_eq!(
@@ -495,8 +498,9 @@ mod tests {
     #[test]
     fn test_for_each_perimeter_pixel_3x3() {
         let image = GrayImage::from_raw(3, 3, vec![0, 1, 2, 127, 253, 254, 255, 0, 1]).unwrap();
+        let view = crate::as_view(&image);
         let mut pixels = Vec::new();
-        for_each_perimeter_pixel(&image, &Rect::at(0, 0).of_size(3, 3), |x, y, p| {
+        for_each_perimeter_pixel(&view, &Rect::at(0, 0).of_size(3, 3), |x, y, p| {
             pixels.push((x, y, p));
         });
         assert_eq!(
@@ -614,7 +618,8 @@ mod tests {
         };
         // Small image 20x20
         let image = GrayImage::from_raw(20, 20, vec![50u8; 400]).unwrap();
-        let result = gate_star_2d(&blob, &image, &image, 1, 5.0, 8.0, 100, 100);
+        let view = crate::as_view(&image);
+        let result = gate_star_2d(&blob, &view, &view, 1, 5.0, 8.0, 100, 100);
         assert!(result.is_none());
     }
 
@@ -630,7 +635,8 @@ mod tests {
             recipient_blob: None,
         };
         let image = GrayImage::from_raw(100, 100, vec![50u8; 10000]).unwrap();
-        let result = gate_star_2d(&blob, &image, &image, 1, 5.0, 8.0, 5, 5);
+        let view = crate::as_view(&image);
+        let result = gate_star_2d(&blob, &view, &view, 1, 5.0, 8.0, 5, 5);
         assert!(result.is_none(), "core width 11 > max_width 5");
     }
 
@@ -645,8 +651,9 @@ mod tests {
             }
         }
         let image = GrayImage::from_raw(7, 7, pixels).unwrap();
+        let view = crate::as_view(&image);
         let box_rect = Rect::at(0, 0).of_size(7, 7);
-        let (brightness, num_saturated, peak_value) = compute_brightness(&image, &box_rect);
+        let (brightness, num_saturated, peak_value) = compute_brightness(&view, &box_rect);
         assert_eq!(peak_value, 100);
         assert_eq!(num_saturated, 0);
         // brightness should be positive since inner pixels are brighter than border
