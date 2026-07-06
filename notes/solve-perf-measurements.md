@@ -316,3 +316,51 @@ The ps-solve-scope allocation levers (candidate_keys reuse, A6 buffer hoist) tar
 **Decision: reverted**, same rule as DBL.1. `git checkout` restored `ps-db/src/lib.rs` and `ps-solve/src/lib.rs` to their pre-DBL.3 state; re-verified clean (`ps-db --features kd-tree` 11/11, `ps-solve` 18/0/1-pre-existing-ignore, full workspace green).
 
 **Honest verdict:** `nearby_stars` fires only on the ~0.13% of lookups that produce a candidate slot (per FUB.1's attribution, ~1.4–2.8k times per hale_bopp exhaustion, not per every one of the 2.15M `lookup_pattern` calls) — infrequent enough, and kiddo's own internal `Vec<NearestNeighbour>` allocation (which this lever does NOT remove — only the outer `Vec<usize>` wrapping it) still dominates whatever cost is there, that shaving one allocation layer off doesn't move measured wall-clock on this host. Combined with DBL.1's result, **both `ps-db` allocation-layout levers this round measured as noise-floor null results on this container** — mirroring the FUB.2 pattern in `ps-solve` scope. The remaining ps-db-scope idea not yet tried (kiddo's `within_unsorted_iter`) was deliberately not attempted given its own uncertain profile; not recommended as a follow-up without a concrete reason to expect it clears the bar this simpler lever didn't.
+
+---
+
+# DBL.4 — DBL round re-measurement + decision gate (2026-07-06)
+
+**Bead:** DBL.4 — the closing synthesis for the DBL round (DBL.1–DBL.3). Both code-changing sub-beads (DBL.1 probe-pair table, DBL.3 `nearby_stars_into`) were implemented, gated fully green, individually measured (≥12 runs each), and **reverted** — neither cleared the SNR≥1 noise-floor bar on this container. DBL.2 (prehashed lookup + prefetch) never got to run: it depends on DBL.1's `probe_pairs` table, which doesn't exist post-revert, so it's `BLOCKED` (see Blocked Log). **Net result: zero product code changed by the DBL round.** This bead's job is to record the final state, not to re-attempt anything.
+
+## Final `combo_count` re-measurement (12 runs, current HEAD post-ZCS.2, all DBL reverted)
+
+| run | t_solve_s | combos_examined | µs/combo |
+|---|---:|---:|---:|
+| 1 | 0.131 | 8855 | 14.79 |
+| 2 | 0.131 | 8855 | 14.79 |
+| 3 | 0.133 | 8855 | 15.02 |
+| 4 | 0.130 | 8855 | 14.68 |
+| 5 | 0.133 | 8855 | 15.02 |
+| 6 | 0.137 | 8855 | 15.47 |
+| 7 | 0.132 | 8855 | 14.91 |
+| 8 | 0.135 | 8855 | 15.25 |
+| 9 | 0.128 | 8855 | 14.46 |
+| 10 | 0.130 | 8855 | 14.68 |
+| 11 | 0.132 | 8855 | 14.91 |
+| 12 | 0.130 | 8855 | 14.68 |
+
+**mean 0.1318s / median 0.1315s / stdev 0.0024s ≈ 14.89 µs/combo (mean), 14.85 µs/combo (median).** `combos_examined`=8,855 every run (invariant holds, as it must with zero product code changed). This is consistent with DBL.1's and DBL.3's own individual "before" baselines on this same container (~0.130–0.136s / ~14.7–15.4 µs/combo) — there is no new number here, just a confirmed, stable re-measurement of the same unchanged code, run as its own independent ≥12-sample check per this bead's AC.
+
+Note the ~15 µs/combo figure on this container is *not* comparable to the ~7.6 µs/combo recorded in FUB.1/FUB.3 on the original benchmark host — that's a different, non-persistent aarch64 container (already documented in the SP2.1 Decisions Log and re-confirmed in DBL.1's entry above); this container is consistently ~2× slower on this specific benchmark across every measurement taken in it this session.
+
+## Full eval harness (regenerated `docs/benchmarks/report.md`/`.html`)
+
+Rebuilt `ps-grpc --release`, re-ran `run_benchmark.py` → `parity.py` → `report.py`. Headline (median over 9 astronomical images):
+
+| comparison | detect speedup | solve speedup |
+|---|---:|---:|
+| ps_grpc vs cedar_flow | 1× | 1.49× |
+| ps_grpc vs tetra3_original | 7.55× | 6.17× |
+
+Consistent with FUB.3's post-FU-B baseline (1.43× solve) within this container's run-to-run noise — no regression, no new win (expected, since no product code changed).
+
+**Parity STOP gate: 9/9 `ps_grpc_vs_cedar_flow primary_same_catalog` unflagged** (verified programmatically). The 18 cross-catalog flags and 4 stress flags are the same pre-existing, out-of-scope items documented since FUB.3.
+
+## Decision gate
+
+**Does meaningful exhaustion-path cost remain?** Yes, essentially unchanged from FUB.3's finding: ~65–135 ms (host-dependent) / 8,855 combos on hale_bopp's NoMatch path, still dominated by `ps-db` per FUB.1's attribution (`lookup_pattern` ~51%, `nearby_stars` ~15%) — this round's two attempts to trim that cost (interleaved probe-pair table, scratch-buffer reuse) both measured as noise-floor nulls on this container, not because the ideas were wrong, but because neither lever was large enough relative to this host's ~2–5% run-to-run variance to prove itself.
+
+**Is FU-C's serial baseline now settled (FUC.0's precondition)?** Yes — **the serial baseline is exactly the post-FUB.3 baseline, unchanged**, since the DBL round landed zero product code changes. FUC.0 (the ps-judge Job B ruling on parallel-search semantics) may proceed once its other precondition, H6 (RPC deadline → cancel_flag + rayon feature flag), also lands — H6 has not been attempted in this session (it needs a ps-judge Job B architectural decision of its own and is outside the "Perf round-3 beads" scope this session was directed to work).
+
+**DBL round (DBL.1–DBL.4) complete.** DBL.1: reverted, SNR≈0.75 (borderline but under 1). DBL.3: reverted, SNR≈0.19 (or -0.5 excluding an outlier — a clear null either way). DBL.2: blocked, no `probe_pairs` to build on. DBL.4 (this entry): final re-measurement confirms no regression and no change, report regenerated, parity identical-green, decision recorded. Next lever in this data-structure space, if ever revisited, would need either a quieter host (this container's noise floor ate two genuinely-reasonable ideas) or a larger, more aggressive change than either of these two additive, low-risk levers.
