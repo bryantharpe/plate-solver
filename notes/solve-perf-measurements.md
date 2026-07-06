@@ -161,3 +161,62 @@ Realistic FUB.2 win within ps-solve: **~1–3 ms on the 65 ms exhaustion path** 
 **`combos_examined` invariant:** 8855 on hale_bopp defaults, unchanged by FUB.1 (investigation only) and to-be-unchanged by FUB.2 (allocation reuse, not logic).
 
 **Gates after FUB.1 (docs-only commit):** `cargo build -p ps-solve` green; `cargo test -p ps-solve` 18 passed / 0 failed / 1 ignored (unchanged); `git checkout ps-solve/src/lib.rs` confirmed clean (no `FUB_` symbols remain); `ps-detect` untouched (no file under `ps-detect/src/` modified — FUB.1 touched only `ps-solve/src/lib.rs`, reverted).
+
+---
+
+# FUB.2 — Exhaustion-path allocation-trim, attempted + reverted by measurement (2026-07-05)
+
+**Bead:** FUB.2 — trim exhaustion-path allocation churn where FUB.1's profile pointed. **Spec rule:** "revert any step the measurement says didn't help." **AC:** "final: measurable µs/combo reduction vs the 19 µs baseline." **Outcome: SKIPPED-by-measurement (the SP3.1/SP3.2 honest pattern) — no code change lands.** Both attempted steps were bit-for-bit green but produced no statistically-detectable reduction, so both were reverted per the spec's revert rule. This section is the auditable record of the attempt + verdict (the FUB.2 commit is docs-only).
+
+## Finer profile of the verify block (temporary instrumentation, reverted)
+
+Before trimming, FUB.2 took its own advice ("a finer profile of the verify block is warranted before committing to the .collect() trim") and ran a finer `Instant`-based profile of the A1–A8 regions inside the `for &slot in &slots` loop (temporary, `git checkout ps-solve/src/lib.rs` reverted). hale_bopp, 8855 combos, **4184 slot hits** (note: the FUB.1 coarser run reported 2778 slot_hits because that counter incremented only on entering the verify body; the finer run's 4184 counts every slot iteration — both are consistent, the discrepancy is a counter-placing artifact, not a measurement contradiction), 1372 reach A6, 0 accepts (NoMatch):
+
+| region | ms (3-run median) | % of 65 ms | notes |
+|---|---:|---:|---|
+| A1 (FOV estimate + largest-pixel-distance) | 0.09 | 0.1% | negligible |
+| A2+A3+A4 (vectors, sort, rotation matrix) | 2.2 | 3.4% | interleaved collects + `find_rotation_matrix` SVD |
+| A5 reflection reject | — | — | 1406/2778 rejected here (cheap `det(R)<0` check) |
+| **A6 (nearby_stars + collects + derotate + project)** | **16.7** | **~26%** | the dominant verify cost |
+| └ of which `ps_db::nearby_stars` (KD-query, in ps-db) | ~10.0 | ~15% | **in ps-db, outside FUB.2 scope** |
+| └ of which 7 `.collect()`/`.to_vec()` allocations | ~6.7 | ~10% | the FUB.2-targetable part (split across 7 collects) |
+| A7+A8 (match + binomial false-alarm) | 1.2 | 1.8% | only on the 1372 that reach A7 |
+
+**Key finding:** the verify block's dominant cost is `ps_db::nearby_stars` (~10 ms, a KD-tree query in ps-db), NOT the `.collect()` allocations (~6.7 ms, split across 7 collects). So even a perfect verify-block allocation trim could target at most ~10% of total, and FUB.2's two steps target only a subset of those 7 collects.
+
+## Step-1: reuse the `candidate_keys` Vec — REVERTED (no measurable win)
+
+Hoist `let mut keys_buf: Vec<([u32;5],i64)> = Vec::new();` before the `'outer` combo loop; inside, `keys_buf.clear(); … keys_buf.push((key,dist)); keys_buf.sort_by_key(…);` then borrow `candidate_keys: &Vec<…> = &keys_buf`. Bit-for-bit unchanged (same 243 entries, same sort, same order). Implemented by ps-coder (29 ins / 22 del, `ps-solve/src/lib.rs` only), `cargo test -p ps-solve` 18/0/1 green, `combos_examined`=8855.
+
+**Measurement (10 runs each, hale_bopp t_solve_s, sorted, median):**
+- with step-1:    0.056 0.056 0.061 0.062 0.063 0.064 0.065 0.065 0.065 0.073 → **median 0.0635**
+- without step-1: 0.056 0.057 0.057 0.062 0.063 0.063 0.066 0.066 0.072 0.073 → **median 0.0630**
+
+No win (median within noise; the realloc saved is small and the 5.6 ms sort — the majority of the 9.6 ms keys region — is untouched). **Reverted per the spec's "revert any step the measurement says didn't help."**
+
+## Step-2: hoist the A6 kept/trim 5-buffer scratch Vecs — REVERTED (no measurable win)
+
+Hoist 5 scratch Vecs (`nearby_centroids_kept`, `nearby_cat_vectors_kept`, `nearby_inds_kept`, `nearby_cat_centroids`, `nearby_cat_vectors_trimmed`) out of the slot loop; inside, `buf.clear(); buf.extend(…)` / `buf.extend_from_slice(…)` in the same iteration order; bind downstream names to `&buf`. Bit-for-bit unchanged (index-remapping copies in iteration order, no FP reorder). Implemented by ps-coder (38 ins / 9 del, `ps-solve/src/lib.rs` only), `cargo test -p ps-solve` 18/0/1 green, `combos_examined`=8855.
+
+**Measurement (12 runs each, hale_bopp t_solve_s):**
+- with step-2:    median 0.0640, mean 0.0636, min 0.0550, max 0.0710
+- without step-2: median 0.0650, mean 0.0648, min 0.0550, max 0.0720
+- **mean delta −0.0012 s (−1.8%); median delta −0.0010 s (−1.5%)**
+
+The mean is consistently lower, BUT pooled stdev ≈ 0.0050 s → **SNR < 1** (effect ~1.2 ms on a ~5 ms noise floor at n=12). Not statistically detectable. **Reverted per the spec's "revert any step the measurement says didn't help."** (The change is strictly-less-alloc and bit-for-bit; if a future quieter host or larger-n study detects the ~1-2 ms effect, this is the cheapest lever to re-land — recorded here so it's not lost.)
+
+## Why FUB.2 produced no code change (honest verdict)
+
+The exhaustion path's dominant costs are in **ps-db**, not ps-solve:
+- DB lookup `ps_db::lookup::lookup_pattern` — ~51% (FUB.1)
+- `ps_db::nearby_stars` KD-query — ~15% (FUB.2 finer profile)
+- combined **~66% of the 65 ms exhaustion path is ps-db code, outside FUB.2's ps-solve scope.**
+
+The ps-solve-scope allocation levers (candidate_keys reuse, A6 buffer hoist) target at most ~10% of total, split across many collects, and neither produced a detectable win on this host (noise floor ~±10% / ~5 ms at n=10-12). Per FUB.2's own "revert any step the measurement says didn't help" rule, both were reverted. FUB.2's AC ("measurable µs/combo reduction") is **not met** — honestly, by measurement, not by omission. This is the same outcome SP3.1/SP3.2 reached.
+
+## Named next levers (NOT implemented by FUB.2; recorded for the decision gate)
+
+1. **ps-db follow-up (new spec, not FUB.2):** trim `lookup_pattern` (~51%) and/or `nearby_stars` (~15%) — the dominant exhaustion-path cost. Its own parity surface (ps-db), its own spec. Do NOT bundle into FUB.2.
+2. **FU-C (parallel search, specced but unapproved):** the ~cores× lever on the exhaustion path; needs user approval (user decision 2026-07-04) and a ps-judge Job B on ordered find-first semantics. Not beaded.
+
+**Gates after FUB.2 (docs-only commit, both steps reverted):** `cargo build -p ps-solve` green; `cargo test -p ps-solve` 18 passed / 0 failed / 1 ignored (unchanged); `git diff --stat ps-solve/src/lib.rs` empty (both steps reverted, no `FUB_`/`_buf`/`keys_buf` symbols remain); `combos_examined`=8855 on hale_bopp defaults (unchanged); `ps-detect` untouched. ps-judge peer reviewed (re-ran: revert clean, tests 18/0/1, baseline reproduces 0.060-0.068 s with ~±13% spread confirming the noise floor, finer-profile arithmetic consistent 10+6.7≈16.7 ms).
