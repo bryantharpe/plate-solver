@@ -20,6 +20,29 @@ use std::sync::Arc;
 use std::time::Instant;
 use tonic::{Request, Response, Status};
 
+/// Backing storage for a request's input image: either an owned buffer
+/// (inline `image_data`, already zero-copy per FU-A) or a memory-mapped
+/// shared-memory segment (ZCS.2: no longer copied into an owned buffer).
+enum ImageBacking {
+    Owned(GrayImage),
+    Shmem(memmap2::Mmap),
+}
+
+impl ImageBacking {
+    /// Borrow this backing as a `GrayImageView` of the given dimensions.
+    /// Returns `None` if the backing's byte length doesn't match
+    /// `width * height` (shmem case only — the owned case is validated
+    /// before construction and `as_view` on a `GrayImage` is infallible).
+    fn as_view(&self, width: u32, height: u32) -> Option<ps_detect::GrayImageView<'_>> {
+        match self {
+            ImageBacking::Owned(img) => Some(as_view(img)),
+            ImageBacking::Shmem(mmap) => {
+                ps_detect::GrayImageView::from_raw(width, height, &mmap[..])
+            }
+        }
+    }
+}
+
 pub struct PlateSolverService {
     db: Arc<Database>,
 }
@@ -128,45 +151,40 @@ impl PlateSolver for PlateSolverService {
         let height = input_image.height as u32;
 
         // Resolve image bytes (shmem or inline). The inline path moves
-        // `image_data` directly (no clone). The shmem path must copy out of
-        // the mmap because GrayImage::from_raw consumes an owned Vec; making
-        // it zero-copy would require a borrowed-image API through ps-detect,
-        // which is out of scope here (ps-detect is untouched per FU-A).
-        let image_bytes = if let Some(shmem_name) = input_image.shmem_name {
+        // `image_data` directly (no clone, per FU-A). The shmem path now
+        // uses a borrowed view over the mmap (ZCS.2: zero-copy via the
+        // GrayImageView API from ps-detect).
+        let expected_len = (width * height) as usize;
+        let backing = if let Some(shmem_name) = input_image.shmem_name {
             let path = format!("/dev/shm/{}", shmem_name);
             let file = File::open(&path)
                 .map_err(|e| Status::internal(format!("shmem open failed: {}: {}", path, e)))?;
             let mmap = unsafe { MmapOptions::new().map(&file) }
                 .map_err(|e| Status::internal(format!("shmem mmap failed: {}: {}", path, e)))?;
-            // Zero-copy shmem is out of scope: it would require a borrowed-image
-            // (&[u8] / mmap-backed) API through ps-detect, which is untouched per
-            // the FU-A constraints. GrayImage::from_raw needs an owned Vec, so
-            // the mmap bytes are copied here. Unblocking zero-copy means
-            // threading a borrowed image through ps-detect's whole detect
-            // pipeline (get_stars_from_image and every stage it calls).
-            mmap.to_vec()
+            if mmap.len() != expected_len {
+                return Err(Status::invalid_argument(format!(
+                    "shmem region length {} does not match width*height {}*{}={}",
+                    mmap.len(), width, height, expected_len
+                )));
+            }
+            ImageBacking::Shmem(mmap)
         } else {
-            input_image.image_data
+            let image_data = input_image.image_data;
+            if image_data.len() != expected_len {
+                return Err(Status::invalid_argument(format!(
+                    "image_data length {} does not match width*height {}*{}={}",
+                    image_data.len(), width, height, expected_len
+                )));
+            }
+            let image = GrayImage::from_raw(width, height, image_data)
+                .ok_or_else(|| Status::invalid_argument("failed to construct GrayImage"))?;
+            ImageBacking::Owned(image)
         };
-
-        // Validate dimensions.
-        let expected_len = (width * height) as usize;
-        if image_bytes.len() != expected_len {
-            return Err(Status::invalid_argument(format!(
-                "image_data length {} does not match width*height {}*{}={}",
-                image_bytes.len(),
-                width,
-                height,
-                expected_len
-            )));
-        }
-
-        // Build GrayImage.
-        let image = GrayImage::from_raw(width, height, image_bytes)
-            .ok_or_else(|| Status::invalid_argument("failed to construct GrayImage"))?;
+        let image_view = backing
+            .as_view(width, height)
+            .ok_or_else(|| Status::invalid_argument("failed to construct image view"))?;
 
         // Estimate noise.
-        let image_view = as_view(&image);
         let noise_estimate = estimate_noise_from_image(&image_view);
 
         // Parameters from request.
@@ -313,42 +331,38 @@ impl PlateSolver for PlateSolverService {
         let height = input_image.height as u32;
 
         // Resolve image bytes (shmem or inline). The inline path moves
-        // `image_data` directly (no clone). The shmem path must copy out of
-        // the mmap because GrayImage::from_raw consumes an owned Vec; making
-        // it zero-copy would require a borrowed-image API through ps-detect,
-        // which is out of scope here (ps-detect is untouched per FU-A).
-        let image_bytes = if let Some(shmem_name) = input_image.shmem_name {
+        // `image_data` directly (no clone, per FU-A). The shmem path now
+        // uses a borrowed view over the mmap (ZCS.2: zero-copy via the
+        // GrayImageView API from ps-detect).
+        let expected_len = (width * height) as usize;
+        let backing = if let Some(shmem_name) = input_image.shmem_name {
             let path = format!("/dev/shm/{}", shmem_name);
             let file = File::open(&path)
                 .map_err(|e| Status::internal(format!("shmem open failed: {}: {}", path, e)))?;
             let mmap = unsafe { MmapOptions::new().map(&file) }
                 .map_err(|e| Status::internal(format!("shmem mmap failed: {}: {}", path, e)))?;
-            // Zero-copy shmem is out of scope: it would require a borrowed-
-            // image (&[u8] / mmap-backed) API through ps-detect, which is
-            // untouched per the FU-A constraints. GrayImage::from_raw needs
-            // an owned Vec, so the mmap bytes are copied here. Unblocking
-            // zero-copy means threading a borrowed image through ps-detect's
-            // whole detect pipeline.
-            mmap.to_vec()
+            if mmap.len() != expected_len {
+                return Err(Status::invalid_argument(format!(
+                    "shmem region length {} does not match width*height {}*{}={}",
+                    mmap.len(), width, height, expected_len
+                )));
+            }
+            ImageBacking::Shmem(mmap)
         } else {
-            input_image.image_data
+            let image_data = input_image.image_data;
+            if image_data.len() != expected_len {
+                return Err(Status::invalid_argument(format!(
+                    "image_data length {} does not match width*height {}*{}={}",
+                    image_data.len(), width, height, expected_len
+                )));
+            }
+            let image = GrayImage::from_raw(width, height, image_data)
+                .ok_or_else(|| Status::invalid_argument("failed to construct GrayImage"))?;
+            ImageBacking::Owned(image)
         };
-
-        // Validate dimensions.
-        let expected_len = (width * height) as usize;
-        if image_bytes.len() != expected_len {
-            return Err(Status::invalid_argument(format!(
-                "image_data length {} does not match width*height {}*{}={}",
-                image_bytes.len(),
-                width,
-                height,
-                expected_len
-            )));
-        }
-
-        // Build GrayImage.
-        let image = GrayImage::from_raw(width, height, image_bytes)
-            .ok_or_else(|| Status::invalid_argument("failed to construct GrayImage"))?;
+        let image_view = backing
+            .as_view(width, height)
+            .ok_or_else(|| Status::invalid_argument("failed to construct image view"))?;
 
         // Map SolveParams.
         let default_params = crate::plate_solver::SolveParams::default();
@@ -358,7 +372,6 @@ impl PlateSolver for PlateSolverService {
 
         // Call ps_solve::solve_from_image directly. It self-reports the extraction
         // wall-clock in `t_extract` (seconds); convert to ms for the wire field.
-        let image_view = as_view(&image);
         let sol = ps_solve_image(&self.db, &image_view, &solve_params);
 
         let solution_proto = map_solution(&sol, return_matches, sol.t_extract * 1000.0);
@@ -773,6 +786,295 @@ mod tests {
         assert_eq!(resp.star_catalog, "hip_main");
         assert_eq!(resp.epoch_proper_motion, 2015.5);
         assert_eq!(resp.version, env!("CARGO_PKG_VERSION"));
+    }
+
+    /// Helper: RAII guard to clean up a file under `/dev/shm/` on drop.
+    struct ShmemGuard {
+        path: String,
+    }
+
+    impl Drop for ShmemGuard {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
+
+    /// Test: extract_centroids with shmem_name pointing to real shared-memory
+    /// file produces identical results to the inline image_data path.
+    #[tokio::test]
+    async fn extract_centroids_shmem_success() {
+        // Use a small synthetic grayscale image: 64x64 of mostly background (128)
+        // with three small bright spots (200) for stars.
+        let width = 64u32;
+        let height = 64u32;
+        let mut pixels = vec![128u8; (width * height) as usize];
+
+        // Place three bright spots at different positions
+        for &(cx, cy) in &[(10u32, 10u32), (40u32, 20u32), (55u32, 50u32)] {
+            for dy in 0..3 {
+                for dx in 0..3 {
+                    let x = cx + dx;
+                    let y = cy + dy;
+                    if x < width && y < height {
+                        pixels[(y * width + x) as usize] = 200;
+                    }
+                }
+            }
+        }
+
+        // Create the shmem file with a unique name using PID.
+        let shmem_name = format!("test_extract_centroids_shmem_{}", std::process::id());
+        let shmem_path = format!("/dev/shm/{}", shmem_name);
+        let _guard = ShmemGuard {
+            path: shmem_path.clone(),
+        };
+
+        // Write pixels to the shmem file.
+        std::fs::write(&shmem_path, &pixels).expect("write shmem file");
+
+        let service = PlateSolverService::new(make_empty_db());
+
+        // Call extract_centroids with shmem_name.
+        let shmem_req = CentroidsRequest {
+            input_image: Some(Image {
+                width: width as i32,
+                height: height as i32,
+                image_data: vec![],
+                shmem_name: Some(shmem_name.clone()),
+                reopen_shmem: false,
+            }),
+            sigma: 10.0,
+            binning: None,
+            return_binned: false,
+            use_binned_for_star_candidates: false,
+            detect_hot_pixels: false,
+            normalize_rows: false,
+            estimate_background_region: None,
+        };
+
+        let shmem_result = service
+            .extract_centroids(Request::new(shmem_req))
+            .await
+            .expect("extract_centroids with shmem should succeed");
+        let shmem_resp = shmem_result.into_inner();
+
+        // Call extract_centroids with inline image_data.
+        let inline_req = make_inline_request(pixels, width as i32, height as i32, 10.0);
+        let inline_result = service
+            .extract_centroids(Request::new(inline_req))
+            .await
+            .expect("extract_centroids with inline should succeed");
+        let inline_resp = inline_result.into_inner();
+
+        // Results must be identical (same noise_estimate, same star_candidates count, etc.).
+        assert_eq!(shmem_resp.noise_estimate, inline_resp.noise_estimate);
+        assert_eq!(
+            shmem_resp.star_candidates.len(),
+            inline_resp.star_candidates.len(),
+            "star candidate count must match between shmem and inline"
+        );
+
+        // Verify centroids are identical
+        for (i, (shmem_star, inline_star)) in shmem_resp
+            .star_candidates
+            .iter()
+            .zip(inline_resp.star_candidates.iter())
+            .enumerate()
+        {
+            assert_eq!(
+                shmem_star.brightness, inline_star.brightness,
+                "brightness mismatch at star {}",
+                i
+            );
+            let shmem_pos = shmem_star.centroid_position.as_ref().unwrap();
+            let inline_pos = inline_star.centroid_position.as_ref().unwrap();
+            assert_eq!(shmem_pos.x, inline_pos.x, "x position mismatch at star {}", i);
+            assert_eq!(shmem_pos.y, inline_pos.y, "y position mismatch at star {}", i);
+        }
+    }
+
+    /// Test: solve_from_image with shmem_name pointing to real shared-memory
+    /// file produces identical results to the inline image_data path.
+    #[tokio::test]
+    async fn solve_from_image_shmem_success() {
+        use ps_db::{importer, loader};
+        use tempfile::NamedTempFile;
+
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+        // Import the reference NPZ database for a real solve test.
+        let npz_path =
+            manifest.join("../reference-solutions/cedar-solve/tetra3/data/default_database.npz");
+        let db_imported =
+            importer::import_npz(&npz_path).unwrap_or_else(|e| panic!("import_npz failed: {}", e));
+
+        // Save -> load native round-trip.
+        let tmp = NamedTempFile::new().expect("tempfile");
+        loader::save_native(&db_imported, tmp.path()).expect("save_native");
+        let mut db = loader::load_native(tmp.path()).expect("load_native");
+        db.build_kd_tree();
+
+        // Load the reference image.
+        let img_path = manifest.join(
+            "../reference-solutions/cedar-solve/examples/data/medium_fov/2019-07-29T204726_Alt40_Azi-135_Try1.jpg",
+        );
+        let img = image::open(&img_path)
+            .unwrap_or_else(|e| panic!("Cannot open {:?}: {}", img_path, e))
+            .into_luma8();
+
+        let width = img.width() as i32;
+        let height = img.height() as i32;
+        let data = img.into_raw();
+
+        // Create shmem file with a unique name.
+        let shmem_name = format!("test_solve_from_image_shmem_{}", std::process::id());
+        let shmem_path = format!("/dev/shm/{}", shmem_name);
+        let _guard = ShmemGuard {
+            path: shmem_path.clone(),
+        };
+
+        // Write image data to shmem file.
+        std::fs::write(&shmem_path, &data).expect("write shmem file");
+
+        let service = PlateSolverService::new(db);
+
+        // Build shmem-backed request.
+        let extract_req_shmem = CentroidsRequest {
+            input_image: Some(Image {
+                width,
+                height,
+                image_data: vec![],
+                shmem_name: Some(shmem_name),
+                reopen_shmem: false,
+            }),
+            sigma: 4.0,
+            binning: None,
+            return_binned: false,
+            use_binned_for_star_candidates: false,
+            detect_hot_pixels: true,
+            normalize_rows: false,
+            estimate_background_region: None,
+        };
+
+        let params = SolveParams {
+            solve_timeout_ms: Some(120000),
+            ..Default::default()
+        };
+
+        let request_shmem = SolveFromImageRequest {
+            extract: Some(extract_req_shmem),
+            params: Some(params.clone()),
+        };
+
+        let result_shmem = service
+            .solve_from_image(Request::new(request_shmem))
+            .await
+            .expect("solve_from_image with shmem should succeed");
+        let resp_shmem = result_shmem.into_inner();
+
+        // Build inline-backed request with the same data.
+        let extract_req_inline = CentroidsRequest {
+            input_image: Some(Image {
+                width,
+                height,
+                image_data: data,
+                shmem_name: None,
+                reopen_shmem: false,
+            }),
+            sigma: 4.0,
+            binning: None,
+            return_binned: false,
+            use_binned_for_star_candidates: false,
+            detect_hot_pixels: true,
+            normalize_rows: false,
+            estimate_background_region: None,
+        };
+
+        let request_inline = SolveFromImageRequest {
+            extract: Some(extract_req_inline),
+            params: Some(params),
+        };
+
+        // Need a new service instance for the inline test (old db was moved).
+        // Re-import for inline test.
+        let db_imported_2 =
+            importer::import_npz(&npz_path).unwrap_or_else(|e| panic!("import_npz failed: {}", e));
+        let tmp2 = NamedTempFile::new().expect("tempfile");
+        loader::save_native(&db_imported_2, tmp2.path()).expect("save_native");
+        let mut db2 = loader::load_native(tmp2.path()).expect("load_native");
+        db2.build_kd_tree();
+        let service2 = PlateSolverService::new(db2);
+
+        let result_inline = service2
+            .solve_from_image(Request::new(request_inline))
+            .await
+            .expect("solve_from_image with inline should succeed");
+        let resp_inline = result_inline.into_inner();
+
+        // Results must be identical: same status, same solution parameters.
+        assert_eq!(
+            resp_shmem.status, resp_inline.status,
+            "solve status must match between shmem and inline"
+        );
+        assert_eq!(
+            resp_shmem.ra, resp_inline.ra,
+            "RA must match between shmem and inline"
+        );
+        assert_eq!(
+            resp_shmem.dec, resp_inline.dec,
+            "Dec must match between shmem and inline"
+        );
+        assert_eq!(
+            resp_shmem.roll, resp_inline.roll,
+            "Roll must match between shmem and inline"
+        );
+    }
+
+    /// Test: shmem file with wrong size returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn extract_centroids_shmem_bad_dimensions() {
+        // Create a shmem file with 100 bytes.
+        let shmem_name = format!("test_extract_shmem_bad_dims_{}", std::process::id());
+        let shmem_path = format!("/dev/shm/{}", shmem_name);
+        let _guard = ShmemGuard {
+            path: shmem_path.clone(),
+        };
+
+        let bad_data = vec![128u8; 100];
+        std::fs::write(&shmem_path, &bad_data).expect("write shmem file");
+
+        // Request dimensions 20x20 (400 bytes expected), but shmem has 100.
+        let request = CentroidsRequest {
+            input_image: Some(Image {
+                width: 20,
+                height: 20,
+                image_data: vec![],
+                shmem_name: Some(shmem_name),
+                reopen_shmem: false,
+            }),
+            sigma: 10.0,
+            binning: None,
+            return_binned: false,
+            use_binned_for_star_candidates: false,
+            detect_hot_pixels: false,
+            normalize_rows: false,
+            estimate_background_region: None,
+        };
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.extract_centroids(Request::new(request)).await;
+
+        assert!(
+            result.is_err(),
+            "expected an error for shmem bad dimensions, got Ok"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument status for bad dimensions, got {:?}",
+            err.code()
+        );
     }
 
     /// Cedar-detect wire interop: encode a cedar_detect::CentroidsRequest,
