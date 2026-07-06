@@ -8,7 +8,7 @@ use std::path::Path;
 
 #[test]
 fn get_stars_end_to_end_parity() {
-    use ps_detect::get_stars_from_image;
+    use ps_detect::{get_stars_from_image, as_view};
 
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let golden_path = manifest.join("tests/fixtures/golden_centroids.json");
@@ -46,8 +46,9 @@ fn get_stars_end_to_end_parity() {
             .into_luma8();
 
         // Run end-to-end detection.
+        let view = as_view(&img);
         let (stars, _hot_count, _binned_img, _histogram) = get_stars_from_image(
-            &img,
+            &view,
             noise_estimate,
             sigma,
             /*normalize_rows=*/ false,
@@ -129,5 +130,70 @@ fn get_stars_end_to_end_parity() {
                 golden_y
             );
         }
+    }
+}
+
+/// Regression test for binning=2 path (Fix 1: higher_res_image handling).
+///
+/// Ensures get_stars_from_image with binning=2 does not panic and correctly
+/// processes ROI scaling. This was broken before Fix 1 due to using the wrong
+/// reference image (binned_2x instead of the original full-res image).
+#[test]
+fn get_stars_binning_2_regression() {
+    use ps_detect::{get_stars_from_image, as_view};
+
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let test_data_dir = manifest
+        .parent()
+        .expect("need parent dir (workspace root)")
+        .join("reference-solutions/cedar-solve/examples/data/medium_fov");
+
+    // Use the medium_fov test image which has good star content.
+    let img_path = test_data_dir.join("2019-07-29T204726_Alt40_Azi-135_Try1.jpg");
+    let img = image::open(&img_path)
+        .unwrap_or_else(|e| panic!("open {}: {e}", img_path.display()))
+        .into_luma8();
+
+    // Run detection with binning=2. This should NOT panic.
+    let view = as_view(&img);
+    let (stars, hot_pixel_count, binned_2x, histogram_2x) = get_stars_from_image(
+        &view,
+        1.0,   // noise_estimate
+        4.0,   // sigma
+        false, // normalize_rows
+        2,     // binning=2 (this is what we're testing)
+        true,  // detect_hot_pixels
+        true,  // return_binned_image
+    );
+
+    // Basic sanity checks: should detect stars and return reasonable data.
+    assert!(
+        stars.len() > 0,
+        "binning=2 should detect at least one star in medium_fov image"
+    );
+    assert!(
+        hot_pixel_count >= 0,
+        "hot_pixel_count should be non-negative, got {}",
+        hot_pixel_count
+    );
+    assert!(
+        binned_2x.is_some(),
+        "binned_2x image should be returned when return_binned_image=true"
+    );
+
+    // Check histogram contains expected entries (at least some pixels binned).
+    let total_histogram_count: u32 = histogram_2x.iter().sum();
+    assert!(
+        total_histogram_count > 0,
+        "histogram should contain some pixel counts after binning"
+    );
+
+    // Verify brightness ranking is still descending.
+    for i in 1..stars.len() {
+        assert!(
+            stars[i - 1].brightness >= stars[i].brightness,
+            "brightness not descending at index {} for binning=2",
+            i
+        );
     }
 }

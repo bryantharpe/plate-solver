@@ -40,7 +40,7 @@ fn golden_fixtures_present_and_nonempty() {
 fn blob_and_gate2d_parity() {
     use ps_detect::{
         form_blobs_from_candidates, gate_star_2d, reject_hot_pixels, scan_image_for_candidates,
-        StarDescription,
+        StarDescription, as_view,
     };
 
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -79,7 +79,8 @@ fn blob_and_gate2d_parity() {
             .into_luma8();
 
         // Run 1-D scan.
-        let candidates = scan_image_for_candidates(&img, noise_estimate, sigma);
+        let view = as_view(&img);
+        let candidates = scan_image_for_candidates(&view, noise_estimate, sigma);
 
         // Reject hot pixels.
         let sigma_noise_2 = std::cmp::max((2.0 * sigma * noise_estimate + 0.5) as i16, 2);
@@ -95,8 +96,8 @@ fn blob_and_gate2d_parity() {
         for blob in &blobs {
             if let Some(star) = gate_star_2d(
                 blob,
-                &img,
-                &img,
+                &view,
+                &view,
                 1,
                 noise_estimate,
                 sigma,

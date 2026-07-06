@@ -278,3 +278,135 @@ The ps-solve-scope allocation levers (candidate_keys reuse, A6 buffer hoist) tar
 **FU-B (FUB.1–FUB.3) complete.** No product code changed (FUB.1 investigation reverted; FUB.2 both steps reverted by measurement). The eval-harness baseline is re-confirmed and parity is identical-green. The honest conclusion: **the remaining solve-latency lever within ps-solve allocation scope is exhausted; the dominant cost is ps-db, which needs its own spec; the only large remaining lever is FU-C (parallelism), which needs user approval.**
 
 **Gates after FUB.3:** `cargo build --release -p ps-grpc` green; `cargo test -p ps-solve` 18/0/1; `combo_count` hale_bopp 8855 combos / 7.6 µs/combo (5-run median 0.067 s); eval harness `results_fub3.json` + regenerated `docs/benchmarks/report.md`/`.html` written; `ps_grpc_vs_cedar_flow` primary parity 9/9 unflagged; `ps-detect` untouched. ps-judge peer reviewed the FUB.3 record.
+
+---
+
+# DBL.1 — Probe-pair table data-layout optimization (2026-07-06) — SKIPPED-by-measurement, reverted
+
+**Bead:** DBL.1 — interleave `key_hashes[i]` (u16) and `largest_edge[i]` (f16) into a single `probe_pairs[i]` (u32) per slot, reducing random memory loads in `ps_db::lookup::lookup_pattern`'s probe chain from two independent accesses per probe to one (D-DBL-1/2 in `notes/perf-improvement-proposals.md` §DBL). Implemented in full: `Database.probe_pairs: Vec<u32>` + `build_probe_pairs()` helper wired into all three construction sites (`importer.rs`, `loader.rs`, `lib.rs::empty()`), `lookup_pattern` rewritten to read the packed pair once per probe, a code comment on `lookup_pattern_mmap` per D-DBL-2, and a new `test_probe_pairs_parity` equivalence test (fixture hit/miss keys × FOV Some/None, old two-array algorithm vs new probe_pairs path, identical-including-order). All gates green: `cargo build -p ps-db`, `cargo test -p ps-db` (9/9, including the new test), `cargo build --workspace --all-targets`, `cargo test --workspace` (clean), sv6 parity green, harness parity STOP 9/9 `ps_grpc_vs_cedar_flow primary_same_catalog` unflagged.
+
+**Measurement (this bead's own AC, not deferred to DBL.4): `combo_count` hale_bopp, 12 runs each, before vs after, same host/build:**
+
+| | n | mean (s) | median (s) | stdev (s) |
+|---|---:|---:|---:|---:|
+| before (HEAD, two-array `key_hashes`/`largest_edge` reads) | 12 | 0.1331 | 0.1300 | 0.0063 |
+| after (probe_pairs interleaved read) | 12 | 0.1293 | 0.1280 | 0.0032 |
+
+`combos_examined` = 8,855 both runs (invariant holds — no ordering/logic change). Mean delta = 3.75 ms (≈2.9%); pooled stdev ≈ 5.0 ms; **SNR = diff / pooled_stdev ≈ 0.75 < 1** — below this project's noise-floor threshold (FUB.2's established standard: ≥12 runs, SNR<1 = no win). µs/combo: 15.03 before → 14.61 after — a plausible direction but not a statistically distinguishable one at this sample size.
+
+**Decision: reverted per the explicit "revert any step that doesn't clear the noise floor" rule.** `git checkout` restored `ps-db/src/{importer,lib,loader,lookup,mmap}.rs`, `ps-db/tests/load_npz.rs`, and `ps-dbgen/tests/hash_insert_test.rs` (a pre-existing test-only field-mutation pattern that would have needed a `probe_pairs` rebuild had the change stayed — noted here since it's a real gap the equivalence-test review surfaced, but moot once reverted) to their pre-DBL.1 state. Verified clean afterward: `cargo build -p ps-db` / `cargo test -p ps-db` (5/5, back to baseline) / `cargo test -p ps-dbgen` (11/11) all green.
+
+**Honest verdict:** the interleaved-load idea is architecturally sound (it does reduce the memory-access count per probe, and the mean did move in the predicted direction), but on this container the effect is too small relative to the ~2–5% run-to-run noise floor to call it a measured win — this host's `hale_bopp` baseline (~130 ms / 8,855 combos ≈ 15 µs/combo) is also markedly slower than the ~65–67 ms / 7.6 µs/combo recorded in FUB.1/FUB.3 on the original aarch64 benchmark host (a different container/CPU, consistent with the SP2.1 Decisions Log note that this environment doesn't persist across resets and has previously come back as a different host/arch). No product code changed as a net result of DBL.1. **DBL.2 (prehashed lookup + prefetch) depends on the `probe_pairs` table DBL.1 would have added — since DBL.1 didn't land, DBL.2 has no data structure to build on and is recorded as blocked-by-measurement below, not implemented.** DBL.3 (`nearby_stars`, independent of `probe_pairs`) is unaffected and proceeds separately.
+
+---
+
+# DBL.3 — `nearby_stars` allocation trim (2026-07-06) — SKIPPED-by-measurement, reverted
+
+**Bead:** DBL.3 — per D-DBL-5, avoid re-allocating the outer `Vec<usize>` on every `ps_db::nearby_stars` call by adding `nearby_stars_into(db, vector, radius, out: &mut Vec<usize>)` (clears and reuses a caller-provided scratch buffer) with `nearby_stars` staying as a thin wrapper; `ps-solve`'s verification loop hoists a single `nearby_scratch: Vec<usize>` outside the `'outer` combination loop and calls `nearby_stars_into` instead of `nearby_stars`. Scope decision (made up front, not revisited): only the caller-hoisted-buffer lever (option b) was implemented — kiddo's `within_unsorted_iter` (option a, a generator/coroutine-based iterator) was deliberately NOT attempted, since its own overhead profile is unclear and not worth the added risk for an unmeasured win. Implemented in full with a new `test_nearby_stars_into_equivalence` test (fixture queries, pre-seeded-with-garbage buffer proving `.clear()` works, asserting identical output to `nearby_stars`). All gates green: `cargo build/test -p ps-db --features kd-tree`, `cargo build --workspace --all-targets`, `cargo test --workspace` (incl. `sv6_solve_from_centroids_parity`/`sv6_solve_from_image_parity` bit-for-bit unchanged).
+
+**Measurement (this bead's own AC): `combo_count` hale_bopp, 12 runs each, before vs after, same host/build:**
+
+| | n | mean (s) | median (s) | stdev (s) |
+|---|---:|---:|---:|---:|
+| before (HEAD, fresh `Vec<usize>` per call) | 12 | 0.1356 | 0.1310 | 0.0170 |
+| after (`nearby_stars_into` + hoisted scratch buffer) | 12 | 0.1332 | 0.1305 | 0.0065 |
+
+`combos_examined` = 8,855 both runs (invariant holds). The `before` run includes one clear outlier (0.189s vs a tight ~0.127–0.137s cluster for the other 11); SNR computed both ways: **including the outlier, diff=2.4ms, pooled stdev≈12.9ms, SNR≈0.19; excluding it (n=11), the direction actually flips (after is ~2.4ms *slower* on the tighter sample, SNR≈−0.5).** Either way, **far below the SNR<1 "no win" threshold** — not a borderline case like DBL.1, a clear null result.
+
+**Decision: reverted**, same rule as DBL.1. `git checkout` restored `ps-db/src/lib.rs` and `ps-solve/src/lib.rs` to their pre-DBL.3 state; re-verified clean (`ps-db --features kd-tree` 11/11, `ps-solve` 18/0/1-pre-existing-ignore, full workspace green).
+
+**Honest verdict:** `nearby_stars` fires only on the ~0.13% of lookups that produce a candidate slot (per FUB.1's attribution, ~1.4–2.8k times per hale_bopp exhaustion, not per every one of the 2.15M `lookup_pattern` calls) — infrequent enough, and kiddo's own internal `Vec<NearestNeighbour>` allocation (which this lever does NOT remove — only the outer `Vec<usize>` wrapping it) still dominates whatever cost is there, that shaving one allocation layer off doesn't move measured wall-clock on this host. Combined with DBL.1's result, **both `ps-db` allocation-layout levers this round measured as noise-floor null results on this container** — mirroring the FUB.2 pattern in `ps-solve` scope. The remaining ps-db-scope idea not yet tried (kiddo's `within_unsorted_iter`) was deliberately not attempted given its own uncertain profile; not recommended as a follow-up without a concrete reason to expect it clears the bar this simpler lever didn't.
+
+---
+
+# DBL.4 — DBL round re-measurement + decision gate (2026-07-06)
+
+**Bead:** DBL.4 — the closing synthesis for the DBL round (DBL.1–DBL.3). Both code-changing sub-beads (DBL.1 probe-pair table, DBL.3 `nearby_stars_into`) were implemented, gated fully green, individually measured (≥12 runs each), and **reverted** — neither cleared the SNR≥1 noise-floor bar on this container. DBL.2 (prehashed lookup + prefetch) never got to run: it depends on DBL.1's `probe_pairs` table, which doesn't exist post-revert, so it's `BLOCKED` (see Blocked Log). **Net result: zero product code changed by the DBL round.** This bead's job is to record the final state, not to re-attempt anything.
+
+## Final `combo_count` re-measurement (12 runs, current HEAD post-ZCS.2, all DBL reverted)
+
+| run | t_solve_s | combos_examined | µs/combo |
+|---|---:|---:|---:|
+| 1 | 0.131 | 8855 | 14.79 |
+| 2 | 0.131 | 8855 | 14.79 |
+| 3 | 0.133 | 8855 | 15.02 |
+| 4 | 0.130 | 8855 | 14.68 |
+| 5 | 0.133 | 8855 | 15.02 |
+| 6 | 0.137 | 8855 | 15.47 |
+| 7 | 0.132 | 8855 | 14.91 |
+| 8 | 0.135 | 8855 | 15.25 |
+| 9 | 0.128 | 8855 | 14.46 |
+| 10 | 0.130 | 8855 | 14.68 |
+| 11 | 0.132 | 8855 | 14.91 |
+| 12 | 0.130 | 8855 | 14.68 |
+
+**mean 0.1318s / median 0.1315s / stdev 0.0024s ≈ 14.89 µs/combo (mean), 14.85 µs/combo (median).** `combos_examined`=8,855 every run (invariant holds, as it must with zero product code changed). This is consistent with DBL.1's and DBL.3's own individual "before" baselines on this same container (~0.130–0.136s / ~14.7–15.4 µs/combo) — there is no new number here, just a confirmed, stable re-measurement of the same unchanged code, run as its own independent ≥12-sample check per this bead's AC.
+
+Note the ~15 µs/combo figure on this container is *not* comparable to the ~7.6 µs/combo recorded in FUB.1/FUB.3 on the original benchmark host — that's a different, non-persistent aarch64 container (already documented in the SP2.1 Decisions Log and re-confirmed in DBL.1's entry above); this container is consistently ~2× slower on this specific benchmark across every measurement taken in it this session.
+
+## Full eval harness (regenerated `docs/benchmarks/report.md`/`.html`)
+
+Rebuilt `ps-grpc --release`, re-ran `run_benchmark.py` → `parity.py` → `report.py`. Headline (median over 9 astronomical images):
+
+| comparison | detect speedup | solve speedup |
+|---|---:|---:|
+| ps_grpc vs cedar_flow | 1× | 1.49× |
+| ps_grpc vs tetra3_original | 7.55× | 6.17× |
+
+Consistent with FUB.3's post-FU-B baseline (1.43× solve) within this container's run-to-run noise — no regression, no new win (expected, since no product code changed).
+
+**Parity STOP gate: 9/9 `ps_grpc_vs_cedar_flow primary_same_catalog` unflagged** (verified programmatically). The 18 cross-catalog flags and 4 stress flags are the same pre-existing, out-of-scope items documented since FUB.3.
+
+## Decision gate
+
+**Does meaningful exhaustion-path cost remain?** Yes, essentially unchanged from FUB.3's finding: ~65–135 ms (host-dependent) / 8,855 combos on hale_bopp's NoMatch path, still dominated by `ps-db` per FUB.1's attribution (`lookup_pattern` ~51%, `nearby_stars` ~15%) — this round's two attempts to trim that cost (interleaved probe-pair table, scratch-buffer reuse) both measured as noise-floor nulls on this container, not because the ideas were wrong, but because neither lever was large enough relative to this host's ~2–5% run-to-run variance to prove itself.
+
+**Is FU-C's serial baseline now settled (FUC.0's precondition)?** Yes — **the serial baseline is exactly the post-FUB.3 baseline, unchanged**, since the DBL round landed zero product code changes. FUC.0 (the ps-judge Job B ruling on parallel-search semantics) may proceed once its other precondition, H6 (RPC deadline → cancel_flag + rayon feature flag), also lands — H6 has not been attempted in this session (it needs a ps-judge Job B architectural decision of its own and is outside the "Perf round-3 beads" scope this session was directed to work).
+
+**DBL round (DBL.1–DBL.4) complete.** DBL.1: reverted, SNR≈0.75 (borderline but under 1). DBL.3: reverted, SNR≈0.19 (or -0.5 excluding an outlier — a clear null either way). DBL.2: blocked, no `probe_pairs` to build on. DBL.4 (this entry): final re-measurement confirms no regression and no change, report regenerated, parity identical-green, decision recorded. Next lever in this data-structure space, if ever revisited, would need either a quieter host (this container's noise floor ate two genuinely-reasonable ideas) or a larger, more aggressive change than either of these two additive, low-risk levers.
+
+---
+
+# ZCS.3 — ZCS shmem zero-copy measurement (2026-07-06)
+
+**Bead:** ZCS.3 — benchmark the shmem path before (`mmap.to_vec()`, pre-ZCS.2) vs after (`GrayImageView` over `&mmap[..]`, post-ZCS.2) at 1024×768 and ~5 MP, and confirm the harness parity STOP gate + the "is shmem exercised by any current client" answer.
+
+## Method
+
+Since no real client currently sets `shmem_name` (confirmed below), and the spec's own expected magnitude (~0.3–1 ms @ 1 MP) is small relative to real gRPC network/serialization overhead, a synthetic **in-process** benchmark isolates exactly the code path this bead changed: a new `ps-grpc/examples/shmem_bench.rs` writes a synthetic uniform grayscale image to a real `/dev/shm/` file and calls `PlateSolverService::extract_centroids` directly (no network hop — the same approach the harness itself can't take since it never exercises shmem). 3 warm-up calls, then 20 timed iterations per run, 12 runs per resolution per side. "Before" = `ps-grpc/src/service.rs` temporarily checked out to its pre-ZCS.2 committed state (`git checkout 0482256 -- ps-grpc/src/service.rs`, rebuilt, benchmarked, then immediately restored via `git checkout HEAD --` and re-verified — `cargo test -p ps-grpc` 12/12 green again before proceeding); "after" = current HEAD. The benchmark binary itself is unchanged between the two runs — it only calls the public `extract_centroids` API, agnostic to the internal `ImageBacking` refactor.
+
+## Results (12 runs each, mean/median/stdev in ms; 20 iterations/run after 3 warm-up)
+
+**1024×768 (786,432 px ≈ 0.79 MP):**
+
+| | mean (ms) | median (ms) | stdev (ms) |
+|---|---:|---:|---:|
+| before (`mmap.to_vec()`) | 0.5581 | 0.5308 | 0.0183 |
+| after (`GrayImageView`) | 0.4859 | 0.4837 | 0.0075 |
+
+diff = 0.0722 ms, pooled stdev = 0.0140 ms, **SNR ≈ 5.17** — a clear, real win, well above the noise floor.
+
+**2560×1953 (4,999,680 px ≈ 5.0 MP):**
+
+| | mean (ms) | median (ms) | stdev (ms) |
+|---|---:|---:|---:|
+| before (`mmap.to_vec()`) | 3.7452 | 3.7690 | 0.0583 |
+| after (`GrayImageView`) | 3.2023 | 3.1806 | 0.0780 |
+
+diff = 0.5430 ms, pooled stdev = 0.0688 ms, **SNR ≈ 7.89** — also a clear, real win, and the absolute savings scale up with resolution as expected (roughly 7.5× the 1 MP savings for ~6.4× the pixels).
+
+## Honest verdict vs the spec's expectation
+
+The spec (`notes/perf-improvement-proposals.md` §ZCS "Honest expectation") predicted "~0.3–1 ms/request at 1 MP... several ms/frame at 5 MP." The measured 1 MP win (**0.072 ms**) is real and statistically unambiguous (SNR≈5.17) but noticeably smaller than the low end of that range; the 5 MP win (**0.54 ms**) is real (SNR≈7.89) but is "a bit over half a millisecond," not "several ms." Both are directionally and proportionally consistent with the spec's reasoning (memcpy + page-fault + allocator-pressure elimination scaling with frame size), just smaller in absolute magnitude on this container than the spec's rough estimate — likely because this benchmark's uniform-background synthetic image (no stars) makes the `mmap.to_vec()` copy itself is a small fraction of the ~0.5–3ms end-to-end handler cost (histogram/noise-estimation/candidate-scan dominate), so the fraction saved, while real, is proportionally smaller than a naive "just the memcpy cost" estimate would suggest. This is a genuine, land-worthy win, not a "no measurable win" outcome like the DBL round — no revert needed, nothing to revert (the code was already committed and judged in ZCS.2; this bead is confirmation, not a gate).
+
+## Is shmem exercised by any current client?
+
+**No.** `grep -rn "shmem_name" tools/parity ps-web` (re-confirmed, same as ZCS.2's finding) shows it only appears in generated protobuf bindings (`plate_solver_pb2.py`/`.pyi`), never assigned a value by any client or harness code. ZCS.2/ZCS.3 land regardless — per the spec, the view API benefits any future in-process embedder or a client that starts using shmem, and the measured win here (§ above) proves the investment was real, not speculative.
+
+## Full eval harness (regenerated `docs/benchmarks/report.md`/`.html`)
+
+Re-ran `run_benchmark.py` → `parity.py` → `report.py` against a freshly rebuilt `ps-grpc --release`. Headline: ps_grpc vs cedar_flow **1.01× detect / 1.53× solve** — within container run-to-run noise of DBL.4's re-measurement (1× / 1.49×), as expected, since the harness never exercises the shmem path so ZCS.2/ZCS.3 have no effect on it; the small drift is the same ~2-5% noise floor seen throughout this session's measurements on this host, not a real change.
+
+**Parity STOP gate: 9/9 `ps_grpc_vs_cedar_flow primary_same_catalog` unflagged** (verified programmatically). `cargo build --workspace --all-targets` and `cargo test --workspace` both green after the temporary service.rs checkout/restore cycle (re-verified `cargo test -p ps-grpc` 12/12 immediately after restoring, then the full workspace suite).
+
+**ZCS round (ZCS.1–ZCS.3) complete.** ZCS.1: landed (borrowed-view API, one critical bug caught and fixed pre-judge). ZCS.2: landed (zero-copy shmem path, one process incident — a concurrent unrelated agent's stray git command reverting the first attempt — recovered by a clean sequential redo). ZCS.3 (this entry): measured a real, positive win at both benchmarked resolutions, smaller in absolute terms than the spec's rough estimate but statistically unambiguous (SNR 5.2–7.9), and confirmed no current client exercises the path yet. `ps-grpc/examples/shmem_bench.rs` is left in the tree as reusable measurement tooling for any future client that does start using shmem.

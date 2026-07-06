@@ -19,7 +19,8 @@ fn main() {
         .to_luma8();
 
     // Use ps-detect's binning implementation.
-    let binned = ps_detect::binning::bin_2x2(&img);
+    let img_view = ps_detect::as_view(&img);
+    let binned = ps_detect::binning::bin_2x2(&img_view);
 
     let (bw, bh) = binned.dimensions();
     let region_w = (8.min(bw)) as usize;

@@ -3,7 +3,7 @@
 //! Scans each row with a 7-pixel horizontal gate to find candidate star centers,
 //! then rejects isolated hot pixels using full-resolution backing pixel analysis.
 
-use crate::GrayImage;
+use crate::{GrayImage, GrayImageView};
 use std::cmp;
 
 /// Result of the 1-D gate test on a single pixel.
@@ -125,7 +125,7 @@ pub fn classify_pixel(gate: &[u8], sigma_noise_2: i16) -> (PixelHotType, u8) {
 ///
 /// Returns `true` if every backing pixel is classified as Dark or Hot (i.e., this is a hot pixel).
 pub fn all_bright_are_hot(
-    full_res_image: &GrayImage,
+    full_res_image: &GrayImageView<'_>,
     x: i32,
     y: i32,
     binning: u32,
@@ -172,7 +172,7 @@ pub fn all_bright_are_hot(
 /// Uses cache-line sampling (stride=64) for `row_min` and a coarse
 /// pre-filter threshold to avoid running the gate on most background pixels.
 pub fn scan_image_for_candidates(
-    image: &GrayImage,
+    image: &GrayImageView<'_>,
     noise_estimate: f64,
     sigma: f64,
 ) -> Vec<CandidateFrom1D> {
@@ -237,14 +237,14 @@ pub fn reject_hot_pixels(
         if binning == 1 {
             // With binning=1, each candidate is a single pixel.
             // Still check hot-pixel status since the spec says it works for binning=1 too.
-            let is_hot = all_bright_are_hot(full_res_image, cand.x, cand.y, binning, sigma_noise_2);
+            let is_hot = all_bright_are_hot(&crate::as_view(full_res_image), cand.x, cand.y, binning, sigma_noise_2);
             if is_hot {
                 hot_pixel_count += 1;
             } else {
                 filtered.push(*cand);
             }
         } else {
-            let is_hot = all_bright_are_hot(full_res_image, cand.x, cand.y, binning, sigma_noise_2);
+            let is_hot = all_bright_are_hot(&crate::as_view(full_res_image), cand.x, cand.y, binning, sigma_noise_2);
             if is_hot {
                 hot_pixel_count += 1;
             } else {
@@ -322,13 +322,7 @@ mod tests {
 
     #[test]
     fn test_gate_star_1d_tie_break_right() {
-        // C==r and l<=rm: [20, 25, 200, 200, 30, 20, 20]
-        // C=200 == r=30? No. Let me reconsider.
-        // Actually: l=200, C=200, r=30. l==C is true. lm=25 > r=30? No (25 < 30).
-        // So tie-break left doesn't fire. Then check tie-break right: C==r? 200==30? No.
-        // So it would pass. Let me construct the correct test case.
-        // For tie-break right: C==r and l<=rm.
-        // Gate: [20, 25, 10, 200, 200, 30, 20]
+        // C==r and l<=rm: [20, 25, 10, 200, 200, 30, 20]
         // C=200, r=200 -> C==r is true. l=10 <= rm=30 -> true. Uninteresting.
         let gate = [20u8, 25, 10, 200, 200, 30, 20];
         assert_eq!(
@@ -381,7 +375,7 @@ mod tests {
     fn test_scan_uniform_row_no_candidates() {
         // 256-wide image with all pixels = 100
         let img = GrayImage::from_raw(256, 1, vec![100u8; 256]).unwrap();
-        let candidates = scan_image_for_candidates(&img, 10.0, 8.0);
+        let candidates = scan_image_for_candidates(&crate::as_view(&img), 10.0, 8.0);
         // sigma_noise_2 = max((2*8*10+0.5) as i16, 2) = max(160, 2) = 160
         // threshold = 100 + 160/2 = 180
         // No pixel >= 180, so no candidates
@@ -404,7 +398,7 @@ mod tests {
         row[103] = 25; // rb
 
         let img = GrayImage::from_raw(256, 1, row).unwrap();
-        let candidates = scan_image_for_candidates(&img, 1.0, 8.0);
+        let candidates = scan_image_for_candidates(&crate::as_view(&img), 1.0, 8.0);
         // sigma_noise_2 = max((2*8*1+0.5) as i16, 2) = max(16, 2) = 16
         // sigma_noise_3 = max((3*8*1+0.5) as i16, 3) = max(24, 3) = 24
         // threshold = 20 + 16/2 = 28
@@ -422,7 +416,7 @@ mod tests {
         row[1] = 200;
 
         let img = GrayImage::from_raw(256, 1, row).unwrap();
-        let candidates = scan_image_for_candidates(&img, 1.0, 8.0);
+        let candidates = scan_image_for_candidates(&crate::as_view(&img), 1.0, 8.0);
         // x=1 is within the first 3 columns, so it should be skipped
         assert!(
             candidates.is_empty(),
@@ -446,7 +440,7 @@ mod tests {
         // For the gate centered on (5,5): [20,20,20,200,20,20,20]
         // classify_pixel: significance = 2*200-(20+20)=360 >= 50 -> not dark
         // Hot test: 4*((20+20)-(20+20))=0 <= 360/2=180 -> true, Hot
-        let result = all_bright_are_hot(&img, 5, 5, 1, 50);
+        let result = all_bright_are_hot(&crate::as_view(&img), 5, 5, 1, 50);
         assert!(result, "isolated bright pixel should be classified as hot");
     }
 
@@ -463,7 +457,7 @@ mod tests {
         // Gate: [20,20,150,200,150,20,20]
         // classify_pixel: significance = 2*200-(20+20)=360 >= 50 -> not dark
         // Hot test: 4*((150+150)-(20+20))=4*260=1040 <= 360/2=180? No -> Bright
-        let result = all_bright_are_hot(&img, 5, 5, 1, 50);
+        let result = all_bright_are_hot(&crate::as_view(&img), 5, 5, 1, 50);
         assert!(!result, "pixel with neighbor support should NOT be all-hot");
     }
 

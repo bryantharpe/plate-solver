@@ -332,7 +332,7 @@ pub async fn solve_handler(State(state): State<AppState>, mut multipart: Multipa
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
         let img = decode_image_bounded(&image_bytes)?.to_luma8();
-        Ok(ps_solve::solve_from_image(&db, &img, &params))
+        Ok(ps_solve::solve_from_image(&db, &ps_detect::as_view(&img), &params))
     })
     .await;
 
@@ -414,7 +414,7 @@ mod tests {
             SolveStatus::Cancelled,
             SolveStatus::TooFew,
         ] {
-            let sol = Solution::failure(status.clone(), 0.0);
+            let sol = Solution::failure(status.clone(), 0.0, 0);
             let resp = map_response(&sol);
             let hint = match resp {
                 SolveResponse::NoMatch { hint } => hint,

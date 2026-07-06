@@ -5,6 +5,7 @@ use std::path::Path;
 use imageproc::rect::Rect;
 use ps_detect::io::load_grayscale;
 use ps_detect::noise::{estimate_background_from_image_region, estimate_noise_from_image};
+use ps_detect::as_view;
 
 fn fixture_path(name: &str) -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -39,7 +40,8 @@ fn noise_estimation_parity() {
         let img = load_grayscale(&img_path)
             .unwrap_or_else(|e| panic!("load {}: {}", img_path.display(), e));
 
-        let noise = estimate_noise_from_image(&img);
+        let view = as_view(&img);
+        let noise = estimate_noise_from_image(&view);
 
         let expected: f64 = entry
             .get("noise_estimate")
@@ -76,7 +78,8 @@ fn background_estimation_parity() {
     // Pick a ROI in the lower-left quadrant where sky background is typical.
     let roi = Rect::at(10, h as i32 - 20).of_size(w / 4, 10);
 
-    let (mean, stddev) = estimate_background_from_image_region(&img, &roi);
+    let view = as_view(&img);
+    let (mean, stddev) = estimate_background_from_image_region(&view, &roi);
 
     // Sanity checks: mean should be a reasonable background level, stddev > 0.
     assert!(mean >= 0.0 && mean <= 255.0, "mean out of range: {}", mean);

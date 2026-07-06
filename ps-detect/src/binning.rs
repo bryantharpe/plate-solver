@@ -4,7 +4,7 @@
 //! Detection runs on the most-binned image; centroiding uses one level less binned.
 
 use crate::histogram::estimate_dark_level;
-use crate::GrayImage;
+use crate::{GrayImage, GrayImageView};
 use std::sync::OnceLock;
 
 /// Result of a 2x2 binning operation including a pixel histogram.
@@ -14,9 +14,9 @@ pub struct Binned2x2Result {
 }
 
 /// Function type for 2x2 binning with histogram.
-pub type BinAndHistoFn = fn(&GrayImage, bool) -> Binned2x2Result;
+pub type BinAndHistoFn = for<'a> fn(&GrayImageView<'a>, bool) -> Binned2x2Result;
 /// Function type for 2x2 binning without histogram.
-pub type Bin2x2Fn = fn(&GrayImage) -> GrayImage;
+pub type Bin2x2Fn = for<'a> fn(&GrayImageView<'a>) -> GrayImage;
 
 static BIN_AND_HISTO_FN: OnceLock<BinAndHistoFn> = OnceLock::new();
 static BIN2X2_FN: OnceLock<Bin2x2Fn> = OnceLock::new();
@@ -31,7 +31,7 @@ pub fn set_binner(bin_and_histo: BinAndHistoFn, bin2x2: Bin2x2Fn) {
 }
 
 /// Bin an image 2x2, dispatching to a registered function or the default.
-pub fn bin_2x2(image: &GrayImage) -> GrayImage {
+pub fn bin_2x2(image: &GrayImageView<'_>) -> GrayImage {
     match BIN2X2_FN.get() {
         Some(f) => f(image),
         None => bin_2x2_default(image),
@@ -43,7 +43,7 @@ pub fn bin_2x2(image: &GrayImage) -> GrayImage {
 /// Each output pixel is the integer average of a 2x2 block:
 /// `(p1 + p2 + p3 + p4) / 4` using u16 accumulation then divide by 4.
 /// Odd trailing rows/columns are dropped via `& !1` masking.
-fn bin_2x2_default(image: &GrayImage) -> GrayImage {
+fn bin_2x2_default(image: &GrayImageView<'_>) -> GrayImage {
     let (width, height) = image.dimensions();
     let new_width = width / 2;
     let new_height = height / 2;
@@ -64,7 +64,7 @@ fn bin_2x2_default(image: &GrayImage) -> GrayImage {
 /// Bin an image 2x2 with histogram, dispatching to a registered function or the default.
 ///
 /// If `normalize_rows` is true, row normalization is applied before binning.
-pub fn bin_and_histogram_2x2(image: &GrayImage, normalize_rows: bool) -> Binned2x2Result {
+pub fn bin_and_histogram_2x2(image: &GrayImageView<'_>, normalize_rows: bool) -> Binned2x2Result {
     match BIN_AND_HISTO_FN.get() {
         Some(f) => f(image, normalize_rows),
         None => bin_and_histogram_2x2_default(image, normalize_rows),
@@ -74,13 +74,13 @@ pub fn bin_and_histogram_2x2(image: &GrayImage, normalize_rows: bool) -> Binned2
 /// Default 2x2 box-filter with histogram construction.
 ///
 /// If `normalize_rows` is true, applies row normalization before binning.
-fn bin_and_histogram_2x2_default(image: &GrayImage, normalize_rows: bool) -> Binned2x2Result {
+fn bin_and_histogram_2x2_default(image: &GrayImageView<'_>, normalize_rows: bool) -> Binned2x2Result {
     let normalized;
-    let source_image = if normalize_rows {
+    let source_image: GrayImageView<'_> = if normalize_rows {
         normalized = apply_row_normalization(image);
-        &normalized
+        crate::as_view(&normalized)
     } else {
-        image
+        image.clone()
     };
     let (width, height) = source_image.dimensions();
 
@@ -122,7 +122,7 @@ fn bin_and_histogram_2x2_default(image: &GrayImage, normalize_rows: bool) -> Bin
 /// 4. Shift every pixel by `adjust`, clamping to [0, 255].
 ///
 /// Returns a new GrayImage of the same dimensions.
-fn apply_row_normalization(image: &GrayImage) -> GrayImage {
+fn apply_row_normalization(image: &GrayImageView<'_>) -> GrayImage {
     let (width, height) = image.dimensions();
     let mut normalized_pixels = Vec::with_capacity((width * height) as usize);
     let source_pixels = image.as_raw();
@@ -167,25 +167,32 @@ fn apply_row_normalization(image: &GrayImage) -> GrayImage {
 /// `normalize_rows` is applied on the first binning step only.
 /// The third return value is always `None` (reserved for future use).
 pub fn build_binning_cascade(
-    image: &GrayImage,
+    image: &GrayImageView<'_>,
     binning: u32,
     normalize_rows: bool,
 ) -> (GrayImage, Option<GrayImage>, Option<GrayImage>) {
     match binning {
-        1 => (image.clone(), Some(image.clone()), None),
+        1 => {
+            let owned = GrayImage::from_raw(image.width(), image.height(), image.as_raw().to_vec()).unwrap();
+            (owned.clone(), Some(owned), None)
+        }
         2 => {
             let binned = bin_and_histogram_2x2(image, normalize_rows).binned;
-            (binned, Some(image.clone()), None)
+            let owned = GrayImage::from_raw(image.width(), image.height(), image.as_raw().to_vec()).unwrap();
+            (binned, Some(owned), None)
         }
         4 => {
             let step1 = bin_and_histogram_2x2(image, normalize_rows).binned;
-            let step2 = bin_and_histogram_2x2(&step1, false).binned;
+            let step1_view = crate::as_view(&step1);
+            let step2 = bin_and_histogram_2x2(&step1_view, false).binned;
             (step2, Some(step1), None)
         }
         8 => {
             let step1 = bin_and_histogram_2x2(image, normalize_rows).binned;
-            let step2 = bin_and_histogram_2x2(&step1, false).binned;
-            let step3 = bin_and_histogram_2x2(&step2, false).binned;
+            let step1_view = crate::as_view(&step1);
+            let step2 = bin_and_histogram_2x2(&step1_view, false).binned;
+            let step2_view = crate::as_view(&step2);
+            let step3 = bin_and_histogram_2x2(&step2_view, false).binned;
             (step3, Some(step2), None)
         }
         _ => panic!("binning must be 1, 2, 4, or 8, got {}", binning),
@@ -212,7 +219,8 @@ mod tests {
     fn test_bin_2x2_uniform() {
         // Uniform 100x100 image of value 128
         let img = GrayImage::from_raw(100, 100, vec![128u8; 100 * 100]).unwrap();
-        let result = bin_2x2(&img);
+        let view = crate::as_view(&img);
+        let result = bin_2x2(&view);
         assert_eq!(result.dimensions(), (50, 50));
         for pixel in result.pixels() {
             assert_eq!(pixel[0], 128);
@@ -229,7 +237,8 @@ mod tests {
             }
         }
         let img = GrayImage::from_raw(4, 4, pixels).unwrap();
-        let result = bin_2x2(&img);
+        let view = crate::as_view(&img);
+        let result = bin_2x2(&view);
         assert_eq!(result.dimensions(), (2, 2));
 
         // Top-left: [1,2,5,6] -> avg=3
@@ -246,7 +255,8 @@ mod tests {
     fn test_bin_2x2_odd_dimensions() {
         // 5x5 image: rows 0-4, cols 0-4; output should be 2x2 (last row/col dropped)
         let img = GrayImage::from_raw(5, 5, vec![42u8; 25]).unwrap();
-        let result = bin_2x2(&img);
+        let view = crate::as_view(&img);
+        let result = bin_2x2(&view);
         assert_eq!(result.dimensions(), (2, 2));
         for pixel in result.pixels() {
             assert_eq!(pixel[0], 42);
@@ -260,7 +270,8 @@ mod tests {
         pixels.extend_from_slice(&vec![50u8; 100]);
         let img = GrayImage::from_raw(100, 2, pixels).unwrap();
 
-        let normalized = apply_row_normalization(&img);
+        let view = crate::as_view(&img);
+        let normalized = apply_row_normalization(&view);
         assert_eq!(normalized.dimensions(), (100, 2));
 
         // Row 0: dark_level ~ 10.0 (all pixels are 10), adjust = round(2.0 - 10.0) = -8
@@ -277,7 +288,8 @@ mod tests {
     #[test]
     fn test_binning_cascade_1() {
         let img = GrayImage::from_raw(100, 100, vec![77u8; 100 * 100]).unwrap();
-        let (detect, higher_res, _extra) = build_binning_cascade(&img, 1, false);
+        let view = crate::as_view(&img);
+        let (detect, higher_res, _extra) = build_binning_cascade(&view, 1, false);
         assert_eq!(detect.dimensions(), (100, 100));
         assert!(higher_res.is_some());
         assert_eq!(higher_res.unwrap().dimensions(), (100, 100));
@@ -286,7 +298,8 @@ mod tests {
     #[test]
     fn test_binning_cascade_2() {
         let img = GrayImage::from_raw(100, 100, vec![77u8; 100 * 100]).unwrap();
-        let (detect, higher_res, _extra) = build_binning_cascade(&img, 2, false);
+        let view = crate::as_view(&img);
+        let (detect, higher_res, _extra) = build_binning_cascade(&view, 2, false);
         assert_eq!(detect.dimensions(), (50, 50));
         assert!(higher_res.is_some());
         assert_eq!(higher_res.unwrap().dimensions(), (100, 100));
@@ -295,7 +308,8 @@ mod tests {
     #[test]
     fn test_binning_cascade_4() {
         let img = GrayImage::from_raw(100, 100, vec![77u8; 100 * 100]).unwrap();
-        let (detect, higher_res, _extra) = build_binning_cascade(&img, 4, false);
+        let view = crate::as_view(&img);
+        let (detect, higher_res, _extra) = build_binning_cascade(&view, 4, false);
         assert_eq!(detect.dimensions(), (25, 25));
         assert!(higher_res.is_some());
         assert_eq!(higher_res.unwrap().dimensions(), (50, 50));
@@ -304,9 +318,10 @@ mod tests {
     #[test]
     fn test_binning_cascade_invalid() {
         let img = GrayImage::from_raw(100, 100, vec![77u8; 100 * 100]).unwrap();
-        let result = std::panic::catch_unwind(|| {
-            build_binning_cascade(&img, 3, false);
-        });
+        let view = crate::as_view(&img);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            build_binning_cascade(&view, 3, false);
+        }));
         assert!(result.is_err());
     }
 
@@ -334,8 +349,9 @@ mod tests {
         }
         let img = GrayImage::from_raw(4, 4, pixels).unwrap();
 
-        let binned = bin_2x2(&img);
-        let result = bin_and_histogram_2x2(&img, false);
+        let view = crate::as_view(&img);
+        let binned = bin_2x2(&view);
+        let result = bin_and_histogram_2x2(&view, false);
         assert_eq!(binned.as_raw(), result.binned.as_raw());
 
         // Histogram should sum to output pixel count
@@ -351,7 +367,8 @@ mod tests {
         set_binner(bin_and_histogram_2x2_default, bin_2x2_default);
 
         let img = GrayImage::from_raw(4, 4, vec![100u8; 16]).unwrap();
-        let result = bin_2x2(&img);
+        let view = crate::as_view(&img);
+        let result = bin_2x2(&view);
         assert_eq!(result.dimensions(), (2, 2));
     }
 }
