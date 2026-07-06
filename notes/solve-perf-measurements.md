@@ -364,3 +364,49 @@ Consistent with FUB.3's post-FU-B baseline (1.43× solve) within this container'
 **Is FU-C's serial baseline now settled (FUC.0's precondition)?** Yes — **the serial baseline is exactly the post-FUB.3 baseline, unchanged**, since the DBL round landed zero product code changes. FUC.0 (the ps-judge Job B ruling on parallel-search semantics) may proceed once its other precondition, H6 (RPC deadline → cancel_flag + rayon feature flag), also lands — H6 has not been attempted in this session (it needs a ps-judge Job B architectural decision of its own and is outside the "Perf round-3 beads" scope this session was directed to work).
 
 **DBL round (DBL.1–DBL.4) complete.** DBL.1: reverted, SNR≈0.75 (borderline but under 1). DBL.3: reverted, SNR≈0.19 (or -0.5 excluding an outlier — a clear null either way). DBL.2: blocked, no `probe_pairs` to build on. DBL.4 (this entry): final re-measurement confirms no regression and no change, report regenerated, parity identical-green, decision recorded. Next lever in this data-structure space, if ever revisited, would need either a quieter host (this container's noise floor ate two genuinely-reasonable ideas) or a larger, more aggressive change than either of these two additive, low-risk levers.
+
+---
+
+# ZCS.3 — ZCS shmem zero-copy measurement (2026-07-06)
+
+**Bead:** ZCS.3 — benchmark the shmem path before (`mmap.to_vec()`, pre-ZCS.2) vs after (`GrayImageView` over `&mmap[..]`, post-ZCS.2) at 1024×768 and ~5 MP, and confirm the harness parity STOP gate + the "is shmem exercised by any current client" answer.
+
+## Method
+
+Since no real client currently sets `shmem_name` (confirmed below), and the spec's own expected magnitude (~0.3–1 ms @ 1 MP) is small relative to real gRPC network/serialization overhead, a synthetic **in-process** benchmark isolates exactly the code path this bead changed: a new `ps-grpc/examples/shmem_bench.rs` writes a synthetic uniform grayscale image to a real `/dev/shm/` file and calls `PlateSolverService::extract_centroids` directly (no network hop — the same approach the harness itself can't take since it never exercises shmem). 3 warm-up calls, then 20 timed iterations per run, 12 runs per resolution per side. "Before" = `ps-grpc/src/service.rs` temporarily checked out to its pre-ZCS.2 committed state (`git checkout 0482256 -- ps-grpc/src/service.rs`, rebuilt, benchmarked, then immediately restored via `git checkout HEAD --` and re-verified — `cargo test -p ps-grpc` 12/12 green again before proceeding); "after" = current HEAD. The benchmark binary itself is unchanged between the two runs — it only calls the public `extract_centroids` API, agnostic to the internal `ImageBacking` refactor.
+
+## Results (12 runs each, mean/median/stdev in ms; 20 iterations/run after 3 warm-up)
+
+**1024×768 (786,432 px ≈ 0.79 MP):**
+
+| | mean (ms) | median (ms) | stdev (ms) |
+|---|---:|---:|---:|
+| before (`mmap.to_vec()`) | 0.5581 | 0.5308 | 0.0183 |
+| after (`GrayImageView`) | 0.4859 | 0.4837 | 0.0075 |
+
+diff = 0.0722 ms, pooled stdev = 0.0140 ms, **SNR ≈ 5.17** — a clear, real win, well above the noise floor.
+
+**2560×1953 (4,999,680 px ≈ 5.0 MP):**
+
+| | mean (ms) | median (ms) | stdev (ms) |
+|---|---:|---:|---:|
+| before (`mmap.to_vec()`) | 3.7452 | 3.7690 | 0.0583 |
+| after (`GrayImageView`) | 3.2023 | 3.1806 | 0.0780 |
+
+diff = 0.5430 ms, pooled stdev = 0.0688 ms, **SNR ≈ 7.89** — also a clear, real win, and the absolute savings scale up with resolution as expected (roughly 7.5× the 1 MP savings for ~6.4× the pixels).
+
+## Honest verdict vs the spec's expectation
+
+The spec (`notes/perf-improvement-proposals.md` §ZCS "Honest expectation") predicted "~0.3–1 ms/request at 1 MP... several ms/frame at 5 MP." The measured 1 MP win (**0.072 ms**) is real and statistically unambiguous (SNR≈5.17) but noticeably smaller than the low end of that range; the 5 MP win (**0.54 ms**) is real (SNR≈7.89) but is "a bit over half a millisecond," not "several ms." Both are directionally and proportionally consistent with the spec's reasoning (memcpy + page-fault + allocator-pressure elimination scaling with frame size), just smaller in absolute magnitude on this container than the spec's rough estimate — likely because this benchmark's uniform-background synthetic image (no stars) makes the `mmap.to_vec()` copy itself is a small fraction of the ~0.5–3ms end-to-end handler cost (histogram/noise-estimation/candidate-scan dominate), so the fraction saved, while real, is proportionally smaller than a naive "just the memcpy cost" estimate would suggest. This is a genuine, land-worthy win, not a "no measurable win" outcome like the DBL round — no revert needed, nothing to revert (the code was already committed and judged in ZCS.2; this bead is confirmation, not a gate).
+
+## Is shmem exercised by any current client?
+
+**No.** `grep -rn "shmem_name" tools/parity ps-web` (re-confirmed, same as ZCS.2's finding) shows it only appears in generated protobuf bindings (`plate_solver_pb2.py`/`.pyi`), never assigned a value by any client or harness code. ZCS.2/ZCS.3 land regardless — per the spec, the view API benefits any future in-process embedder or a client that starts using shmem, and the measured win here (§ above) proves the investment was real, not speculative.
+
+## Full eval harness (regenerated `docs/benchmarks/report.md`/`.html`)
+
+Re-ran `run_benchmark.py` → `parity.py` → `report.py` against a freshly rebuilt `ps-grpc --release`. Headline: ps_grpc vs cedar_flow **1.01× detect / 1.53× solve** — within container run-to-run noise of DBL.4's re-measurement (1× / 1.49×), as expected, since the harness never exercises the shmem path so ZCS.2/ZCS.3 have no effect on it; the small drift is the same ~2-5% noise floor seen throughout this session's measurements on this host, not a real change.
+
+**Parity STOP gate: 9/9 `ps_grpc_vs_cedar_flow primary_same_catalog` unflagged** (verified programmatically). `cargo build --workspace --all-targets` and `cargo test --workspace` both green after the temporary service.rs checkout/restore cycle (re-verified `cargo test -p ps-grpc` 12/12 immediately after restoring, then the full workspace suite).
+
+**ZCS round (ZCS.1–ZCS.3) complete.** ZCS.1: landed (borrowed-view API, one critical bug caught and fixed pre-judge). ZCS.2: landed (zero-copy shmem path, one process incident — a concurrent unrelated agent's stray git command reverting the first attempt — recovered by a clean sequential redo). ZCS.3 (this entry): measured a real, positive win at both benchmarked resolutions, smaller in absolute terms than the spec's rough estimate but statistically unambiguous (SNR 5.2–7.9), and confirmed no current client exercises the path yet. `ps-grpc/examples/shmem_bench.rs` is left in the tree as reusable measurement tooling for any future client that does start using shmem.
