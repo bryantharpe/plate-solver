@@ -1,174 +1,262 @@
-# Performance improvement proposals — solve & detect (2026-07-06)
+# Perf round-3 specs — DBL (ps-db lookup trim) / FU-C (parallel search) / ZCS (zero-copy shmem)
 
-_Three concrete, code-grounded improvements to speed up solve or detect, spanning
-the main solve logic and the gRPC integration. Written after the SP0.1–SP4 and
-FU-A/FU-B efforts landed; grounded in the measurements recorded in
-`notes/solve-perf-measurements.md` (FUB.1 profile, FUB.3 baseline) and in the
-current code. **Status: proposals only — nothing here is beaded or implemented.**_
+_Authored 2026-07-06. Upgraded from proposal form to implementation-spec form
+(FU-A/FU-B fidelity) per user decision 2026-07-06: all open design decisions
+below are **resolved at spec level**; no product code has been written.
+Beaded into `plan.md` under "Perf round-3 beads (DBL / ZCS / FU-C)". Grounded
+in the FUB.1/FUB.2/FUB.3 measurements in `notes/solve-perf-measurements.md`._
 
-## Context: where the time goes today
+## Where the time goes (post-FU-B baseline, FUB.3 2026-07-05)
 
-Post-FU-B baseline (FUB.3, 2026-07-05):
+- MatchFound path: effectively solved (t_solve ≈ 0.07 ms median, 1.43× vs
+  cedar_flow). Exhaustion path (NoMatch/weak-signal): ~65–67 ms / 8,855 combos
+  / **7.6 µs/combo** on hale_bopp — this is what a `solve_timeout` budget buys.
+- Exhaustion attribution: `ps_db::lookup::lookup_pattern` **~51%** (2,151,765
+  calls/solve, ~15.6 ns each, memory-bound); `ps_db::nearby_stars` **~15%**;
+  verify-block collects ~10% (FUB.2 tried, no detectable win, reverted);
+  candidate_keys build+sort ~15% (FUB.2 tried, no win, reverted).
+- ps-solve-scope allocation levers are **exhausted by measurement** (FUB.2).
+  Do not re-attempt them; the levers below are ps-db (DBL), parallelism
+  (FU-C), and the gRPC/detect API surface (ZCS).
 
-- **MatchFound path is essentially solved** — 8/9 corpus images match on combo
-  #1–2, `t_solve` ≈ 0.07 ms median, 1.43× vs cedar_flow.
-- **The exhaustion path (NoMatch / weak-signal) is the remaining solve cost** —
-  hale_bopp walks 8,855 combos in ~65–67 ms (≈7.6 µs/combo). The FUB.1/FUB.2
-  profiles attribute **~66% of that to `ps-db`** (`lookup_pattern` ~51%,
-  `nearby_stars` ~15%) — outside the scope of every effort so far. This is what
-  a client's `solve_timeout` budget actually buys on hard images.
-- **ps-solve-scope allocation levers are exhausted** — FUB.2 attempted both
-  named trims and honestly reverted them by measurement. Don't re-litigate.
-- Detect is at parity with cedar-detect (1.06×) and `ps-detect` internals were
-  a standing non-goal for prior efforts; proposal 3 touches only its API
-  surface (storage genericity), not its algorithms.
+## Constraints carried forward, unchanged
 
----
+No accuracy regression, ever: never loosen a tolerance, `#[ignore]` a parity
+test, or stub a check. SP2.1's parity STOP rule applies to every bead: the 9
+`ps_grpc_vs_cedar_flow` `primary_same_catalog` harness comparisons must remain
+identical-green; any change means a bug — STOP. Measure before/after every
+step with the named metric; **revert any step the measurement says didn't
+help** (FUB.2 regime). `combos_examined` = 8,855 on hale_bopp defaults is an
+invariant for DBL and for FU-C-flag-off (it counts iterations, not
+allocations).
 
-## Proposal 1 — Trim `ps_db::lookup::lookup_pattern`, the single largest solve cost (~51% of the exhaustion path)
+**ps-detect constraint, narrowed (user decision 2026-07-06):** detect
+*algorithms and pixel math* remain untouched — but **API-surface changes
+(signature/view-type threading) are authorized for ZCS**, gated on
+byte-identical detect parity fixtures.
 
-**The measured case (FUB.1):** the exhaustion path performs **2,151,765**
-`lookup_pattern` calls per hale_bopp solve (243 candidate keys × 8,855 combos)
-at ~15.6 ns each ≈ **~33.6 ms of the 65 ms total**. Only 0.13% of lookups ever
-produce a candidate slot — the cost is almost entirely hashing + probing, i.e.
-random memory access. This was explicitly flagged in FUB.1/FUB.3 as "the
-highest-leverage new exhaustion-path lever… deserves its own spec" and never
-picked up.
+## Benchmark environment facts (beads must respect these)
 
-**Concrete steps (`ps-db/src/lookup.rs`, `ps-db/src/layout.rs`/loader):**
-
-1. **Fuse the two probe arrays into one.** Every probe iteration reads
-   `db.key_hashes[slot]` (u16) *and* `db.largest_edge[slot]` (f16) — two
-   independent random accesses into two large parallel arrays
-   (`lookup.rs:72`), so a cold probe costs two cache misses instead of one.
-   Build (at load time — no on-disk format change needed) an interleaved
-   `Vec<(u16, u16)>` of `(key_hash, largest_edge_bits)`; the empty-slot check,
-   the 16-bit pre-filter, and the FOV pre-filter then all hit the same 4-byte
-   pair on one cache line. Expected: up to ~2× fewer misses on the dominant
-   probe loop.
-2. **Batch and prefetch across the 243 candidate keys.** The caller
-   (`ps-solve/src/lib.rs:264`) issues the 243 lookups one at a time; each
-   starts with a dependent chain of hash → index → load. Compute all 243
-   `hash_index`es up front (pure function of the key, no memory traffic), then
-   probe with software prefetch (`core::arch::…::_mm_prefetch` /
-   `prefetch_read_data`) issued 1–2 keys ahead, hiding the miss latency behind
-   hash computation for the next key.
-3. **Small mechanical trims while in there:** hoist `coarse_fov_rad.unwrap()`
-   and the filter constants out of the probe loop (`lookup.rs:85-86`); return
-   candidates into a caller-provided scratch `&mut Vec<usize>` (or a
-   `SmallVec`) so the rare hit path doesn't allocate.
-4. **Sibling target, same spec:** `ps_db::nearby_stars` (~15% of exhaustion,
-   `ps-db/src/lib.rs:189`) — reuse a scratch buffer for the
-   `collect` + `sort_unstable`, and evaluate kiddo's `within` vs
-   `within_unsorted`+sort. Smaller win, same parity surface, same bead.
-
-**Gates (same regime as SP/FU):** candidate slot lists bit-identical on a
-fixture sweep; `combos_examined` = 8,855 invariant on hale_bopp defaults; sv6
-parity + harness parity identical-green; metric is µs/combo (`combo_count`)
-before/after each step, revert what doesn't measure.
-
-**Honest expectation:** the probe loop is memory-bound, so steps 1+2 are the
-first levers with real headroom against the ~33.6 ms; even a 30–50% reduction
-in lookup cost is ~10–17 ms off the 65 ms exhaustion path (~15–25%) — more
-than everything FU-B could reach combined. Zero effect on easy images.
+- Benchmark host is **aarch64** (FUB.3). `perf` is unavailable
+  (`perf_event_paranoid=4`, no samply/valgrind) — profiling uses temporary
+  `Instant` instrumentation, fully reverted after (FUB.1 method).
+- Noise floor on `combo_count` t_solve is ~±10% (~5 ms) at n=10–12 (FUB.2).
+  Any claimed win must clear it: use ≥12 runs, report median+mean+stdev, and
+  treat SNR<1 as "no win" (FUB.2's standard).
+- Metric commands:
+  `cargo run --release -p ps-solve --example combo_count` (µs/combo =
+  t_solve ÷ combos_examined on hale_bopp), and the eval harness
+  (`tools/parity/benchmark/run_benchmark.py` → `parity.py` → `report.py`).
 
 ---
 
-## Proposal 2 — FU-C: parallel combination search behind the `rayon` flag (the ~cores× lever)
+# DBL — Trim `ps_db::lookup::lookup_pattern` (+ `nearby_stars`), the dominant exhaustion cost (~66% combined)
 
-**This is the already-specced FU-C** (`notes/solve-perf-followups-spec.md`
-§FU-C) — recorded in FUB.3 as one of two remaining levers, blocked on explicit
-user approval (user decision 2026-07-04) and a ps-judge Job B ruling on ordered
-find-first semantics. It is *the* large remaining lever: after proposal 1, the
-exhaustion path is still serial while every core but one idles through the one
-part of a solve that can take seconds. Cedar-solve is serial here too — this is
-a chance to lead the reference on worst-case latency, not chase it.
+## Motivation (measured, FUB.1)
 
-**Design problem to settle first (per the spec):** current semantics are
-"first acceptable match in breadth-first order wins," proven parity-identical
-to cedar in SP2.1. A naive `par_iter().find_any()` breaks that. The spec'd
-shape: split the colex combo stream into fixed chunks of K; verify chunks in
-parallel; accept the acceptable match with the lowest global combo index;
-cancel work past it (`find_first`-with-chunking). Timeout checks coarsen to
-per-chunk; `combos_examined` becomes atomic or documented
-approximate-under-rayon.
+2,151,765 `lookup_pattern` calls per hale_bopp exhaustion (243 candidate keys
+× 8,855 combos) ≈ ~33.6 ms of 65 ms. Only 0.13% of lookups produce a candidate
+slot; the cost is hashing + **random memory access**: each probe iteration
+reads `db.key_hashes[slot]` (u16) and `db.largest_edge[slot]` (f16) — two
+independent random loads into two parallel multi-MB arrays
+(`ps-db/src/lookup.rs:72,78,84`), i.e. up to two cache misses per probe where
+one would do. `nearby_stars` (`ps-db/src/lib.rs:189`) adds ~10 ms across the
+~1.4–2.8 k verify-block entries.
 
-**Scope guards:** default-off cargo feature (off on mobile per PRD
-§mobile-runtime); flag-off must be provably byte-identical from the diff;
-flag-on must produce the same matched results on all 9 images plus a
-determinism test (same input twice → identical `Solution`).
+## Resolved design decisions
 
-**Honest expectation:** near-linear on exhaustion (~cores×; ~20 on the current
-benchmark host — 65 ms → single-digit ms, and a 5 s `solve_timeout` budget
-covers ~cores× more combos, directly cutting spurious Timeout results on hard
-images). ~Zero on easy images (1–2 combos can't parallelize). Sequence it
-*after* proposal 1 so the speedup isn't measured against an unoptimized serial
-baseline.
+- **D-DBL-1 (probe-pair table, additive):** add
+  `pub probe_pairs: Vec<u32>` to `Database` (`ps-db/src/lib.rs:115`), packed
+  `(key_hashes[i] as u32) << 16 | largest_edge[i].to_bits() as u32`, built by
+  a shared helper `fn build_probe_pairs(key_hashes: &[u16], largest_edge: &[f16]) -> Vec<u32>`
+  called at **all three `Database` construction sites**:
+  `ps-db/src/importer.rs:332`, `ps-db/src/loader.rs:394`,
+  `ps-db/src/lib.rs:139` (empty DB → empty vec). The existing `key_hashes` /
+  `largest_edge` fields **stay** — the verification path reads
+  `db.largest_edge[slot]` directly (`ps-solve/src/lib.rs` A1) and fires on
+  only 0.13% of lookups. Memory cost: +4 bytes/slot (doubles the probe-array
+  footprint); quantify at load time and record the number in the measurements
+  note. No on-disk format change.
+- **D-DBL-2 (scope):** `lookup_pattern_mmap` (`ps-db/src/mmap.rs:387-446`) is
+  **NOT in scope** — ps-solve takes `&Database` only (`ps-solve/src/lib.rs:130`);
+  the mmap variant is unused on the hot path. Add a code comment on it noting
+  (a) it is intentionally not optimized here, (b) its `probe_slots` call
+  (`ps-core/src/pattern.rs:164`) **eagerly allocates a `Vec<u64>` of
+  `num_slots` entries per lookup** — a latent perf bug if that path ever goes
+  hot — and (c) H10's dedup is the vehicle for unifying the two. Do not
+  refactor it in DBL.
+- **D-DBL-3 (prefetch portability):** the benchmark host is aarch64, where
+  stable Rust has no prefetch intrinsic. Use a private helper:
+  `#[inline(always)] fn prefetch_read(p: *const u8)` —
+  aarch64: `core::arch::asm!("prfm pldl1keep, [{0}]", in(reg) p, options(nostack, preserves_flags, readonly))`;
+  x86_64: `core::arch::x86_64::_mm_prefetch::<{_MM_HINT_T0}>(p as *const i8)`;
+  other targets: no-op. Prefetch is advisory — it cannot change results.
+- **D-DBL-4 (batching shape, API-preserving):** hash math is already public in
+  `ps_core::pattern`. Add to ps-db:
+  `pub fn lookup_pattern_prehashed(db, full_hash: u64, largest_edge_rad, coarse_fov_rad) -> Vec<usize>`
+  (the existing body, minus the two hash lines) and
+  `pub fn prefetch_probe_start(db, full_hash: u64)` (computes the initial
+  probe index, issues `prefetch_read` on `probe_pairs[index]`).
+  `lookup_pattern` becomes a 3-line wrapper (hash → prehashed) so existing
+  callers/tests are untouched. ps-solve's inner loop
+  (`ps-solve/src/lib.rs:264-283`) then: precompute the 243 `full_hash` values
+  right after `candidate_keys` is built (`:237`), and when processing key
+  `i`, first call `prefetch_probe_start` for key `i+1`. Early-exit-on-match
+  semantics unchanged (prefetch is speculative reads only).
+- **D-DBL-5 (nearby_stars shape):** the final `inds.sort_unstable()`
+  (`ps-db/src/lib.rs:201`) makes output order independent of kd-query order —
+  so the safe levers are: check the pinned kiddo version for
+  `within_unsorted_iter` (skip the intermediate `Vec<NearestNeighbour>` +
+  `map().collect()`), and/or an `_into(&mut Vec<usize>)` variant with a scratch
+  buffer hoisted to the caller (`ps-solve/src/lib.rs:350`). Output must be the
+  identical sorted index list. Keep `nearby_stars` as a wrapper.
+
+## Beads (see plan.md for full AC): DBL.1 pair-table, DBL.2 prehash+prefetch, DBL.3 nearby_stars, DBL.4 re-measure + decision gate
+
+Each step individually measured (µs/combo, ≥12 runs, SNR rule) and reverted if
+it doesn't clear the noise floor. New equivalence test (DBL.1/DBL.2): sweep a
+grid of pattern keys (include: hit keys, miss keys, keys whose probe chain
+crosses an empty slot, FOV-filter Some/None) against the checked-in fixture DB
+and assert old-path vs new-path candidate lists **identical including order**.
+
+## Honest expectation
+
+The probe loop is memory-bound; interleaving (≤2× fewer misses) + prefetch
+(latency hiding) have real headroom against ~33.6 ms — a 30–50% lookup
+reduction would be ~10–17 ms off 65 ms (~15–25%), more than everything FU-B
+could reach. But no number is promised until measured; each step carries the
+FUB.2 revert rule. Zero effect on easy images (1–2 combos).
 
 ---
 
-## Proposal 3 — True zero-copy shmem in `ps-grpc` via a borrowed-storage image API in `ps-detect`
+# FU-C — Parallel combination search behind the `rayon` flag (~cores× on exhaustion)
 
-**The gap FU-A deliberately left:** FU-A removed the inline-path
-`image_data.clone()`, but the shared-memory path still copies the **entire
-frame** out of the mmap on every request — `mmap.to_vec()` at
-`ps-grpc/src/service.rs:144` (ExtractCentroids) and `:328` (SolveFromImage),
-each with a code comment saying exactly why: `GrayImage::from_raw` needs an
-owned `Vec`, and changing `ps-detect`'s API was out of scope then. That copy
-(~0.79 MB at 1024×768, more at 5 MP) defeats the entire purpose of the shmem
-path — the path a high-rate camera client (cedar-server style) would use, where
-per-frame memcpy + allocator pressure is pure per-request overhead in the
-measured ~3.7–4.2 ms/request overhead band.
+**Status: approved for beading 2026-07-06 (previously spec-only per user
+decision 2026-07-04). Implementation remains hard-gated on FUC.0 — a ps-judge
+Job B design adjudication — and on H6 landing the `rayon` feature flag.**
+The full original spec text stands: `notes/solve-perf-followups-spec.md` §FU-C
+is the normative reference; this section only adds sequencing and the bead
+decomposition.
 
-**Concrete steps:**
+- **FUC.0 (Job B, no code):** ps-judge rules on: ordered find-first mechanism
+  (rayon `find_first` sequential-consistency sufficiency vs explicit chunk-of-K
+  scan with lowest-global-index acceptance), chunk size K, timeout/cancel
+  coarsening (up to K−1 extra combos after cancel — acceptable?),
+  `combos_examined` policy (AtomicU64-exact vs documented
+  approximate-under-rayon), and interaction with H6's deadline→cancel_flag
+  wiring. Ruling is appended to this file; FUC.1 may not start without it.
+- **FUC.1 (implement per ruling):** parallelize the `'outer` loop in
+  `solve_from_centroids` (`ps-solve/src/lib.rs:194`) behind the H6 `rayon`
+  feature. Flag **off** (default, and on mobile per PRD): byte-identical —
+  provable from the diff (parallel path entirely behind the feature gate).
+  Flag **on**: same matched results on all 9 images, plus a determinism test
+  (same input solved twice → identical `Solution`, including matched-ID order).
+- **FUC.2 (measure):** exhaustion wall-clock flag-on vs flag-off
+  (`combo_count` hale_bopp) + full harness with flag on; parity STOP rule
+  applies to both configurations. Measured against the **post-DBL.4 serial
+  baseline** (sequencing: FUC.0 deps H6 + DBL.4) so the speedup isn't inflated
+  by an unoptimized serial path.
 
-1. **Genericize `ps-detect`'s entry points over pixel storage.**
-   `get_stars_from_image` already takes `&GrayImage` — the ownership
-   requirement is an API artifact, not algorithmic. `image::ImageBuffer` is
-   already generic over its container: accept
-   `ImageBuffer<Luma<u8>, C> where C: Deref<Target = [u8]>` (or an internal
-   `&[u8]` + dims view) in `detect.rs`, `binning.rs`, `gate.rs`, `noise.rs`.
-   Internals (binning output, blob formation) keep producing owned buffers —
-   only the *input* image becomes borrowable. No algorithm change; detect
-   parity fixtures must stay byte-identical.
-2. **Wrap the mmap directly in `ps-grpc`.** Replace `mmap.to_vec()` with
-   `ImageBuffer::from_raw(w, h, &mmap[..])`, keeping the mmap alive for the
-   request duration. Delete the two "zero-copy is out of scope" comments.
-3. **Measure before over-investing (per FU-A's own caveat):** confirm with the
-   harness/clients whether the shmem path is exercised today; if not, land the
-   API genericization (it also benefits any future in-process embedder that
-   already owns pixel buffers) and benchmark with a synthetic shmem client at
-   1024×768 and 5 MP.
-
-**Gates:** detect parity fixtures byte-identical (this is an API-surface
-change, not a detect-algorithm change — any centroid diff is a bug, STOP);
-ExtractCentroids/SolveFromImage byte-identical results on fixture images via
-both inline and shmem paths; `cargo test --workspace` green.
-
-**Honest expectation:** ~0.3–1 ms/request at 1 MP (memcpy + page-fault +
-allocator pressure), scaling with resolution — the same magnitude FU-A's
-inline-path fix targeted, but on the path built for throughput. At 5 MP
-(~5 MB/frame) it's several ms/frame, which at camera rates is the difference
-between the copy being noise and being the bottleneck.
+Expected: near-linear on exhaustion, ~zero on easy images; a `solve_timeout`
+budget covers ~cores× more combos. Report both honestly.
 
 ---
 
-## Suggested ordering
+# ZCS — True zero-copy shmem in `ps-grpc` via a borrowed-image view API
 
-1. **Proposal 1** first — largest measured serial win, pure `ps-db` scope,
-   no concurrency risk, and it fixes the baseline FU-C should be measured
-   against.
-2. **Proposal 3** in parallel if desired — orthogonal surface (`ps-detect`
-   API + `ps-grpc`), no overlap with proposal 1's files.
-3. **Proposal 2 (FU-C)** last, after user approval and the ps-judge Job B
-   semantics ruling, measured against the post-proposal-1 serial baseline.
+## Motivation
 
-## Non-goals (carried forward)
+FU-A removed the inline-path clone but deliberately left the shmem path
+copying the **whole frame** per request — `mmap.to_vec()` at
+`ps-grpc/src/service.rs:144` (ExtractCentroids) and `:328` (SolveFromImage) —
+because fixing it required touching ps-detect's API, out of scope then
+(comments at `:138-143` / `:322-327` say exactly this). ~0.79 MB memcpy at
+1024×768, ~5 MB at 5 MP, on the path built for high-rate camera clients.
 
-- Accuracy/matching behavior changes — including hale_bopp's default-params
-  `SolveFromImage` NoMatch (that's feat-10/H2, specced separately) and the
-  tree.jpg stress false-positive (accuracy-domain, needs its own
-  investigation).
-- Loosening any tolerance, `#[ignore]`-ing any test, or weakening any parity
-  gate, ever.
-- Python-client / harness-side overhead (not product code).
+## Resolved design decision: concrete view type, NOT generics
+
+`get_stars_from_image` already borrows its input; only the container type
+(`GrayImage = ImageBuffer<Luma<u8>, Vec<u8>>`) forces ownership. Genericizing
+over `C: Deref<Target=[u8]>` was considered and **rejected**: ps-detect's
+binner dispatch stores **fn pointers in statics**
+(`ps-detect/src/binning.rs:17-22` — `BinAndHistoFn`/`Bin2x2Fn` in `OnceLock`,
+mirroring cedar-detect's `image_funcs.rs`), and statics can't hold generic
+fns; generics would also monomorphize every caller. Instead:
+
+- Add `pub type GrayImageView<'a> = image::ImageBuffer<image::Luma<u8>, &'a [u8]>;`
+  to `ps-detect/src/lib.rs` (next to the existing `pub use image::GrayImage`,
+  `:27`), plus a helper
+  `pub fn as_view(img: &GrayImage) -> GrayImageView<'_>`
+  (`ImageBuffer::from_raw(w, h, img.as_raw().as_slice()).unwrap()` — infallible
+  for an exact-size slice). One concrete type → codegen and pixel math
+  identical, diff mechanical.
+
+## Signature inventory (the full list — nothing else changes)
+
+**Input-facing params flip `&GrayImage` → `&GrayImageView<'_>`; all owned
+return types stay `GrayImage`:**
+
+| file | item |
+|---|---|
+| `ps-detect/src/detect.rs:15` | `get_stars_from_image` — `image` param only; `Option<GrayImage>` return stays owned |
+| `ps-detect/src/binning.rs:17,19` | `BinAndHistoFn`, `Bin2x2Fn` type aliases → `for<'a> fn(&GrayImageView<'a>, …)`; `set_binner` (`:28`) follows |
+| `ps-detect/src/binning.rs:34,67` | `bin_2x2`, `bin_and_histogram_2x2` — input params; `Binned2x2Result.binned` stays owned `GrayImage` |
+| `ps-detect/src/gate.rs:174` | `scan_image_for_candidates` — input param (plus any private image-taking helpers in gate.rs, e.g. the hot-pixel routines, compiler-guided) |
+| `ps-detect/src/noise.rs:47,81` | `estimate_noise_from_image`, `estimate_background_from_image_region` |
+| `ps-detect/src/blob.rs:277` | `gate_star_2d` — **both** `image` and `higher_res_image` params (binned owned images convert via `as_view` at the call site) |
+| `ps-detect/src/io.rs:17` | `load_grayscale` — unchanged (returns owned) |
+
+**Callers to update (compiler-guided, mechanical):** `ps-solve/src/lib.rs:664`
+(`solve_from_image` — its own `image: &GrayImage` param becomes
+`&GrayImageView<'_>`, threading zero-copy end-to-end) and `:669`, `:1661`;
+`ps-grpc/src/service.rs:13,150,197,326`; any `ps-web` call site of
+`solve_from_image`; `tools/parity/_capture_binning/src/main.rs:22`; every
+ps-detect unit/parity test (owned fixture image → `as_view(&img)` at the call).
+
+## gRPC wiring (after the view API exists)
+
+- Shmem path: validate `mmap.len() == width*height` (checks exist), build
+  `GrayImageView` directly over `&mmap[..]`, keep the mmap alive for the
+  request duration (bind it before the view in the same scope). Delete
+  `mmap.to_vec()` + the two out-of-scope comments at both sites.
+- Inline path: unchanged semantics (owned Vec moved into `GrayImage`, then
+  `as_view` at the detect call — still zero-copy).
+- **Decision rule for the "is shmem exercised?" question (FU-A's open
+  caveat):** check whether any current client/harness path sets `shmem_name`
+  (grep tools/parity + ps-web). If none does, ZCS still lands (the view API
+  benefits any in-process embedder), but the measurement bead uses a synthetic
+  shmem client at 1024×768 **and** 5 MP and records "no current client
+  exercises shmem" verbatim in the measurements note.
+
+## Accuracy gates
+
+Every ps-detect parity fixture **byte-identical** (SD1/SD6 detect_parity,
+binning/gate/noise parity — this is a signature change, not a pixel-math
+change; ANY centroid/histogram diff is a bug: STOP). ExtractCentroids /
+SolveFromImage byte-identical on fixture images via inline AND shmem paths
+(new test if shmem coverage is missing). `cargo test --workspace` green;
+cedar-detect interop tests green; harness parity STOP rule as always.
+
+## Honest expectation
+
+~0.3–1 ms/request at 1 MP (memcpy + page-faults + allocator pressure), scaling
+with resolution — several ms/frame at 5 MP, which at camera rates is the
+difference between noise and bottleneck. Zero effect on the inline path.
+
+---
+
+## Suggested ordering (encoded in bead deps)
+
+DBL.1→DBL.4 first (largest measured serial win; fixes FU-C's baseline).
+ZCS.1→ZCS.3 any time (disjoint files from DBL). FUC.0 only after H6 **and**
+DBL.4; FUC.1/FUC.2 after the Job B ruling.
+
+## Non-goals (all three)
+
+- Detect algorithm/pixel-math changes; accuracy/matching behavior changes of
+  any kind (hale_bopp default-params `SolveFromImage` NoMatch is feat-10/H2;
+  tree.jpg stress false-positive is accuracy-domain, separate).
+- `lookup_pattern_mmap`/`probe_slots` refactor (comment only; H10 is the
+  dedup vehicle).
+- Loosening any tolerance, `#[ignore]`-ing any test, weakening any gate.
+- Python-client / harness-side overhead.
