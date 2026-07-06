@@ -28,12 +28,12 @@ li { margin: 0.3em 0; }
 <body>
 <h1>Plate Solver Eval-Harness Report</h1>
 <h2>Performance Headline</h2>
-<p>ps_grpc is 0.9x faster than cedar_flow on detect (median over 9 astronomical images)</p>
-<p>ps_grpc is 7.51x faster than tetra3_original on detect (median over 9 astronomical images)</p>
-<p>ps_grpc is 1.68x faster than cedar_flow on solve (median over 9 astronomical images)</p>
-<p>ps_grpc is 6.77x faster than tetra3_original on solve (median over 9 astronomical images)</p>
+<p>ps_grpc is 1.06x faster than cedar_flow on detect (median over 9 astronomical images)</p>
+<p>ps_grpc is 4.76x faster than tetra3_original on detect (median over 9 astronomical images)</p>
+<p>ps_grpc is 1.43x faster than cedar_flow on solve (median over 9 astronomical images)</p>
+<p>ps_grpc is 4.08x faster than tetra3_original on solve (median over 9 astronomical images)</p>
 <h2>Methodology &amp; Environment</h2>
-<p>This report was generated on a **Linux x86_64 system with 4 CPUs**. This is **NOT** the PRD&#x27;s RPi-4B-class or mobile target hardware; these results do not represent the performance characteristics of that platform.</p>
+<p>This report was generated on a **Linux aarch64 system with 20 CPUs**. This is **NOT** the PRD&#x27;s RPi-4B-class or mobile target hardware; these results do not represent the performance characteristics of that platform.</p>
 <h3>Iteration Counts</h3>
 <ul>
 <li>Detect stage: 20 iterations (warmup: 3)</li>
@@ -48,7 +48,7 @@ li { margin: 0.3em 0; }
 </ul>
 <h3>Known Limitations</h3>
 <ul>
-<li>ps_grpc&#x27;s Solution.t_extract_ms is hard-coded 0.0 in ps-grpc/src/service.rs for both SolveFromCentroids and SolveFromImage; this harness gets a real self-reported extraction time via a standalone ExtractCentroids call instead (see design.md).</li>
+<li>ps_grpc&#x27;s Solution.t_extract_ms is 0.0 for SolveFromCentroids in ps-grpc/src/service.rs (correct - no extraction happens there); SolveFromImage now self-reports a real extraction time. This harness still measures the new workflow&#x27;s extraction via a standalone ExtractCentroids call rather than the field (see design.md).</li>
 <li>ps_solve::solve_from_image hard-codes sigma=4.0, noise_estimate=1.0, binning=1 regardless of request parameters (CODEBASE-REVIEW.md C2) - a measurement caveat, not fixed by this change.</li>
 <li>tetra3_original uses its own bundled default_database.npz (different build than cedar-solve&#x27;s shared catalog - incompatible hash-table formats); any tetra3_original comparison is cross-catalog, not strict same-catalog parity.</li>
 <li>Measured on this host (see &#x27;host&#x27; in this file&#x27;s metadata), not the PRD&#x27;s RPi-4B/mobile target.</li>
@@ -60,13 +60,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0057</th>
-<th>0.003</th>
+<th>0.0034</th>
+<th>0.0014</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0412</td>
+<td>0.0167</td>
 <td>—</td>
 </tr>
 </table>
@@ -75,16 +75,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.007</th>
-<th>0.0001</th>
-<th>3.12</th>
+<th>0.0046</th>
+<th>0</th>
+<th>1.36</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.046</td>
-<td>0.0045</td>
-<td>41.13</td>
+<td>0.0184</td>
+<td>0.0012</td>
+<td>17.1</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt40_Azi135_Try1.jpg</h3>
@@ -93,13 +93,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0055</th>
-<th>0.0032</th>
+<th>0.0034</th>
+<th>0.0015</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0419</td>
+<td>0.0164</td>
 <td>—</td>
 </tr>
 </table>
@@ -108,16 +108,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0076</th>
-<th>0.0002</th>
-<th>3.25</th>
+<th>0.0051</th>
+<th>0.0001</th>
+<th>1.47</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.1434</td>
-<td>0.0996</td>
-<td>45.95</td>
+<td>0.0381</td>
+<td>0.0196</td>
+<td>18.28</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt40_Azi-45_Try1.jpg</h3>
@@ -126,13 +126,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0047</th>
-<th>0.0024</th>
+<th>0.0039</th>
+<th>0.002</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0406</td>
+<td>0.0176</td>
 <td>—</td>
 </tr>
 </table>
@@ -141,16 +141,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0062</th>
-<th>0.0001</th>
-<th>2.41</th>
+<th>0.0037</th>
+<th>0</th>
+<th>1.07</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.0528</td>
-<td>0.0102</td>
-<td>42.19</td>
+<td>0.0211</td>
+<td>0.0024</td>
+<td>18.61</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt40_Azi45_Try1.jpg</h3>
@@ -159,13 +159,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0055</th>
-<th>0.0033</th>
+<th>0.003</th>
+<th>0.0015</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0411</td>
+<td>0.0177</td>
 <td>—</td>
 </tr>
 </table>
@@ -174,16 +174,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0075</th>
-<th>0.0002</th>
-<th>3.32</th>
+<th>0.0045</th>
+<th>0.0001</th>
+<th>1.49</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.0587</td>
-<td>0.0129</td>
-<td>45.5</td>
+<td>0.0217</td>
+<td>0.0029</td>
+<td>18.64</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt60_Azi-135_Try1.jpg</h3>
@@ -192,13 +192,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0051</th>
 <th>0.0028</th>
+<th>0.0013</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0402</td>
+<td>0.0187</td>
 <td>—</td>
 </tr>
 </table>
@@ -207,16 +207,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0069</th>
-<th>0.0001</th>
-<th>2.91</th>
+<th>0.0041</th>
+<th>0</th>
+<th>1.31</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.0444</td>
-<td>0.0025</td>
-<td>41.45</td>
+<td>0.0169</td>
+<td>0.0007</td>
+<td>16.14</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt60_Azi135_Try1.jpg</h3>
@@ -225,13 +225,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0047</th>
-<th>0.0024</th>
+<th>0.0032</th>
+<th>0.0011</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.042</td>
+<td>0.0178</td>
 <td>—</td>
 </tr>
 </table>
@@ -240,16 +240,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0067</th>
-<th>0.0002</th>
-<th>2.37</th>
+<th>0.0044</th>
+<th>0.0001</th>
+<th>1.09</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.0455</td>
-<td>0.0039</td>
-<td>41.24</td>
+<td>0.0167</td>
+<td>0.001</td>
+<td>15.53</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt60_Azi-45_Try1.jpg</h3>
@@ -258,13 +258,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0054</th>
-<th>0.0032</th>
+<th>0.0045</th>
+<th>0.0025</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0403</td>
+<td>0.0179</td>
 <td>—</td>
 </tr>
 </table>
@@ -273,16 +273,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0075</th>
-<th>0.0001</th>
-<th>3.19</th>
+<th>0.0042</th>
+<th>0</th>
+<th>1.44</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.136</td>
-<td>0.091</td>
-<td>44.96</td>
+<td>0.0355</td>
+<td>0.0175</td>
+<td>17.95</td>
 </tr>
 </table>
 <h3>2019-07-29T204726_Alt60_Azi45_Try1.jpg</h3>
@@ -291,13 +291,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0067</th>
-<th>0.0044</th>
+<th>0.0039</th>
+<th>0.0021</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0447</td>
+<td>0.018</td>
 <td>—</td>
 </tr>
 </table>
@@ -306,16 +306,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0087</th>
-<th>0.0002</th>
-<th>4.43</th>
+<th>0.0049</th>
+<th>0.0001</th>
+<th>2.03</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.049</td>
-<td>0.0042</td>
-<td>44.63</td>
+<td>0.0174</td>
+<td>0.001</td>
+<td>16.29</td>
 </tr>
 </table>
 <h3>hale_bopp.jpg</h3>
@@ -324,13 +324,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>20</th>
-<th>0.0055</th>
-<th>0.0032</th>
+<th>0.0028</th>
+<th>0.0014</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>20</td>
-<td>0.0298</td>
+<td>0.0075</td>
 <td>—</td>
 </tr>
 </table>
@@ -339,16 +339,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>5</th>
-<th>0.0104</th>
-<th>0.0003</th>
-<th>3.25</th>
+<th>0.0065</th>
+<th>0.0001</th>
+<th>1.44</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>5</td>
-<td>0.0392</td>
-<td>0.0065</td>
-<td>29.78</td>
+<td>0.0159</td>
+<td>0.0016</td>
+<td>12.16</td>
 </tr>
 </table>
 <h3>tree.jpg</h3>
@@ -357,13 +357,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>1</th>
-<th>0.0032</th>
-<th>0.0017</th>
+<th>0.0016</th>
+<th>0.0008</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>1</td>
-<td>0.0232</td>
+<td>0.0104</td>
 <td>—</td>
 </tr>
 </table>
@@ -372,16 +372,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>1</th>
-<th>0.0041</th>
-<th>0.0007</th>
-<th>1.53</th>
+<th>0.0017</th>
+<th>0.0002</th>
+<th>0.72</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>1</td>
-<td>0.1215</td>
-<td>0.0685</td>
-<td>52.53</td>
+<td>0.0241</td>
+<td>0.0144</td>
+<td>9.58</td>
 </tr>
 </table>
 <h3>test_5mp_g100_e50ms.jpg</h3>
@@ -390,13 +390,13 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>1</th>
-<th>0.011</th>
-<th>0.0033</th>
+<th>0.0046</th>
+<th>0.0015</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>1</td>
-<td>0.0756</td>
+<td>0.0369</td>
 <td>—</td>
 </tr>
 </table>
@@ -405,16 +405,16 @@ li { margin: 0.3em 0; }
 <tr>
 <th>ps_grpc</th>
 <th>1</th>
-<th>0.011</th>
-<th>0.0001</th>
-<th>3.23</th>
+<th>0.0051</th>
+<th>0</th>
+<th>1.47</th>
 </tr>
 <tr>
 <td>tetra3_original</td>
 <td>1</td>
-<td>0.2429</td>
-<td>0.0212</td>
-<td>221.19</td>
+<td>0.0362</td>
+<td>0.0043</td>
+<td>31.69</td>
 </tr>
 </table>
 <h2>Aggregate Speedup (Astronomical Images)</h2>
@@ -422,13 +422,13 @@ li { margin: 0.3em 0; }
 <table>
 <tr>
 <th>ps_grpc vs cedar_flow</th>
-<th>0.9x</th>
-<th>1.68x</th>
+<th>1.06x</th>
+<th>1.43x</th>
 </tr>
 <tr>
 <td>cedar_flow vs tetra3_original</td>
-<td>8.35x</td>
-<td>4.58x</td>
+<td>4.53x</td>
+<td>3.57x</td>
 </tr>
 </table>
 <h2>Parity Results</h2>

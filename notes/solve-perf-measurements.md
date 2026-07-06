@@ -220,3 +220,61 @@ The ps-solve-scope allocation levers (candidate_keys reuse, A6 buffer hoist) tar
 2. **FU-C (parallel search, specced but unapproved):** the ~cores× lever on the exhaustion path; needs user approval (user decision 2026-07-04) and a ps-judge Job B on ordered find-first semantics. Not beaded.
 
 **Gates after FUB.2 (docs-only commit, both steps reverted):** `cargo build -p ps-solve` green; `cargo test -p ps-solve` 18 passed / 0 failed / 1 ignored (unchanged); `git diff --stat ps-solve/src/lib.rs` empty (both steps reverted, no `FUB_`/`_buf`/`keys_buf` symbols remain); `combos_examined`=8855 on hale_bopp defaults (unchanged); `ps-detect` untouched. ps-judge peer reviewed (re-ran: revert clean, tests 18/0/1, baseline reproduces 0.060-0.068 s with ~±13% spread confirming the noise floor, finer-profile arithmetic consistent 10+6.7≈16.7 ms).
+
+---
+
+# FUB.3 — FU-B re-measurement + decision gate (2026-07-05)
+
+**Bead:** FUB.3 — rebuild release, re-run the full eval harness + `combo_count`; record final µs/combo, hale_bopp exhaustion wall-clock, and full-corpus solve ratios; regenerate `docs/benchmarks/report.md`/`.html`. Decision gate: record whether meaningful exhaustion-path cost remains and name the next lever. **FU-C (parallel search) is NOT beaded or implemented — it requires explicit user approval (user decision 2026-07-04).**
+
+## Setup note (honest)
+
+`ps-solve/src/lib.rs` and `ps-grpc/src/service.rs` are **byte-identical to the post-FUA.2 state** (`git diff dd2bbf7 -- ps-solve/src/lib.rs ps-grpc/src/service.rs` is empty) — FUB.1 was investigation-only (reverted) and FUB.2 reverted both its steps. So the eval-harness headline ratios are expected to be ~unchanged vs the last ad-hoc report (FUA-era); the FUB.3 harness run's job is to **re-confirm parity identical-green and record the post-FU-B baseline + the decision**, not to show a ratio change (no product code changed). `cargo build --release -p ps-grpc` rebuilt clean; `combo_count` rebuilt clean.
+
+## combo_count — hale_bopp exhaustion path (5 runs, release)
+
+| run | t_solve_s | combos_examined | µs/combo |
+|---|---:|---:|---:|
+| 1 | 0.067 | 8855 | 7.57 |
+| 2 | 0.067 | 8855 | 7.57 |
+| 3 | 0.068 | 8855 | 7.68 |
+| 4 | 0.065 | 8855 | 7.34 |
+| 5 | 0.068 | 8855 | 7.68 |
+
+**5-run median: 0.067 s → 7.57 µs/combo** (8855 combos, NoMatch). vs the FUB.1-era "19 µs/combo / 168 ms" figure: that older figure was from a different (slower) host/run; on this aarch64 host the steady-state is ~7.6 µs/combo / ~65-67 ms. **No change from FUB.1 → FUB.3** (no code changed), as expected. `combos_examined`=8855 invariant holds.
+
+## Eval harness — full corpus (results_fub3.json, regenerated report.md/.html)
+
+**Headline (median over 9 astronomical images):**
+
+| comparison | detect | solve |
+|---|---|---|
+| ps_grpc vs cedar_flow | **1.06×** | **1.43×** |
+| ps_grpc vs tetra3_original | 4.76× | 4.08× |
+
+**Per-system medians (astronomical, seconds / ms):**
+
+| system | solve wall (s) | detect wall (s) | t_solve (ms) | t_extract (ms) |
+|---|---:|---:|---:|---:|
+| ps_grpc | 0.0045 | 0.0034 | 0.07 | 1.44 |
+| cedar_flow | 0.0064 | 0.0036 | 2.08 | 1.48 |
+| tetra3_original | 0.0184 | 0.0177 | 1.57 | 17.10 |
+
+**hale_bopp specifically (ps_grpc, SolveFromCentroids path the harness uses):** wall=0.0065 s, t_solve=0.10 ms, t_extract=1.44 ms, **status=MATCH_FOUND** (the harness's solve stage extracts centroids via standalone `ExtractCentroids` at sigma=4 then solves from centroids — it does NOT exercise the hardcoded-sigma `SolveFromImage` RPC; that's the feat-10/H2 path).
+
+## Parity STOP gate — identical-green
+
+`parity.py` over `results_fub3.json`: 27 pairwise comparisons, 18 flagged (all 18 are the expected **cross-catalog sanity checks** `*_vs_tetra3_original`, which flag because tetra3 uses a different bundled catalog — pre-existing, not a regression); **6 stress status checks, 4 flagged** (the `tree.jpg`/`test_5mp_g100_e50ms.jpg` MATCH_FOUND on ps_grpc/cedar_flow vs expected NO_MATCH — pre-existing accuracy-domain issue, tracked separately, not a perf regression). **The 9 `ps_grpc_vs_cedar_flow` primary_same_catalog comparisons are all unflagged** (centroids exact 0.00 px, RA within ~1″, Dec within ~0.2″, Roll exact, FOV within 0.1%, matched IDs exact) — verified programmatically: `primary_same_catalog` rows = 9, flagged = 0. **Parity STOP rule satisfied: identical-green.**
+
+## Decision gate
+
+**Does meaningful exhaustion-path cost remain?** Yes — ~65-67 ms / 8855 combos / 7.6 µs/combo on hale_bopp's NoMatch path, unchanged by FUB.2 (no ps-solve lever moved it). The FUB.1+FUB.2 finer profile attributes **~66% of that to ps-db** (`lookup_pattern` ~51% + `nearby_stars` ~15%), outside FUB.2's ps-solve scope.
+
+**Next levers (recorded, NOT implemented by FUB.3):**
+1. **ps-db follow-up (new spec):** trim `ps_db::lookup::lookup_pattern` (hash-table probe + FOV pre-filter, ~51%) and/or `ps_db::nearby_stars` (KD-tree query, ~15%) — the dominant exhaustion-path cost. Its own parity surface (ps-db), its own OpenSpec change. This is the highest-leverage *new* exhaustion-path lever. **Not beaded here** — awaits its own spec.
+2. **FU-C (parallel search, specced but unapproved):** `notes/solve-perf-followups-spec.md` §FU-C — parallelize the `'outer` combo loop behind the `rayon` feature flag for a ~cores× win on the exhaustion path. **Do NOT bead or implement FU-C; it requires explicit user approval (user decision 2026-07-04) and a ps-judge Job B decision on ordered find-first semantics.**
+3. **feat-10 / H2 (already specced, separate):** `openspec/changes/feat-10-solve-from-image-detect-params` — threads client detection params through `SolveFromImage`, collapsing hale_bopp's `SolveFromImage` NoMatch (0.168 s) to a sub-ms match. Specced and `--strict`-validated but not beaded/implemented (user instruction: author only, do not proceed). This is a correctness fix with a solve-latency side-effect on the product RPC, not a benchmark-ratio lever.
+
+**FU-B (FUB.1–FUB.3) complete.** No product code changed (FUB.1 investigation reverted; FUB.2 both steps reverted by measurement). The eval-harness baseline is re-confirmed and parity is identical-green. The honest conclusion: **the remaining solve-latency lever within ps-solve allocation scope is exhausted; the dominant cost is ps-db, which needs its own spec; the only large remaining lever is FU-C (parallelism), which needs user approval.**
+
+**Gates after FUB.3:** `cargo build --release -p ps-grpc` green; `cargo test -p ps-solve` 18/0/1; `combo_count` hale_bopp 8855 combos / 7.6 µs/combo (5-run median 0.067 s); eval harness `results_fub3.json` + regenerated `docs/benchmarks/report.md`/`.html` written; `ps_grpc_vs_cedar_flow` primary parity 9/9 unflagged; `ps-detect` untouched. ps-judge peer reviewed the FUB.3 record.
