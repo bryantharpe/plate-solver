@@ -128,6 +128,29 @@ fn map_params(params: &crate::plate_solver::SolveParams) -> PsSolveParams {
     }
 }
 
+/// Validates a client-supplied width/height pair: both must be positive and
+/// within a sane maximum (matches ps-web's MAX_IMAGE_DIMENSION convention).
+const MAX_IMAGE_DIMENSION: i32 = 20_000;
+
+#[allow(clippy::result_large_err)]
+fn validate_dimensions(width: i32, height: i32) -> Result<(u32, u32), Status> {
+    if width <= 0 || width > MAX_IMAGE_DIMENSION {
+        return Err(Status::invalid_argument(format!(
+            "width must be in 1..={}, got {}",
+            MAX_IMAGE_DIMENSION, width
+        )));
+    }
+    if height <= 0 || height > MAX_IMAGE_DIMENSION {
+        return Err(Status::invalid_argument(format!(
+            "height must be in 1..={}, got {}",
+            MAX_IMAGE_DIMENSION, height
+        )));
+    }
+    // Both are now known positive and <= MAX_IMAGE_DIMENSION, so these
+    // conversions and the u32 multiply below cannot wrap.
+    Ok((width as u32, height as u32))
+}
+
 #[async_trait::async_trait]
 impl PlateSolver for PlateSolverService {
     async fn extract_centroids(
@@ -147,8 +170,7 @@ impl PlateSolver for PlateSolverService {
         // reopen_shmem: we open fresh per request, so reopen is implicit.
         let _reopen = input_image.reopen_shmem;
 
-        let width = input_image.width as u32;
-        let height = input_image.height as u32;
+        let (width, height) = validate_dimensions(input_image.width, input_image.height)?;
 
         // Resolve image bytes (shmem or inline). The inline path moves
         // `image_data` directly (no clone, per FU-A). The shmem path now
@@ -224,7 +246,7 @@ impl PlateSolver for PlateSolverService {
             effective_binning,
             detect_hot_pixels,
             return_binned,
-        );
+        ).map_err(|e| Status::invalid_argument(e.to_string()))?;
         let elapsed = start.elapsed();
         let algorithm_time = Duration {
             seconds: elapsed.as_secs() as i64,
@@ -293,8 +315,9 @@ impl PlateSolver for PlateSolverService {
         let centroids_yx: Vec<[f64; 2]> = req.centroids.iter().map(|c| [c.y, c.x]).collect();
 
         // Step 2: Extract image dimensions.
-        let height = req.height as usize;
-        let width = req.width as usize;
+        let (width_u32, height_u32) = validate_dimensions(req.width, req.height)?;
+        let height = height_u32 as usize;
+        let width = width_u32 as usize;
 
         // Step 3: Map SolveParams.
         let default_params = crate::plate_solver::SolveParams::default();
@@ -327,8 +350,7 @@ impl PlateSolver for PlateSolverService {
             .input_image
             .ok_or_else(|| Status::invalid_argument("missing input_image in extract"))?;
 
-        let width = input_image.width as u32;
-        let height = input_image.height as u32;
+        let (width, height) = validate_dimensions(input_image.width, input_image.height)?;
 
         // Resolve image bytes (shmem or inline). The inline path moves
         // `image_data` directly (no clone, per FU-A). The shmem path now
@@ -441,8 +463,8 @@ mod tests {
     fn make_shmem_request(shmem_name: String) -> CentroidsRequest {
         CentroidsRequest {
             input_image: Some(Image {
-                width: 0,
-                height: 0,
+                width: 64,
+                height: 64,
                 image_data: vec![],
                 shmem_name: Some(shmem_name),
                 reopen_shmem: false,
@@ -1151,5 +1173,154 @@ mod tests {
         // algorithm_time field 5 should decode correctly as Duration in both protos now
         let algo_time = cedar_result.algorithm_time.expect("algorithm_time present");
         assert_eq!(algo_time.nanos, 500_000);
+    }
+
+    /// Test: extract_centroids with negative width returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn extract_centroids_negative_width() {
+        let data = vec![128u8; 64 * 64];
+        let request = make_inline_request(data, -1, 64, 10.0);
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.extract_centroids(Request::new(request)).await;
+
+        assert!(
+            result.is_err(),
+            "expected an error for negative width, got Ok"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument status, got {:?}",
+            err.code()
+        );
+        assert!(err.message().contains("width"));
+    }
+
+    /// Test: extract_centroids with zero width returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn extract_centroids_zero_width() {
+        let data = vec![128u8; 64 * 64];
+        let request = make_inline_request(data, 0, 64, 10.0);
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.extract_centroids(Request::new(request)).await;
+
+        assert!(
+            result.is_err(),
+            "expected an error for zero width, got Ok"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument status, got {:?}",
+            err.code()
+        );
+        assert!(err.message().contains("width"));
+    }
+
+    /// Test: extract_centroids with width > MAX_IMAGE_DIMENSION returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn extract_centroids_oversized_width() {
+        let data = vec![128u8; 100];
+        let request = make_inline_request(data, 30_000, 64, 10.0);
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.extract_centroids(Request::new(request)).await;
+
+        assert!(
+            result.is_err(),
+            "expected an error for oversized width, got Ok"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument status, got {:?}",
+            err.code()
+        );
+        assert!(err.message().contains("width"));
+    }
+
+    /// Test: solve_from_centroids with negative width returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn solve_from_centroids_negative_width() {
+        let service = PlateSolverService::new(make_empty_db());
+
+        let centroids = vec![
+            ImageCoord { x: 10.0, y: 20.0 },
+            ImageCoord { x: 30.0, y: 40.0 },
+            ImageCoord { x: 50.0, y: 60.0 },
+            ImageCoord { x: 70.0, y: 80.0 },
+            ImageCoord { x: 90.0, y: 10.0 },
+        ];
+
+        let request = SolveFromCentroidsRequest {
+            centroids,
+            width: -1,
+            height: 100,
+            params: None,
+        };
+
+        let result = service.solve_from_centroids(Request::new(request)).await;
+
+        assert!(
+            result.is_err(),
+            "expected an error for negative width, got Ok"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument status, got {:?}",
+            err.code()
+        );
+        assert!(err.message().contains("width"));
+    }
+
+    /// Test: solve_from_image with zero height returns INVALID_ARGUMENT.
+    #[tokio::test]
+    async fn solve_from_image_zero_height() {
+        let data = vec![128u8; 100];
+
+        let extract_req = CentroidsRequest {
+            input_image: Some(Image {
+                width: 100,
+                height: 0,
+                image_data: data,
+                shmem_name: None,
+                reopen_shmem: false,
+            }),
+            sigma: 4.0,
+            binning: None,
+            return_binned: false,
+            use_binned_for_star_candidates: false,
+            detect_hot_pixels: false,
+            normalize_rows: false,
+            estimate_background_region: None,
+        };
+
+        let request = SolveFromImageRequest {
+            extract: Some(extract_req),
+            params: None,
+        };
+
+        let service = PlateSolverService::new(make_empty_db());
+        let result = service.solve_from_image(Request::new(request)).await;
+
+        assert!(
+            result.is_err(),
+            "expected an error for zero height, got Ok"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::InvalidArgument,
+            "expected InvalidArgument status, got {:?}",
+            err.code()
+        );
+        assert!(err.message().contains("height"));
     }
 }

@@ -304,3 +304,32 @@ fn test_mmap_nearby_stars_parity() {
         );
     }
 }
+
+#[test]
+fn test_mmap_key_hashes_and_largest_edge_result() {
+    // Test that key_hashes() and largest_edge() return Result rather than panicking.
+    // Note: The native binary format does not guarantee u16/f16 alignment for these sections
+    // (due to the pattern catalog's variable elem_size), so they may return Err. However,
+    // these accessors have no live callers — the lookup code uses the private unaligned
+    // readers (key_hash_at, largest_edge_at) instead. This test verifies the Result conversion
+    // behavior itself rather than expecting successful alignment.
+    let db = importer::import_npz(&npz_path()).unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    loader::save_native(&db, tmp.path()).unwrap();
+
+    let db_mmap = ps_db::load_native_mmap(tmp.path()).unwrap();
+
+    // Both accessors must return a Result (either Ok or Err).
+    // We don't mandate Ok, since alignment is not guaranteed by the format.
+    let _key_hashes_result = db_mmap.key_hashes();
+    // If alignment happens to succeed, verify the length.
+    if let Ok(key_hashes) = db_mmap.key_hashes() {
+        assert_eq!(key_hashes.len(), db_mmap.num_slots());
+    }
+
+    let _largest_edge_result = db_mmap.largest_edge();
+    // If alignment happens to succeed, verify the length.
+    if let Ok(largest_edge) = db_mmap.largest_edge() {
+        assert_eq!(largest_edge.len(), db_mmap.num_slots());
+    }
+}

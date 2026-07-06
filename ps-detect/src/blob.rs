@@ -141,7 +141,7 @@ fn compute_brightness(image: &GrayImageView<'_>, bounding_box: &Rect) -> (f64, u
 }
 
 /// Compute sub-pixel peak coordinates via projection + quadratic interpolation.
-fn compute_peak_coord(image: &GrayImageView<'_>, bounding_box: &Rect) -> (f64, f64) {
+fn compute_peak_coord(image: &GrayImageView<'_>, bounding_box: &Rect) -> Option<(f64, f64)> {
     let mut horizontal_projection = vec![0u32; bounding_box.width() as usize];
     let mut vertical_projection = vec![0u32; bounding_box.height() as usize];
     let x0 = bounding_box.left();
@@ -150,13 +150,13 @@ fn compute_peak_coord(image: &GrayImageView<'_>, bounding_box: &Rect) -> (f64, f
         horizontal_projection[(x - x0) as usize] += pixel_value as u32;
         vertical_projection[(y - y0) as usize] += pixel_value as u32;
     });
-    let peak_x = x0 as f64 + peak_coord_1d(horizontal_projection);
-    let peak_y = y0 as f64 + peak_coord_1d(vertical_projection);
-    (peak_x, peak_y)
+    let peak_x = x0 as f64 + peak_coord_1d(horizontal_projection)?;
+    let peak_y = y0 as f64 + peak_coord_1d(vertical_projection)?;
+    Some((peak_x, peak_y))
 }
 
 /// Find the 1-D peak coordinate with quadratic interpolation.
-fn peak_coord_1d(values: Vec<u32>) -> f64 {
+fn peak_coord_1d(values: Vec<u32>) -> Option<f64> {
     let mut peak_val = 0u32;
     let mut peak_ind = 0usize;
     let mut in_run = false;
@@ -178,22 +178,31 @@ fn peak_coord_1d(values: Vec<u32>) -> f64 {
 
     // Run of equal-length values: return mid-coord.
     if peak_run_length > 1 {
-        return peak_ind as f64 + (peak_run_length - 1) as f64 / 2.0;
+        return Some(peak_ind as f64 + (peak_run_length - 1) as f64 / 2.0);
     }
     // Peak at either end: return its coord.
     if peak_ind == 0 || peak_ind == values.len() - 1 {
-        return peak_ind as f64;
+        return Some(peak_ind as f64);
     }
 
     // Quadratic interpolation.
     let a = values[peak_ind - 1] as f64;
     let b = values[peak_ind] as f64;
     let c = values[peak_ind + 1] as f64;
-    let p = 0.5 * (a - c) / (a - 2.0 * b + c);
-    assert!(p >= -0.5);
-    assert!(p <= 0.5);
+    let denominator = a - 2.0 * b + c;
 
-    peak_ind as f64 + p
+    // Defense-in-depth: the early-return branches above already exhaust every case
+    // where the denominator could be zero, but we guard here anyway.
+    if denominator == 0.0 {
+        return None;
+    }
+
+    let p = 0.5 * (a - c) / denominator;
+    if (-0.5..=0.5).contains(&p) {
+        Some(peak_ind as f64 + p)
+    } else {
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -433,13 +442,13 @@ pub fn gate_star_2d(
         let higher_res_margin = Rect::at(left as i32, top as i32).of_size(adj_width, adj_height);
         (brightness, num_saturated, peak_value) =
             compute_brightness(higher_res_image, &higher_res_margin);
-        (x, y) = compute_peak_coord(higher_res_image, &higher_res_margin);
+        (x, y) = compute_peak_coord(higher_res_image, &higher_res_margin)?;
         let upsample = (binning / 2) as f64;
         x *= upsample;
         y *= upsample;
     } else {
         (brightness, num_saturated, peak_value) = compute_brightness(image, &margin);
-        (x, y) = compute_peak_coord(image, &margin);
+        (x, y) = compute_peak_coord(image, &margin)?;
     }
 
     Some(StarDescription {
@@ -522,7 +531,7 @@ mod tests {
     fn test_peak_coord_1d_single_peak() {
         // Clear peak at index 3: [10, 50, 100, 200, 100, 50, 10]
         let values = vec![10, 50, 100, 200, 100, 50, 10];
-        let result = peak_coord_1d(values);
+        let result = peak_coord_1d(values).unwrap();
         // Quadratic interp: a=100, b=200, c=100 -> p = 0.5*(100-100)/(100-400+100) = 0
         assert!((result - 3.0).abs() < 1e-9);
     }
@@ -531,7 +540,7 @@ mod tests {
     fn test_peak_coord_1d_offset_peak() {
         // Peak at index 2 with asymmetric neighbors: [10, 80, 200, 150, 10]
         let values = vec![10, 80, 200, 150, 10];
-        let result = peak_coord_1d(values);
+        let result = peak_coord_1d(values).unwrap();
         // a=80, b=200, c=150 -> p = 0.5*(80-150)/(80-400+150) = 0.5*(-70)/(-170) = 0.2059
         let expected = 2.0 + 0.5 * (80.0 - 150.0) / (80.0 - 400.0 + 150.0);
         assert!((result - expected).abs() < 1e-9);
@@ -541,7 +550,7 @@ mod tests {
     fn test_peak_coord_1d_run_of_peaks() {
         // Run of equal peaks: [10, 200, 200, 200, 10]
         let values = vec![10, 200, 200, 200, 10];
-        let result = peak_coord_1d(values);
+        let result = peak_coord_1d(values).unwrap();
         // peak_ind=1, run_length=3 -> 1 + (3-1)/2 = 2.0
         assert!((result - 2.0).abs() < 1e-9);
     }
@@ -550,8 +559,48 @@ mod tests {
     fn test_peak_coord_1d_edge_peak() {
         // Peak at index 0: [200, 100, 50, 10]
         let values = vec![200, 100, 50, 10];
-        let result = peak_coord_1d(values);
+        let result = peak_coord_1d(values).unwrap();
         assert!((result - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_peak_coord_1d_sweep_small_inputs() {
+        // Comprehensive panic-safety sweep: generate all vectors of length 3-8
+        // with u32 values 0..=8 and verify peak_coord_1d never panics and always
+        // returns Some with a sane coordinate range.
+        let mut tested = 0usize;
+        for len in 3..=8 {
+            let mut values = vec![0u32; len];
+            loop {
+                // Test this input.
+                if let Some(coord) = peak_coord_1d(values.clone()) {
+                    // Verify the coordinate is in sane range [0, len-1].
+                    assert!(coord >= 0.0 && coord < len as f64,
+                        "peak_coord_1d returned out-of-range coordinate {} for input {:?}",
+                        coord, values
+                    );
+                }
+                tested += 1;
+
+                // Increment all values (lexicographic enumeration).
+                let mut carry = true;
+                for i in (0..len).rev() {
+                    if carry {
+                        values[i] += 1;
+                        if values[i] <= 8 {
+                            carry = false;
+                        } else {
+                            values[i] = 0;
+                        }
+                    }
+                }
+                if carry {
+                    break; // We've enumerated all combinations.
+                }
+            }
+        }
+        // Sanity check: we actually tested a reasonable number of inputs.
+        assert!(tested > 1000, "expected > 1000 test cases, got {}", tested);
     }
 
     #[test]

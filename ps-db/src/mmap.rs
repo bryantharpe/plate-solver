@@ -65,15 +65,17 @@ impl MmappedDatabase {
     /// Returns a slice of `[f32; 6]` rows backed by the mmap.
     /// Safe because star_table starts at an 8-byte aligned offset and each
     /// row (24 bytes) is a multiple of f32's alignment (4).
-    pub fn star_table(&self) -> &[[f32; 6]] {
+    pub fn star_table(&self) -> Result<&[[f32; 6]], Box<dyn std::error::Error>> {
         let data: &[u8] = &self._mmap;
         let start = self.star_table_offset;
         let end = start + self.star_table_count * 24;
         let bytes = &data[start..end];
-        // star_table starts at 8-aligned offset; [f32;6] needs alignment 4.
         let ptr = bytes.as_ptr();
-        debug_assert_eq!(ptr.align_offset(4), 0);
-        unsafe { std::slice::from_raw_parts(ptr as *const [f32; 6], self.star_table_count) }
+        if ptr.align_offset(4) == 0 {
+            Ok(unsafe { std::slice::from_raw_parts(ptr as *const [f32; 6], self.star_table_count) })
+        } else {
+            Err(format!("star_table offset {} is not [f32;6]-aligned (4-byte)", start).into())
+        }
     }
 
     /// Zero-copy view of the key hashes.
@@ -86,32 +88,32 @@ impl MmappedDatabase {
     ///
     /// For the common case where the offset happens to be u16-aligned, we
     /// provide a direct slice.  Otherwise we fall back to unaligned reads.
-    pub fn key_hashes(&self) -> &[u16] {
+    pub fn key_hashes(&self) -> Result<&[u16], Box<dyn std::error::Error>> {
         let data: &[u8] = &self._mmap;
         let start = self.key_hashes_offset;
         let bytes = &data[start..start + self.key_hashes_count * 2];
         let ptr = bytes.as_ptr();
         if ptr.align_offset(2) == 0 {
-            unsafe { std::slice::from_raw_parts(ptr as *const u16, self.key_hashes_count) }
+            Ok(unsafe { std::slice::from_raw_parts(ptr as *const u16, self.key_hashes_count) })
         } else {
             // Misaligned: we cannot provide a &[u16] view.
             // This should not happen with the current save_native layout,
             // but handle it gracefully by reading unaligned into a static buffer.
             // In practice this path is unreachable with the current format.
-            panic!("key_hashes offset {} is not u16-aligned", start);
+            Err(format!("key_hashes offset {} is not u16-aligned", start).into())
         }
     }
 
     /// Zero-copy view of the largest-edge values.
-    pub fn largest_edge(&self) -> &[f16] {
+    pub fn largest_edge(&self) -> Result<&[f16], Box<dyn std::error::Error>> {
         let data: &[u8] = &self._mmap;
         let start = self.largest_edge_offset;
         let bytes = &data[start..start + self.largest_edge_count * 2];
         let ptr = bytes.as_ptr();
         if ptr.align_offset(2) == 0 {
-            unsafe { std::slice::from_raw_parts(ptr as *const f16, self.largest_edge_count) }
+            Ok(unsafe { std::slice::from_raw_parts(ptr as *const f16, self.largest_edge_count) })
         } else {
-            panic!("largest_edge offset {} is not f16-aligned", start);
+            Err(format!("largest_edge offset {} is not f16-aligned", start).into())
         }
     }
 
@@ -210,7 +212,7 @@ impl MmappedDatabase {
     #[cfg(feature = "kd-tree")]
     pub fn build_kd_tree(&mut self) {
         use kiddo::KdTree;
-        let stars = self.star_table();
+        let stars = self.star_table().expect("star_table alignment invariant violated (malformed database file)");
         let mut tree: KdTree<f32, 3> = KdTree::with_capacity(stars.len());
         for (i, row) in stars.iter().enumerate() {
             tree.add(&[row[2], row[3], row[4]], i as u64);
@@ -443,4 +445,73 @@ pub fn lookup_pattern_mmap(
     }
 
     candidates
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn default_props() -> DatabaseProperties {
+        DatabaseProperties::apply_legacy_fallbacks(
+            None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+            None, None,
+        )
+    }
+
+    #[test]
+    fn test_star_table_misalignment_error() {
+        // Create a temporary file with arbitrary data.
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), vec![0u8; 64]).unwrap();
+
+        // Open the file and create an mmap.
+        let file = std::fs::File::open(tmp.path()).unwrap();
+        let mmap = unsafe { Mmap::map(&file) }.unwrap();
+
+        // Create a MmappedDatabase with deliberately misaligned star_table_offset.
+        // offset 1 is not a multiple of 4, so [f32; 6] alignment check should fail.
+        let db = MmappedDatabase {
+            _mmap: mmap,
+            properties: default_props(),
+            star_table_offset: 1,
+            star_table_count: 1,
+            key_hashes_offset: 0,
+            key_hashes_count: 0,
+            largest_edge_offset: 0,
+            largest_edge_count: 0,
+            catalog_kind: PatternCatalogKind::U8,
+            catalog_offset: 0,
+            catalog_elem_size: 1,
+            catalog_count: 0,
+            #[cfg(feature = "kd-tree")]
+            star_kd_tree: None,
+        };
+
+        // Verify that star_table() returns Err due to misalignment.
+        assert!(db.star_table().is_err());
+    }
+
+    #[test]
+    fn test_star_table_success_on_real_database() {
+        // Load a real database from the reference solution.
+        let npz_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../reference-solutions/cedar-solve/tetra3/data/default_database.npz");
+        let db = crate::importer::import_npz(&npz_path).unwrap();
+
+        // Save it as native format.
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        crate::loader::save_native(&db, tmp.path()).unwrap();
+
+        // Load it via mmap.
+        let db_mmap = load_native_mmap(tmp.path()).unwrap();
+
+        // Verify that star_table() returns Ok with correct length.
+        let stars = db_mmap.star_table().unwrap();
+        assert_eq!(stars.len(), db_mmap.num_stars());
+        assert_eq!(stars.len(), 42212); // The test fixture has 42212 stars.
+
+        // Verify that we can access star data (spot-check first star).
+        let first_star = &stars[0];
+        assert_eq!(first_star.len(), 6);
+    }
 }
