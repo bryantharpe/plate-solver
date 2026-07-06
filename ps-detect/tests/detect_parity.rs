@@ -55,7 +55,7 @@ fn get_stars_end_to_end_parity() {
             /*binning=*/ 1,
             /*detect_hot_pixels=*/ true,
             /*return_binned_image=*/ false,
-        );
+        ).unwrap();
 
         // Assert count match.
         // hale_bopp.jpg has a known hot-pixel tolerance of ±2.
@@ -164,7 +164,7 @@ fn get_stars_binning_2_regression() {
         2,     // binning=2 (this is what we're testing)
         true,  // detect_hot_pixels
         true,  // return_binned_image
-    );
+    ).unwrap();
 
     // Basic sanity checks: should detect stars and return reasonable data.
     assert!(
@@ -196,4 +196,45 @@ fn get_stars_binning_2_regression() {
             i
         );
     }
+}
+
+#[test]
+fn get_stars_invalid_binning_returns_err() {
+    use ps_detect::{as_view, get_stars_from_image, GrayImage};
+
+    let width = 20u32;
+    let height = 20u32;
+    let pixels = vec![20u8; (width * height) as usize];
+    let image = GrayImage::from_raw(width, height, pixels).unwrap();
+    let view = as_view(&image);
+
+    // binning=3 is not one of {1, 2, 4, 8}: must return Err, not panic.
+    let result = get_stars_from_image(&view, 1.0, 4.0, false, /*binning=*/ 3, true, false);
+    assert!(result.is_err(), "binning=3 should be rejected with Err");
+    assert!(
+        result.unwrap_err().to_string().contains("Invalid binning argument"),
+        "error message should mention the invalid binning argument"
+    );
+}
+
+#[test]
+fn get_stars_return_binned_image_with_binning_1_returns_err() {
+    use ps_detect::{as_view, get_stars_from_image, GrayImage};
+
+    let width = 20u32;
+    let height = 20u32;
+    let pixels = vec![20u8; (width * height) as usize];
+    let image = GrayImage::from_raw(width, height, pixels).unwrap();
+    let view = as_view(&image);
+
+    // return_binned_image=true is invalid when binning=1: must return Err, not panic.
+    let result = get_stars_from_image(&view, 1.0, 4.0, false, /*binning=*/ 1, true, /*return_binned_image=*/ true);
+    assert!(
+        result.is_err(),
+        "return_binned_image=true with binning=1 should be rejected with Err"
+    );
+    assert!(
+        result.unwrap_err().to_string().contains("cannot 'return_binned_image'"),
+        "error message should mention the invalid combination"
+    );
 }

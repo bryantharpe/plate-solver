@@ -20,23 +20,24 @@ pub fn get_stars_from_image(
     binning: u32,
     detect_hot_pixels: bool,
     return_binned_image: bool,
-) -> (
-    Vec<StarDescription>,
-    /*hot_pixel_count*/ i32,
-    Option<GrayImage>,
-    [u32; 256],
-) {
+) -> Result<
+    (Vec<StarDescription>, /*hot_pixel_count*/ i32, Option<GrayImage>, [u32; 256]),
+    Box<dyn std::error::Error>,
+> {
     match binning {
         1 => {
             if return_binned_image {
-                panic!("cannot 'return_binned_image' when binning==1");
+                return Err("cannot 'return_binned_image' when binning==1".into());
             }
         }
         2 | 4 | 8 => {}
-        _ => panic!(
-            "Invalid binning argument {}, must be 1, 2, 4, or 8",
-            binning
-        ),
+        _ => {
+            return Err(format!(
+                "Invalid binning argument {}, must be 1, 2, 4, or 8",
+                binning
+            )
+            .into());
+        }
     }
 
     let noise_estimate = f64::max(noise_estimate, NOISE_FLOOR);
@@ -86,7 +87,7 @@ pub fn get_stars_from_image(
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        return (stars, hot_pixel_count, None, [0u32; 256]);
+        return Ok((stars, hot_pixel_count, None, [0u32; 256]));
     }
 
     // We are binning by 2x, 4x, or 8x.
@@ -168,5 +169,5 @@ pub fn get_stars_from_image(
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    (stars, hot_pixel_count, Some(binned_2x), histogram_2x)
+    Ok((stars, hot_pixel_count, Some(binned_2x), histogram_2x))
 }

@@ -86,32 +86,32 @@ impl MmappedDatabase {
     ///
     /// For the common case where the offset happens to be u16-aligned, we
     /// provide a direct slice.  Otherwise we fall back to unaligned reads.
-    pub fn key_hashes(&self) -> &[u16] {
+    pub fn key_hashes(&self) -> Result<&[u16], Box<dyn std::error::Error>> {
         let data: &[u8] = &self._mmap;
         let start = self.key_hashes_offset;
         let bytes = &data[start..start + self.key_hashes_count * 2];
         let ptr = bytes.as_ptr();
         if ptr.align_offset(2) == 0 {
-            unsafe { std::slice::from_raw_parts(ptr as *const u16, self.key_hashes_count) }
+            Ok(unsafe { std::slice::from_raw_parts(ptr as *const u16, self.key_hashes_count) })
         } else {
             // Misaligned: we cannot provide a &[u16] view.
             // This should not happen with the current save_native layout,
             // but handle it gracefully by reading unaligned into a static buffer.
             // In practice this path is unreachable with the current format.
-            panic!("key_hashes offset {} is not u16-aligned", start);
+            Err(format!("key_hashes offset {} is not u16-aligned", start).into())
         }
     }
 
     /// Zero-copy view of the largest-edge values.
-    pub fn largest_edge(&self) -> &[f16] {
+    pub fn largest_edge(&self) -> Result<&[f16], Box<dyn std::error::Error>> {
         let data: &[u8] = &self._mmap;
         let start = self.largest_edge_offset;
         let bytes = &data[start..start + self.largest_edge_count * 2];
         let ptr = bytes.as_ptr();
         if ptr.align_offset(2) == 0 {
-            unsafe { std::slice::from_raw_parts(ptr as *const f16, self.largest_edge_count) }
+            Ok(unsafe { std::slice::from_raw_parts(ptr as *const f16, self.largest_edge_count) })
         } else {
-            panic!("largest_edge offset {} is not f16-aligned", start);
+            Err(format!("largest_edge offset {} is not f16-aligned", start).into())
         }
     }
 

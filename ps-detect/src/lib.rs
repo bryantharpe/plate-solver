@@ -92,9 +92,9 @@ mod tests {
         assert_eq!(view_via_as_view.as_raw(), view_via_raw.as_raw());
 
         let (stars_a, hot_a, _binned_a, _hist_a) =
-            get_stars_from_image(&view_via_as_view, 1.0, 4.0, false, 1, true, false);
+            get_stars_from_image(&view_via_as_view, 1.0, 4.0, false, 1, true, false).unwrap();
         let (stars_b, hot_b, _binned_b, _hist_b) =
-            get_stars_from_image(&view_via_raw, 1.0, 4.0, false, 1, true, false);
+            get_stars_from_image(&view_via_raw, 1.0, 4.0, false, 1, true, false).unwrap();
 
         assert_eq!(hot_a, hot_b);
         assert_eq!(stars_a.len(), stars_b.len());

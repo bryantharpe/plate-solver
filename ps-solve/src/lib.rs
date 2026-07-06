@@ -673,7 +673,7 @@ pub fn solve_from_image(db: &Database, image: &GrayImageView<'_>, params: &Solve
         1,     // binning
         true,  // detect_hot_pixels
         false, // return_binned_image
-    );
+    ).unwrap();
     let centroids: Vec<[f64; 2]> = stars
         .iter()
         .map(|s| [s.centroid_y, s.centroid_x])
@@ -1663,7 +1663,7 @@ mod tests {
                 for normalize in [false, true] {
                     let (stars, _, _, _) = ps_detect::get_stars_from_image(
                         &img_view, 1.0, sigma, normalize, binning, true, false,
-                    );
+                    ).unwrap();
                     if stars.len() < 4 {
                         continue;
                     }
