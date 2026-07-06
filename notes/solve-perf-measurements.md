@@ -111,3 +111,53 @@ This confirms the SP0.2 decision gate's prediction exactly: since `combos_examin
 **Skipped (by measurement, not by omission):** SP3.1 (profile the residual gap) and SP3.2 (trim allocation churn) — both conditional on a gap remaining after SP2.2, and no gap remains (1.55× ≥ 1.0× threshold). If a future workload or corpus shows a different pattern (e.g. images that need many more combos to match), re-open SP3 guided by the `combos_examined` counter this effort added.
 
 **Every bead (SP0.1–SP4) shipped through the full `ps-coder` → `ps-judge` grind loop** — every diff independently gated (`cargo build`/`test`/`clippy`) by the orchestrator and independently reviewed by `ps-judge`, with `ps-judge` re-running measurements from scratch (not trusting pasted numbers) on the two highest-stakes beads (SP1.3's reference cross-check, SP2.1's parity STOP-gate, SP2.2's decision gate).
+
+---
+
+# FUB.1 — Exhaustion-path profile (2026-07-05)
+
+**Bead:** FUB.1 — profile the exhaustion path. **Command:** `cargo run --release -p ps-solve --example combo_count` (hale_bopp, default params, the 19 µs/combo / 8855-combo / ~65 ms baseline).
+
+**Environment caveat (honest):** `perf` is unavailable on this host — `perf_event_paranoid=4` and no `CAP_PERFMON`/`CAP_SYS_ADMIN`, and `samply`/`valgrind` are not installed (`which perf samply valgrind cargo` → only `perf` and `cargo`). Per the FUB.1 spec ("`perf` (or `samply`) on … or anything else the profile surfaces"), the fallback was **temporary `std::time::Instant` instrumentation** of `solve_from_centroids` in `ps-solve/src/lib.rs` (coarse region timers + atomic counters), built release, run 3×, then **fully reverted** (`git checkout ps-solve/src/lib.rs`) — the FUB.1 commit is docs-only, no code change. Instrumentation overhead distorted the per-key DB-lookup timing (2.1M extra `Instant::now()` calls inflated it ~4×), so the DB-lookup share below is derived by subtraction from the uninstrumented inner-loop total, not from the inflated per-key timer.
+
+**Uninstrumented baseline (3-run median, hale_bopp, release):**
+
+| run | total_solve (ms) | combos | key_lookups | slot_hits |
+|---|---:|---:|---:|---:|
+| 1 | 65.20 | 8855 | 2,151,765 | 2778 |
+| 2 | 65.10 | 8855 | 2,151,765 | 2778 |
+| 3 | 65.67 | 8855 | 2,151,765 | 2778 |
+
+`(combos, key_lookups, slot_hits)` is deterministic across runs. 243 candidate keys/combo (= (2·1+1)⁵ at band=1); 2778 slot hits total = **0.13% of key lookups** (the exhaustion path almost never reaches verification — it's dominated by building keys and probing the DB, not by the verify block).
+
+**Per-region attribution (3-run median; `inner_loop` = the `for cand_key` block; db_lookup derived by subtraction):**
+
+| region | ms | % of total | per-combo | notes |
+|---|---:|---:|---:|---|
+| DB lookup (`lookup_pattern` × 2.15M) | ~33.6 | **~51%** | ~3.8 µs/combo (243 calls) | dominant; **in `ps-db`, outside FUB.2's ps-solve scope** |
+| verify block (A1–A8, × 2778 slot hits) | ~20.3 | **~31%** | 7.3 µs/hit (only on hits) | the 16 `.collect()`s live here; interleaved with real math (FOV/projection/rotation/nearby_stars/false-alarm) |
+| candidate_keys build + sort (× 8855) | ~9.6 | **~15%** | 1.1 µs/combo | pop 4.0 ms (6.1%), sort 5.6 ms (8.6%) — sort dominates |
+| other (pattern key, combo overhead, timeout check) | ~2.0 | ~3% | — | — |
+
+**Per-key DB lookup cost (instrumented run, inflated):** ~62.6 ns/lookup when measured with a per-key `Instant` (134.8 ms / 2.15M), but this is ~4× the real cost because the 2.1M `Instant::now()` calls add ~50+ ms of overhead. The subtraction-derived ~33.6 ms / 2.15M = **~15.6 ns/lookup** is the trustworthy figure (a hash-table probe + FOV pre-filter, consistent with `ps_db::lookup::lookup_pattern`'s shape). **Do not quote the 62.6 ns number; it is an artifact.**
+
+## FUB.2 precondition: MET (three targets ≥ ~10%)
+
+Per the FUB.1 decision rule, FUB.2 proceeds. Three regions clear the ≥~10% bar:
+
+1. **DB lookup — ~51%** — the dominant cost. **BUT it lives in `ps-db::lookup::lookup_pattern`, outside FUB.2's stated scope (`ps-solve/src/lib.rs:300-560` + `candidate_keys`).** Flagged as a **separate ps-db follow-up**, not bundled into FUB.2. Trimming it (e.g. fewer probe iterations, cheaper FOV pre-filter, or caching) is a ps-db change with its own parity surface — it deserves its own spec, not a quiet slip into a ps-solve allocation-trim bead.
+2. **verify block — ~31%** — in FUB.2's scope. Fires only on the 2778 slot hits (0.13% of lookups). The 16 `.collect()`s are interleaved with attitude/projection/false-alarm math; allocation churn is some fraction of the 7.3 µs/hit, not all of it. **A finer profile of the verify block is warranted before committing to the .collect() trim** — if the math dominates and the .collect()s are a small fraction, the win is small.
+3. **candidate_keys build+sort — ~15%** — in FUB.2's scope, and FUB.2's explicitly named target (a). The `Vec` is rebuilt+sorted every combo. Reusing the allocation (clear+refill) saves the realloc but **not** the sort (sort is 5.6 of the 9.6 ms — the majority). Realistic win: ~the pop portion's realloc overhead, plausibly ~1–2 ms of the 65 ms. Modest, but cheap and low-risk (bit-for-bit unchanged — same elements, same order).
+
+## Named trim targets for FUB.2 (ps-solve scope only)
+
+- **FUB.2-step-1 (low-risk, modest): reuse the `candidate_keys` `Vec` allocation.** Hoist the `Vec` out of the combo loop (clear+refill instead of `Vec::new()` + drop). Bit-for-bit unchanged (same 243 entries, same sort, same order). Realistic win: ~1–2 ms (the pop realloc overhead; the 5.6 ms sort is untouched). Gated: µs/combo before/after; revert if no measurable help.
+- **FUB.2-step-2 (medium-risk, profile-gated): trim verify-block `.collect()`s** — **only after a finer verify-block profile confirms allocation churn is a meaningful fraction of the 7.3 µs/hit.** If the finer profile shows the .collect()s are <~10% of hit time, **skip this step** (the SP3.1/SP3.2 honest-SKIP pattern) and record that. Do not promise a win the profile hasn't shown.
+
+## Honest expectation for FUB.2
+
+Realistic FUB.2 win within ps-solve: **~1–3 ms on the 65 ms exhaustion path** (step-1 keys reuse + maybe step-2 verify trim), i.e. **~2–5%** — not the full 51% DB-lookup target. The dominant cost (DB lookup) is a ps-db follow-up. FUB.2 is worth doing for the cheap, low-risk keys reuse and the verify-block profile, but **it will not be a large win** — set that expectation now, in the record, before FUB.2 codes anything. Client-visible effect: a `solve_timeout` budget covers proportionally a few % more combos on hard images; zero effect on easy images (1–2 combos).
+
+**`combos_examined` invariant:** 8855 on hale_bopp defaults, unchanged by FUB.1 (investigation only) and to-be-unchanged by FUB.2 (allocation reuse, not logic).
+
+**Gates after FUB.1 (docs-only commit):** `cargo build -p ps-solve` green; `cargo test -p ps-solve` 18 passed / 0 failed / 1 ignored (unchanged); `git checkout ps-solve/src/lib.rs` confirmed clean (no `FUB_` symbols remain); `ps-detect` untouched (no file under `ps-detect/src/` modified — FUB.1 touched only `ps-solve/src/lib.rs`, reverted).
