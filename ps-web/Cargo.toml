@@ -7,6 +7,8 @@ edition = "2021"
 ps-db = { path = "../ps-db", features = ["kd-tree"] }
 ps-solve = { path = "../ps-solve" }
 axum = { workspace = true }
+rust-embed = { workspace = true }
+mime_guess = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

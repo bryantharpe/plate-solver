@@ -17,6 +17,17 @@ fn error_response(status: StatusCode, msg: impl Into<String>) -> Response {
     (status, Json(ErrorBody { error: msg.into() })).into_response()
 }
 
+/// Map a multipart read error to a response using axum's own `.status()`
+/// classification (BAD_REQUEST for malformed bodies, PAYLOAD_TOO_LARGE when
+/// the error wraps the `DefaultBodyLimit` being exceeded) rather than
+/// collapsing every multipart error to 400.
+fn multipart_error_response(
+    context: &str,
+    err: axum::extract::multipart::MultipartError,
+) -> Response {
+    error_response(err.status(), format!("{context}: {err}"))
+}
+
 #[derive(Serialize)]
 struct MatchedStarJson {
     x: f64,
@@ -167,23 +178,16 @@ async fn parse_form(multipart: &mut Multipart) -> Result<SolveForm, Response> {
         let field = match multipart.next_field().await {
             Ok(Some(f)) => f,
             Ok(None) => break,
-            Err(e) => {
-                return Err(error_response(
-                    StatusCode::BAD_REQUEST,
-                    format!("invalid multipart body: {e}"),
-                ))
-            }
+            Err(e) => return Err(multipart_error_response("invalid multipart body", e)),
         };
         let name = field.name().unwrap_or("").to_string();
 
         match name.as_str() {
             "image" => {
-                let bytes = field.bytes().await.map_err(|e| {
-                    error_response(
-                        StatusCode::BAD_REQUEST,
-                        format!("failed to read image field: {e}"),
-                    )
-                })?;
+                let bytes = field
+                    .bytes()
+                    .await
+                    .map_err(|e| multipart_error_response("failed to read image field", e))?;
                 image_bytes = Some(bytes.to_vec());
             }
             "fov_estimate" => {
@@ -199,12 +203,10 @@ async fn parse_form(multipart: &mut Multipart) -> Result<SolveForm, Response> {
                 match_threshold = parse_field_f64(field, "match_threshold").await?;
             }
             "timeout_ms" => {
-                let text = field.text().await.map_err(|e| {
-                    error_response(
-                        StatusCode::BAD_REQUEST,
-                        format!("failed to read timeout_ms field: {e}"),
-                    )
-                })?;
+                let text = field
+                    .text()
+                    .await
+                    .map_err(|e| multipart_error_response("failed to read timeout_ms field", e))?;
                 timeout_ms = text.trim().parse::<u64>().map_err(|_| {
                     error_response(
                         StatusCode::BAD_REQUEST,
@@ -254,12 +256,10 @@ async fn parse_field_f64(
     field: axum::extract::multipart::Field<'_>,
     field_name: &str,
 ) -> Result<f64, Response> {
-    let text = field.text().await.map_err(|e| {
-        error_response(
-            StatusCode::BAD_REQUEST,
-            format!("failed to read {field_name} field: {e}"),
-        )
-    })?;
+    let text = field
+        .text()
+        .await
+        .map_err(|e| multipart_error_response(&format!("failed to read {field_name} field"), e))?;
     text.trim().parse::<f64>().map_err(|_| {
         error_response(
             StatusCode::BAD_REQUEST,
@@ -400,6 +400,39 @@ mod tests {
             assert!(!flag.load(std::sync::atomic::Ordering::Relaxed));
         }
         assert!(flag.load(std::sync::atomic::Ordering::Relaxed));
+    }
+
+    /// `map_response` is the only place that turns a solver [`SolveStatus`]
+    /// into the wire JSON shape; this pins its behavior for every non-match
+    /// status (each of which must carry a non-empty, human-readable hint),
+    /// independent of whatever actually drives the solver into that status.
+    #[test]
+    fn map_response_covers_all_non_match_statuses() {
+        for status in [
+            SolveStatus::NoMatch,
+            SolveStatus::Timeout,
+            SolveStatus::Cancelled,
+            SolveStatus::TooFew,
+        ] {
+            let sol = Solution::failure(status.clone(), 0.0);
+            let resp = map_response(&sol);
+            let hint = match resp {
+                SolveResponse::NoMatch { hint } => hint,
+                SolveResponse::Timeout { hint } => hint,
+                SolveResponse::Cancelled { hint } => hint,
+                SolveResponse::TooFew { hint } => hint,
+                SolveResponse::MatchFound { .. } => {
+                    panic!("failure status {status:?} mapped to MatchFound")
+                }
+            };
+            assert!(!hint.is_empty(), "{status:?} produced an empty hint");
+        }
+    }
+
+    #[test]
+    fn timeout_ms_clamps_to_max() {
+        assert_eq!(DEFAULT_TIMEOUT_MS.min(MAX_TIMEOUT_MS), DEFAULT_TIMEOUT_MS);
+        assert_eq!(999_999u64.min(MAX_TIMEOUT_MS), MAX_TIMEOUT_MS);
     }
 
     #[test]
