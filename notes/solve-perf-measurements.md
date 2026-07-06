@@ -278,3 +278,22 @@ The ps-solve-scope allocation levers (candidate_keys reuse, A6 buffer hoist) tar
 **FU-B (FUB.1–FUB.3) complete.** No product code changed (FUB.1 investigation reverted; FUB.2 both steps reverted by measurement). The eval-harness baseline is re-confirmed and parity is identical-green. The honest conclusion: **the remaining solve-latency lever within ps-solve allocation scope is exhausted; the dominant cost is ps-db, which needs its own spec; the only large remaining lever is FU-C (parallelism), which needs user approval.**
 
 **Gates after FUB.3:** `cargo build --release -p ps-grpc` green; `cargo test -p ps-solve` 18/0/1; `combo_count` hale_bopp 8855 combos / 7.6 µs/combo (5-run median 0.067 s); eval harness `results_fub3.json` + regenerated `docs/benchmarks/report.md`/`.html` written; `ps_grpc_vs_cedar_flow` primary parity 9/9 unflagged; `ps-detect` untouched. ps-judge peer reviewed the FUB.3 record.
+
+---
+
+# DBL.1 — Probe-pair table data-layout optimization (2026-07-06) — SKIPPED-by-measurement, reverted
+
+**Bead:** DBL.1 — interleave `key_hashes[i]` (u16) and `largest_edge[i]` (f16) into a single `probe_pairs[i]` (u32) per slot, reducing random memory loads in `ps_db::lookup::lookup_pattern`'s probe chain from two independent accesses per probe to one (D-DBL-1/2 in `notes/perf-improvement-proposals.md` §DBL). Implemented in full: `Database.probe_pairs: Vec<u32>` + `build_probe_pairs()` helper wired into all three construction sites (`importer.rs`, `loader.rs`, `lib.rs::empty()`), `lookup_pattern` rewritten to read the packed pair once per probe, a code comment on `lookup_pattern_mmap` per D-DBL-2, and a new `test_probe_pairs_parity` equivalence test (fixture hit/miss keys × FOV Some/None, old two-array algorithm vs new probe_pairs path, identical-including-order). All gates green: `cargo build -p ps-db`, `cargo test -p ps-db` (9/9, including the new test), `cargo build --workspace --all-targets`, `cargo test --workspace` (clean), sv6 parity green, harness parity STOP 9/9 `ps_grpc_vs_cedar_flow primary_same_catalog` unflagged.
+
+**Measurement (this bead's own AC, not deferred to DBL.4): `combo_count` hale_bopp, 12 runs each, before vs after, same host/build:**
+
+| | n | mean (s) | median (s) | stdev (s) |
+|---|---:|---:|---:|---:|
+| before (HEAD, two-array `key_hashes`/`largest_edge` reads) | 12 | 0.1331 | 0.1300 | 0.0063 |
+| after (probe_pairs interleaved read) | 12 | 0.1293 | 0.1280 | 0.0032 |
+
+`combos_examined` = 8,855 both runs (invariant holds — no ordering/logic change). Mean delta = 3.75 ms (≈2.9%); pooled stdev ≈ 5.0 ms; **SNR = diff / pooled_stdev ≈ 0.75 < 1** — below this project's noise-floor threshold (FUB.2's established standard: ≥12 runs, SNR<1 = no win). µs/combo: 15.03 before → 14.61 after — a plausible direction but not a statistically distinguishable one at this sample size.
+
+**Decision: reverted per the explicit "revert any step that doesn't clear the noise floor" rule.** `git checkout` restored `ps-db/src/{importer,lib,loader,lookup,mmap}.rs`, `ps-db/tests/load_npz.rs`, and `ps-dbgen/tests/hash_insert_test.rs` (a pre-existing test-only field-mutation pattern that would have needed a `probe_pairs` rebuild had the change stayed — noted here since it's a real gap the equivalence-test review surfaced, but moot once reverted) to their pre-DBL.1 state. Verified clean afterward: `cargo build -p ps-db` / `cargo test -p ps-db` (5/5, back to baseline) / `cargo test -p ps-dbgen` (11/11) all green.
+
+**Honest verdict:** the interleaved-load idea is architecturally sound (it does reduce the memory-access count per probe, and the mean did move in the predicted direction), but on this container the effect is too small relative to the ~2–5% run-to-run noise floor to call it a measured win — this host's `hale_bopp` baseline (~130 ms / 8,855 combos ≈ 15 µs/combo) is also markedly slower than the ~65–67 ms / 7.6 µs/combo recorded in FUB.1/FUB.3 on the original aarch64 benchmark host (a different container/CPU, consistent with the SP2.1 Decisions Log note that this environment doesn't persist across resets and has previously come back as a different host/arch). No product code changed as a net result of DBL.1. **DBL.2 (prehashed lookup + prefetch) depends on the `probe_pairs` table DBL.1 would have added — since DBL.1 didn't land, DBL.2 has no data structure to build on and is recorded as blocked-by-measurement below, not implemented.** DBL.3 (`nearby_stars`, independent of `probe_pairs`) is unaffected and proceeds separately.
