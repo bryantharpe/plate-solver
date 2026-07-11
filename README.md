@@ -1,70 +1,36 @@
-# plate-solver
-Rust implementation of the full tetra3 lost in space algorithm for star field identification.
+# plate-solver — Gastown rewrite
 
-A from-scratch **Rust** reimplementation of the tetra3/cedar "lost-in-space" plate-solving
-pipeline — star detection → pattern-database lookup → attitude (RA/Dec/Roll/FOV/distortion)
-recovery — delivered over **gRPC** and embeddable on **mobile** (iOS/Android).
+This branch (`rewrite`) is a **from-scratch reimplementation** of plate-solver, driven
+entirely by the specifications in [`openspec/`](openspec/). The original v1 implementation
+has been removed here so the rewrite starts clean.
 
-## Documentation
+> **The original is preserved.** The complete v1 codebase lives on `main` and is frozen
+> at the immutable tag [`v1-original`](../../releases/tag/v1-original) (`185128e`).
+> Recover it any time with `git checkout v1-original`. This branch will be merged on top
+> of the original once the rewrite is ready.
 
-The design is specified as an [OpenSpec](https://github.com/Fission-AI/OpenSpec) documentation
-set under [`openspec/`](./openspec/), validated with `openspec validate --strict`:
+## What's in this branch (and only this)
 
-- **[`openspec/PRD.md`](./openspec/PRD.md)** — product requirements (problem, users, goals,
-  non-functional budgets, success metrics, milestones).
-- **[`openspec/project.md`](./openspec/project.md)** — shared context, conventions, glossary,
-  Rust workspace/dependency decisions, and the reference-documentation map.
-- **[`openspec/STATUS.md`](./openspec/STATUS.md)** — review index and feature map.
-- **[`openspec/changes/`](./openspec/changes/)** — one change per feature (in dependency order):
-  `feat-01-foundation-math-core`, `feat-02-star-detection`, `feat-03-pattern-database`,
-  `feat-04-database-generation`, `feat-05-plate-solver`, `feat-06-grpc-service`,
-  `feat-07-mobile-runtime`. Each carries a proposal, specs (requirements + scenarios), a design,
-  and a task list.
+| Path | Role |
+|------|------|
+| `openspec/` | **Source of truth.** Capability specs, PRD, project conventions, and the full change history. Start at `openspec/project.md` and `openspec/PRD.md`. |
+| `openspec/specs/` | The seven canonical capability specs the rewrite must satisfy: `math-core`, `star-detection`, `pattern-database`, `database-generation`, `plate-solver`, `grpc-service`, `web-ui`. |
+| `proto/` | The gRPC interface contracts (`plate_solver.proto`, `cedar_detect.proto`) — relocated out of the old crate as standalone specs. |
+| `reference-solutions/` | **The oracle.** Vendored reference outputs (cedar-solve / tetra3 / cedar-detect) that parity / differential tests validate the rewrite against. Kept deliberately so the rewrite can prove behavioral equivalence, not just compile. |
 
-The reference implementations being re-implemented (Python tetra3, Python cedar-solve, Rust
-cedar-detect) and their rebuild-level docs live under
-[`reference-solutions/`](./reference-solutions/) (read-only source of truth).
+## What was intentionally removed
 
-To browse: `openspec list`, `openspec show <change>`, or `openspec view`.
+Everything that is *implementation* rather than *specification*: all `ps-*` crates, the
+Cargo workspace and lockfile, `rust-toolchain.toml`, the `tools/` and `notes/` directories,
+the v1 planning docs, and the `.claude/` tooling. These are rebuilt from scratch.
 
-## Build & Run
+> `openspec/STATUS.md` and `openspec/IMPLEMENTATION-STATUS.md` describe **v1's** status —
+> treat them as the baseline the rewrite starts from, not the state of this branch.
 
-### Prerequisites
+## Getting started
 
-```bash
-# Rust toolchain (stable, ≥1.83)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
-
-# protoc (required for ps-grpc gRPC service)
-brew install protobuf        # macOS
-# apt-get install -y protobuf-compiler  # Ubuntu/Debian
-```
-
-### Build and test
-
-```bash
-cargo build --workspace          # build all crates
-cargo test --workspace           # run all 182 tests (≈60 s)
-cargo fmt --check                # verify formatting
-cargo clippy --workspace         # lint (24 style warnings, 0 errors)
-```
-
-### Run the gRPC plate-solver server
-
-```bash
-# Build a star-pattern database from HIP/TYC catalogs
-cargo run -p ps-dbgen -- \
-  --hip path/to/hip_main.dat \
-  --tyc path/to/tyc2.dat \
-  --output ps_database.bin
-
-# Start the gRPC server (default: 127.0.0.1:50051)
-cargo run -p ps-grpc -- --database ps_database.bin --address 127.0.0.1:50051
-```
-
-The server implements the `PlateSolver` gRPC service (`ps-grpc/proto/plate_solver.proto`) and
-is wire-compatible with the `cedar-detect` protocol for `ExtractCentroids`.
-
-For full build details, parity outcomes per feature, and fixture-recapture instructions, see
-[`openspec/IMPLEMENTATION-STATUS.md`](./openspec/IMPLEMENTATION-STATUS.md).
+1. Read `openspec/project.md` (conventions) and `openspec/PRD.md` (product requirements).
+2. Work capability-by-capability from `openspec/specs/`.
+3. Validate against `reference-solutions/` as each capability lands.
+4. A CI pipeline (quality / security / test gates) will be added once there is buildable
+   code to run it against.

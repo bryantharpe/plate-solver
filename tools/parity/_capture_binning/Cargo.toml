@@ -1,9 +1,0 @@
-[package]
-name = "capture-binning"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-image = { version = "=0.25.1", default-features = false, features = ["jpeg"] }
-ps-detect = { path = "../../../ps-detect" }
-serde_json = "1"

@@ -1,6 +1,0 @@
-numpy==1.26.4
-packaging==26.2
-pillow==12.3.0
-scipy==1.17.1
-setuptools==82.0.1
-wheel==0.47.0
