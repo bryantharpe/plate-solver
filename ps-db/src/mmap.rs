@@ -221,6 +221,18 @@ impl MmappedDatabase {
     }
 }
 
+impl MmappedDatabase {
+    /// Force an arbitrary star_table layout so the alignment check in
+    /// [`MmappedDatabase::star_table`] can be exercised. A real database file
+    /// always lands on an aligned offset, so this is the only way to reach the
+    /// error branch. Public (but hidden) because the test lives in `tests/`.
+    #[doc(hidden)]
+    pub fn set_star_table_layout_for_test(&mut self, offset: usize, count: usize) {
+        self.star_table_offset = offset;
+        self.star_table_count = count;
+    }
+}
+
 /// Load a database from the native binary format via memory mapping.
 ///
 /// Walks the header identically to `loader::load_native` but records byte
