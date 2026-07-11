@@ -5,7 +5,7 @@ use axum::extract::{Multipart, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use ps_solve::{Solution, SolveParams, SolveStatus};
+use ps_solve::{DetectParams, Solution, SolveParams, SolveStatus};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -332,7 +332,12 @@ pub async fn solve_handler(State(state): State<AppState>, mut multipart: Multipa
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
         let img = decode_image_bounded(&image_bytes)?.to_luma8();
-        Ok(ps_solve::solve_from_image(&db, &ps_detect::as_view(&img), &params))
+        Ok(ps_solve::solve_from_image(
+            &db,
+            &ps_detect::as_view(&img),
+            &params,
+            &DetectParams::default(),
+        ))
     })
     .await;
 

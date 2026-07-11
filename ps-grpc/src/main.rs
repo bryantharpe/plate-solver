@@ -4,6 +4,7 @@ use ps_grpc::plate_solver::plate_solver_server::PlateSolverServer;
 use ps_grpc::PlateSolverService;
 use std::path::Path;
 use tonic::transport::Server;
+use tonic_web::GrpcWebLayer;
 
 #[derive(Parser)]
 #[command(about = "PlateSolver gRPC service")]
@@ -28,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("PlateSolver gRPC listening on {}", addr);
     Server::builder()
         .accept_http1(true)
+        .layer(GrpcWebLayer::new())
         .add_service(PlateSolverServer::new(svc))
         .serve(addr)
         .await?;

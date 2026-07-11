@@ -21,3 +21,6 @@ clap = { workspace = true }
 [features]
 default = []
 kd-tree = ["kiddo"]
+# Reserved for future parallel kd-tree queries. Default OFF; OFF on mobile.
+# Marker only — no parallel code yet.
+rayon = []

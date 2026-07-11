@@ -10,6 +10,22 @@ use ps_detect::GrayImageView;
 use std::f64::consts::PI;
 use std::time::Instant;
 
+// --- Parallelism feature gate ----------------------------------------------
+// `rayon` is feature-gated and OFF by default (and OFF on mobile per PRD
+// §mobile-runtime). No parallel code is wired yet, but we statically assert
+// the types that would cross rayon thread boundaries are `Send + Sync` so a
+// future `#[cfg(feature = "rayon")]` parallel solve loop compiles without
+// trait-object surprises.
+#[cfg(feature = "rayon")]
+extern crate rayon as _;
+
+#[allow(dead_code)]
+fn _assert_thread_safety() {
+    fn check<T: Send + Sync>() {}
+    check::<SolveParams>();
+    check::<ps_db::Database>();
+}
+
 /// Status codes for a solve attempt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SolveStatus {
@@ -117,6 +133,26 @@ impl Default for SolveParams {
             fov_estimate: None,
             fov_max_error: None,
             cancel_flag: None,
+        }
+    }
+}
+
+/// Detection parameters forwarded from the client request.
+#[derive(Debug, Clone)]
+pub struct DetectParams {
+    pub sigma: f64,
+    pub binning: u32,
+    pub normalize_rows: bool,
+    pub detect_hot_pixels: bool,
+}
+
+impl Default for DetectParams {
+    fn default() -> Self {
+        DetectParams {
+            sigma: 4.0,
+            binning: 1,
+            normalize_rows: false,
+            detect_hot_pixels: true,
         }
     }
 }
@@ -661,17 +697,23 @@ fn breadth_first_combinations_4(n: usize) -> BreadthFirstCombinations4 {
 }
 
 /// Solve from a raw grayscale image (detects stars then solves).
-pub fn solve_from_image(db: &Database, image: &GrayImageView<'_>, params: &SolveParams) -> Solution {
+pub fn solve_from_image(
+    db: &Database,
+    image: &GrayImageView<'_>,
+    params: &SolveParams,
+    detect: &DetectParams,
+) -> Solution {
     let (width, height) = (image.width() as usize, image.height() as usize);
     // Time the extraction (detection + centroid collection); `solve_from_centroids`
     // measures only the solve region, so t_extract is stamped on its result.
     let t_extract_start = Instant::now();
     let (stars, _, _, _) = ps_detect::get_stars_from_image(
-        image, 1.0,   // noise_estimate (floored to NOISE_FLOOR internally)
-        4.0,   // sigma
-        false, // normalize_rows
-        1,     // binning
-        true,  // detect_hot_pixels
+        image,
+        1.0, // noise_estimate (floored to NOISE_FLOOR internally)
+        detect.sigma,
+        detect.normalize_rows,
+        detect.binning,
+        detect.detect_hot_pixels,
         false, // return_binned_image
     ).unwrap();
     let centroids: Vec<[f64; 2]> = stars
@@ -1603,7 +1645,12 @@ mod tests {
             solve_timeout: Some(120000),
             ..Default::default()
         };
-        let sol = solve_from_image(&db, &ps_detect::as_view(&img), &params);
+        let sol = solve_from_image(
+            &db,
+            &ps_detect::as_view(&img),
+            &params,
+            &DetectParams::default(),
+        );
 
         assert_eq!(
             sol.status,
@@ -1628,6 +1675,52 @@ mod tests {
             dec_err_arcsec,
             sol.dec,
             fixture.dec_deg
+        );
+    }
+
+    /// H2: solve_from_image forwards DetectParams — different sigma changes detection/solve output.
+    #[test]
+    fn h2_detect_params_forwarded() {
+        use ps_db::{importer, loader};
+        use tempfile::NamedTempFile;
+
+        let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let npz_path =
+            manifest.join("../reference-solutions/cedar-solve/tetra3/data/default_database.npz");
+        let db_imported = importer::import_npz(&npz_path).expect("import_npz");
+        let tmp = NamedTempFile::new().expect("tempfile");
+        loader::save_native(&db_imported, tmp.path()).expect("save_native");
+        let mut db = loader::load_native(tmp.path()).expect("load_native");
+        db.build_kd_tree();
+
+        let img_path = manifest.join(
+            "../reference-solutions/cedar-solve/examples/data/medium_fov/2019-07-29T204726_Alt40_Azi-135_Try1.jpg",
+        );
+        let img = image::open(&img_path).expect("open img").into_luma8();
+
+        let params = SolveParams {
+            solve_timeout: Some(120000),
+            ..Default::default()
+        };
+
+        let view = ps_detect::as_view(&img);
+        let sol_default = solve_from_image(&db, &view, &params, &DetectParams::default());
+        let sol_sigma8 = solve_from_image(
+            &db,
+            &view,
+            &params,
+            &DetectParams { sigma: 8.0, ..DetectParams::default() },
+        );
+
+        // sigma=8 (fewer stars) must produce a different outcome than sigma=4 (more stars).
+        // This assertion fails if solve_from_image ignores DetectParams and always uses sigma=4.
+        let same = sol_default.status == sol_sigma8.status
+            && sol_default.matches == sol_sigma8.matches;
+        assert!(
+            !same,
+            "sigma=4 and sigma=8 should differ in solve outcome; both returned {:?} with {} matches",
+            sol_default.status,
+            sol_default.matches
         );
     }
 
