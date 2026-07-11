@@ -1,0 +1,109 @@
+# Tier-2 verification — DEEP gates (scheduled nightly + manual).
+#
+# These are the slow, high-signal gates that would make PR CI painful if run on
+# every push: mutation testing, fuzzing, Miri, SBOM, and benchmarks. They run on
+# a schedule and are tracked (a regression opens an issue) rather than blocking a
+# single PR — except that a mutation-score drop SHOULD block a release.
+#
+# Reusable by construction: no repo-specific target names. Fuzz targets are
+# auto-discovered per fuzz dir; Miri runs workspace-wide. Tool versions are
+# PINNED (reproducible gates) — bump them deliberately, in a reviewed change.
+name: deep
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Pinned tool versions — proven against the canary. Bump deliberately.
+  CARGO_MUTANTS_VERSION: "27.1.0"
+  CARGO_FUZZ_VERSION: "0.13.2"
+  CARGO_AUDIT_VERSION: "0.22.2"
+  CARGO_CYCLONEDX_VERSION: "0.5.9"
+
+jobs:
+  mutation:
+    name: cargo-mutants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - run: cargo install cargo-mutants --version "$CARGO_MUTANTS_VERSION" --locked
+      # Fail if any viable mutant survives (tighten/loosen per crate maturity).
+      - run: cargo mutants --workspace --in-place --minimum-test-timeout 60
+
+  fuzz:
+    name: cargo-fuzz (smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # nightly
+        with: { toolchain: nightly }
+      - run: cargo install cargo-fuzz --version "$CARGO_FUZZ_VERSION" --locked
+      # Auto-discover every fuzz dir in the repo and smoke-run each of its
+      # targets for a bounded time. Repos with no fuzz dirs pass trivially
+      # (but log that fact — no silent-coverage illusion).
+      - name: Run all fuzz targets (bounded)
+        run: |
+          found=0
+          for fuzzdir in $(find . -type d -name fuzz -not -path '*/target/*' -not -path '*/.git/*'); do
+            crate_dir=$(dirname "$fuzzdir")
+            [ -f "$fuzzdir/Cargo.toml" ] || continue
+            found=1
+            echo "::group::fuzzing in $crate_dir"
+            (cd "$crate_dir" && for t in $(cargo +nightly fuzz list); do
+              cargo +nightly fuzz run "$t" -- -max_total_time=120
+            done)
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "::warning::no fuzz targets found in this repo — fuzz gate ran nothing"
+
+  miri:
+    name: miri (unsafe soundness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # nightly
+        with: { toolchain: nightly, components: miri }
+      # Workspace-wide. Exclude long-running proptest suites via MIRI_SKIP_CRATES
+      # (space-separated -p excludes) as a named, visible override.
+      - name: Miri
+        run: |
+          EXCLUDES=""
+          for c in ${MIRI_SKIP_CRATES:-}; do EXCLUDES="$EXCLUDES --exclude $c"; done
+          cargo +nightly miri test --workspace $EXCLUDES
+
+  supply-chain:
+    name: audit + SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - run: cargo install cargo-audit --version "$CARGO_AUDIT_VERSION" --locked
+      - run: cargo install cargo-cyclonedx --version "$CARGO_CYCLONEDX_VERSION" --locked
+      - name: Advisory DB freshness (independent of PR cadence)
+        run: cargo audit
+      - name: Generate SBOM (CycloneDX)
+        run: cargo cyclonedx -f json
+      # Phase-2 wiring: upload the SBOM with a SHA-pinned actions/upload-artifact.
+      # Left unpinned deliberately — do not ship an unverified SHA (U2). Pin the
+      # exact release commit when this workflow is enabled.
+      # - uses: actions/upload-artifact@<PIN-ME> # v4.x
+      #   with: { name: sbom, path: "**/*.cdx.json" }
+
+  bench:
+    name: criterion (perf tracking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      # Emits timings; wire to a perf-regression tracker (e.g. bencher.dev) to
+      # gate on regressions against the base branch.
+      - run: cargo bench --workspace
