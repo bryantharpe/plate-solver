@@ -1,7 +1,22 @@
 # grpc-service Specification
 
 ## Purpose
-TBD - created by archiving change feat-06-grpc-service. Update Purpose after archive.
+
+The consumer contract — the `PlateSolver` gRPC service through which integrators in any language
+reach the pipeline. Four RPCs: `ExtractCentroids` (image → centroids), `SolveFromCentroids`
+(centroids + FOV → solution), `SolveFromImage` (image + FOV → solution, detecting internally),
+and `GetInfo` (server/database metadata). It reuses cedar-detect's `Image` / `ImageCoord` message
+shapes so the two services interoperate on the wire.
+
+This is the boundary where two kinds of drift are caught. **Coordinate drift:** gRPC speaks
+`(x, y)` and the solver speaks `(y, x)` — the swap happens here and nowhere else. **Detection
+drift:** `SolveFromImage` is the only RPC that detects server-side, so it must honor the client's
+detection parameters and estimate noise from the image exactly as `ExtractCentroids` does. If the
+two paths disagree about detection, the same image solves through one and fails through the
+other — which is a correctness bug at the public API, not a performance quirk.
+
+The service also offers a shared-memory fast path for large images, with an inline fallback that
+must always work.
 ## Requirements
 ### Requirement: PlateSolver service surface
 

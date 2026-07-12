@@ -1,7 +1,7 @@
 ## Context
 
-`ps-mobile` is where "runs on a phone" becomes a contract. The heavy lifting is in
-`ps-detect`/`ps-solve`/`ps-db`; this crate is the embedding shell: bindings, the mmap database
+`mobile-runtime` is where "runs on a phone" becomes a contract. The heavy lifting is in
+`star-detection`/`plate-solver`/`pattern-database`; this capability is the embedding shell: bindings, the mmap database
 path, the budgets, the threading model, and packaging. The reference quotes the numbers we scale
 from — cedar-detect <10 ms/Mpx on RPi-4B, cedar ~10 ms/solve on desktop (docs 04/06/08) — and the
 PRD fixes the non-functional envelope.

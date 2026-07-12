@@ -88,39 +88,41 @@ Feature dependency order (implementation order): `math-core` → `star-detection
 - **Diagonal FOV** = `fov · √(w²+h²)/w`.
 - gRPC `ImageCoord` is `(x, y)`; the solver wants `(y, x)` — swap at the service boundary.
 
-## 5. Rust architecture & dependency decisions
+## 5. Binding constraints
 
-Cargo **workspace** of focused crates (one per feature, plus shared core):
+These are **constraints, not design decisions.** They are fixed by the parity contract, the
+proto files, or the PRD — violate one and the system is wrong. Everything *not* listed here is
+open: the module/crate structure, the dependency choices, and the internal interfaces are for the
+implementation to determine from the capability specs. This document does not prescribe them.
 
-| Crate | Feature | Responsibility |
-|---|---|---|
-| `ps-core` | `math-core` | geometry, projection, distortion, Wahba/SVD attitude, edge-ratio key + hashing, false-alarm test, residuals |
-| `ps-detect` | `star-detection` | cedar-detect Rust pipeline (image → brightest-first `(y,x)` centroids) |
-| `ps-db` | `pattern-database` | on-disk DB format, loader, star KD-tree, hash lookup + pre-filters |
-| `ps-dbgen` | `database-generation` | offline catalog parse → pattern enumeration → DB serialization (CLI) |
-| `ps-solve` | `plate-solver` | identification + attitude recovery engine |
-| `ps-grpc` | `grpc-service` | tonic/prost `PlateSolver` server (ExtractCentroids/SolveFromCentroids/SolveFromImage/GetInfo) |
-| `ps-mobile` | `mobile-runtime` | UniFFI bindings, mmap DB, perf budgets, iOS/Android packaging |
+**Numerics (fixed by parity):**
 
-Default dependency choices (rationale in each feature's `design.md`; revisit per crate):
+- Compute in **f64**; store database vectors as **f32** (the reference dtype). Tolerances will not
+  line up otherwise.
+- Angles via `2·arcsin(d/2)` everywhere — never `arccos` (small-angle conditioning).
+- `pattern_bins = round(1/(4·pattern_max_error))`.
+- Hash table index uses the magic constant `_MAGIC_RAND = 2654435761` (⌊2³²/φ⌋, Knuth
+  multiplicative hash). This is not a tuning knob — the reference's table layout depends on it.
+- The false-alarm statistic must be the same one the reference uses.
 
-- **Linear algebra / SVD:** `nalgebra` (has `SVD`, fixed-size 3×3 matrices). Compute in **f64**;
-  store DB vectors as **f32** (parity with reference dtype).
-- **KD-tree:** a maintained crate (e.g. `kiddo`) for nearest / radius queries over unit vectors.
-- **gRPC:** `tonic` + `prost` (matching cedar-detect's stack: tonic 0.11 / prost 0.12), `tonic-web`
-  for gRPC-Web, `prost-types` for `Duration`; build via `tonic-build` in `build.rs`.
-- **Image I/O:** `image` crate (cedar-detect uses 0.25); detection operates on 8-bit grayscale.
-- **Memory-mapped DB:** `memmap2` (for narrow-FOV / too-big-for-RAM, linear-probe tables).
-- **Parallelism:** optional `rayon`, feature-gated and bounded — **off / constrained on mobile**.
-- **Mobile FFI:** `uniffi` (Rust ↔ Swift/Kotlin) as an alternative to an on-device network hop.
-- **Magic constant:** `_MAGIC_RAND = 2654435761` (⌊2³²/φ⌋, Knuth multiplicative hash) for the
-  quadratic-probe table index.
+**Interfaces (fixed by the contracts in `proto/`):**
+
+- The gRPC surface must interoperate with **cedar-detect's** wire format — it reuses cedar-detect's
+  `Image` / `ImageCoord` message shapes. Wire compatibility is the requirement; the server library
+  is not specified.
+- gRPC `ImageCoord` is `(x, y)`; the solver works in `(y, x)`. Swap at the service boundary.
+
+**Product (fixed by the PRD):**
+
+- Detection input is **8-bit grayscale**. Higher bit depths are out of scope.
+- The database must be **memory-mappable** — narrow-FOV databases will not fit in phone RAM.
+- **UniFFI** bindings (Rust ↔ Swift/Kotlin) are the in-process mobile embedding path, as an
+  alternative to an on-device network hop.
+- Parallelism, if used, must be bounded and **off or constrained on mobile**.
 
 **Numerical parity is a correctness contract:** specs assert results match the Python reference
 (tetra3/cedar) within stated tolerances (RA/Dec within arcseconds, centroids within ~±0.1 px,
-identical matched catalog IDs). Keep the `2·arcsin(d/2)` angle convention, the same
-`pattern_bins = round(1/(4·pattern_max_error))`, and the same false-alarm statistic everywhere
-or tolerances won't line up.
+identical matched catalog IDs).
 
 ## 6. Glossary
 

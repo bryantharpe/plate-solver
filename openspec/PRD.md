@@ -63,26 +63,29 @@ matched stars.*
 
 ## Functional Scope (the 7 feature capabilities)
 
-Delivered as one OpenSpec change per capability, in dependency order:
+In dependency order. Capabilities 1–6 are specified in `openspec/specs/`; `mobile-runtime` is
+still an open change under `openspec/changes/`.
 
-1. **`math-core`** (`feat-01-foundation-math-core`) — coordinate/vector math, `2·arcsin(d/2)` angles,
-   pinhole projection, distortion, Wahba/SVD attitude + RA/Dec/Roll, edge-ratio pattern key +
-   64-bit hash + table index + open-addressing, centroid-distance ordering, binomial
-   false-alarm test, residuals.
-2. **`star-detection`** (`feat-02-star-detection`) — cedar-detect Rust pipeline: noise estimation,
-   binning cascade, 1-D 7-pixel row gate, hot-pixel rejection, blob formation, 2-D gate,
-   sub-pixel centroid, brightness ordering.
-3. **`pattern-database`** (`feat-03-pattern-database`) — on-disk DB format, loader, star KD-tree,
-   key→index hash lookup with 16-bit and largest-edge/FOV pre-filters.
-4. **`database-generation`** (`feat-04-database-generation`) — offline: catalog parsing (BSC5/HIP/TYC),
-   proper motion, density thinning, Fibonacci lattice-field pattern enumeration, hashing,
-   serialization.
-5. **`plate-solver`** (`feat-05-plate-solver`) — identification + attitude recovery engine: prep,
-   candidate generation, verification, refinement, outputs, status codes.
-6. **`grpc-service`** (`feat-06-grpc-service`) — the `PlateSolver` gRPC API, message schemas, the
-   `(x,y)↔(y,x)` boundary, shared-memory fast path with inline fallback.
-7. **`mobile-runtime`** (`feat-07-mobile-runtime`) — on-device embedding, UniFFI bindings, mmap DB,
-   performance/memory budgets, threading, packaging.
+1. **`math-core`** — coordinate/vector math, `2·arcsin(d/2)` angles, pinhole projection,
+   distortion, Wahba/SVD attitude + RA/Dec/Roll, edge-ratio pattern key + 64-bit hash + table
+   index + open-addressing, centroid-distance ordering, binomial false-alarm test, residuals.
+2. **`star-detection`** — cedar-detect Rust pipeline: noise estimation, binning cascade, 1-D
+   7-pixel row gate, hot-pixel rejection, blob formation, 2-D gate, sub-pixel centroid,
+   brightness ordering.
+3. **`pattern-database`** — on-disk DB format, loader, star KD-tree, key→index hash lookup with
+   16-bit and largest-edge/FOV pre-filters.
+4. **`database-generation`** — offline: catalog parsing (BSC5/HIP/TYC), proper motion, density
+   thinning, Fibonacci lattice-field pattern enumeration, hashing, serialization.
+5. **`plate-solver`** — identification + attitude recovery engine: prep, candidate generation,
+   verification, refinement, outputs, status codes.
+6. **`grpc-service`** — the `PlateSolver` gRPC API, message schemas, the `(x,y)↔(y,x)` boundary,
+   shared-memory fast path with inline fallback.
+7. **`mobile-runtime`** — on-device embedding, UniFFI bindings, mmap DB, performance/memory
+   budgets, threading, packaging.
+
+These name *capabilities*, not modules. How they are decomposed into crates and internal
+interfaces is for the implementation to determine — see `project.md` §5, which lists the binding
+constraints and nothing beyond them.
 
 ## Non-Functional Requirements
 

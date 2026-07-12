@@ -1,6 +1,6 @@
 ## 1. Crate & bindings
 
-- [ ] 1.1 Create the `ps-mobile` crate depending on `ps-detect`, `ps-solve`, `ps-db` (+ optional `ps-grpc`) and `uniffi`
+- [ ] 1.1 Establish the mobile-runtime embedding layer over the `star-detection`, `plate-solver`, and `pattern-database` capabilities (optionally `grpc-service`), with UniFFI
 - [ ] 1.2 Define the UniFFI interface (DB handle, `solve_from_image`, `Solution` mapping) and generate Swift/Kotlin scaffolding
 
 ## 2. Database & memory

@@ -1,7 +1,17 @@
 # star-detection Specification
 
 ## Purpose
-TBD - created by archiving change feat-02-star-detection. Update Purpose after archive.
+
+The front half of the pipeline: turn an 8-bit grayscale sky image into a brightest-first list of
+sub-pixel `(y, x)` star centroids. It estimates noise from the image itself, runs a binning
+cascade, gates candidate pixels in one dimension and then two, rejects hot pixels, forms blobs,
+computes sub-pixel centroids, and orders the result by brightness.
+
+The solver consumes only this list — it never sees the image. That makes detection quality the
+ceiling on solve quality: too few centroids, or centroids found at the wrong threshold, and the
+image will not solve no matter how good the identification is. The noise estimate in particular
+is load-bearing, because it sets the detection threshold; it must be derived from the image and
+never assumed. Parity is against cedar-detect (centroids within ~±0.1 px).
 ## Requirements
 ### Requirement: Input and output contract
 

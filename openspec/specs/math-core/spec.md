@@ -1,7 +1,18 @@
 # math-core Specification
 
 ## Purpose
-TBD - created by archiving change feat-01-foundation-math-core. Update Purpose after archive.
+
+The shared numerical foundation every other capability computes on: conversion between
+`(RA, Dec)` and unit vectors, angular distance via `2·arcsin(d/2)`, pinhole projection and its
+inverse, radial lens distortion both ways, attitude determination from matched vectors
+(Wahba/SVD) and its decomposition to RA/Dec/Roll, the rotation- and scale-invariant edge-ratio
+pattern key with its hash and table index, FOV estimation and refinement, the binomial
+false-alarm test, and residual statistics.
+
+Nothing here is astronomy-specific policy — it is the math the detector, the database, the
+generator, and the solver all share, and it is where numerical parity with the Python reference
+is won or lost. Its tolerances are the tightest in the spec set precisely because every other
+capability inherits its error.
 ## Requirements
 ### Requirement: Celestial unit-vector conversion
 

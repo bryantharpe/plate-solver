@@ -1,7 +1,17 @@
 # database-generation Specification
 
 ## Purpose
-TBD - created by archiving change feat-04-database-generation. Update Purpose after archive.
+
+The write side of the sky index, and the only part of the system that runs offline. It parses a
+star catalog (BSC5 / Hipparcos / Tycho), propagates proper motion to the target epoch, applies
+magnitude limiting and cleanup, thins dense regions so no patch of sky dominates, enumerates
+4-star patterns across a multiscale FOV ladder using lattice fields, hashes each pattern by its
+edge-ratio key, and serializes the result into the format `pattern-database` reads.
+
+Generation is **deterministic**: the same catalog and parameters must produce a byte-identical
+database, because the database is a build artifact that gets bundled into a shipped app and must
+be reproducible. It is exposed as a CLI, runs on a workstation rather than a phone, and is never
+on the solve path.
 ## Requirements
 ### Requirement: Star catalog parsing
 
@@ -120,7 +130,7 @@ The system SHALL serialize `star_table`, `pattern_catalog`, `pattern_largest_edg
 holds the max star index. (Ref: doc 05 §6–7.)
 
 #### Scenario: Round-trips through the loader
-- **WHEN** a generated database is written and then loaded by `ps-db`
+- **WHEN** a generated database is written and then read back by the `pattern-database` loader
 - **THEN** all arrays and properties read back identically
 
 ### Requirement: Deterministic, offline generation
