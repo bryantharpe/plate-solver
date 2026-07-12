@@ -1,7 +1,17 @@
 # pattern-database Specification
 
 ## Purpose
-TBD - created by archiving change feat-03-pattern-database. Update Purpose after archive.
+
+The read side of the precomputed sky index: the on-disk database format and everything needed to
+query it at solve time. It defines the file layout and properties record, deserialization
+(including legacy fallbacks), the catalog-star KD-tree for nearby-star queries, and the lookup
+path from a pattern key to a set of candidate patterns — hash to table index, open-addressing
+probe, then the cheap rejection filters (16-bit key pre-filter, largest-edge/FOV bound,
+edge-ratio band test) that keep the candidate set small.
+
+It must support **memory-mapped** loading: a narrow-FOV database is far too large to hold in
+phone RAM, and the product target is a phone. This capability is read-only — the database is
+built offline by `database-generation`.
 ## Requirements
 ### Requirement: On-disk database layout
 

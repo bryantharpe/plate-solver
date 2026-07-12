@@ -1,7 +1,22 @@
 # plate-solver Specification
 
 ## Purpose
-TBD - created by archiving change feat-05-plate-solver. Update Purpose after archive.
+
+The identification engine — the half of the pipeline that turns centroids into an attitude, with
+**no prior pointing knowledge** (the *lost-in-space* problem). Given a brightest-first centroid
+list, an image size, and a rough FOV, it recovers where the camera was pointing: RA, Dec, Roll,
+plus refined FOV and lens distortion, and optionally the catalog identity and pixel position of
+every matched star.
+
+It works in two stages, and the split is the whole trick. Cheap **geometric candidate
+generation** hashes 4-star patterns by their edge ratios and pulls candidates from the database.
+Then **authoritative verification** recovers a trial attitude, projects the full catalog
+neighborhood back into the image, counts matches, and accepts or rejects on a **binomial
+false-alarm test** — so a candidate is confirmed by evidence the geometric hash never saw. The
+false-alarm test is what makes the solver trustworthy rather than merely fast: without it, a
+lucky hash collision is indistinguishable from a real match.
+
+Bounded by `solve_timeout`, and reports a status code on failure rather than guessing.
 ## Requirements
 ### Requirement: Solve inputs and defaults
 
