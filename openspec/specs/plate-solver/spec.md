@@ -12,6 +12,15 @@ and a `solve_from_image` wrapper that extracts centroids first and records extra
 `fov_estimate` is absent, the system SHALL start from the database FOV-range midpoint. (Ref:
 doc 06 §1–2; doc 08 §2.)
 
+`solve_from_image` SHALL take explicit detection parameters (`DetectParams`: `sigma`,
+`noise_estimate`, `binning`, `normalize_rows`, `detect_hot_pixels`, `return_binned`,
+`use_binned_for_star_candidates`) and pass them through to the detection call. It SHALL NOT
+hardcode detection parameters. `noise_estimate` SHALL be optional; when the caller does not
+supply one, the system SHALL estimate noise **from the input image** — the same estimation the
+centroid-extraction path performs — and SHALL NOT substitute a constant. Detection parameters
+affect detection only: the search loop, verification, attitude recovery, and `combos_examined`
+are unaffected by them. (Ref: doc 06 §1–2; doc 08 §2; doc 04 §noise estimation.)
+
 #### Scenario: Brightest-first requirement
 - **WHEN** centroids are supplied
 - **THEN** the solver treats them as brightest-first and searches bright stars first
@@ -19,6 +28,22 @@ doc 06 §1–2; doc 08 §2.)
 #### Scenario: Default FOV from DB range
 - **WHEN** no `fov_estimate` is provided
 - **THEN** `fov_initial` is the midpoint of the database `[min_fov, max_fov]`
+
+#### Scenario: Explicit detection parameters honored
+- **WHEN** `solve_from_image` is called with `DetectParams { sigma: 8.0, binning: 2, … }`
+- **THEN** the internal detection call receives `sigma=8.0`, `binning=2`, and the caller's other
+  detection fields — not substituted defaults
+
+#### Scenario: Noise estimated from the image, never a constant
+- **WHEN** `solve_from_image` runs without an explicit `noise_estimate`
+- **THEN** the detection noise estimate is derived from the input image — the same value the
+  extraction path would report for that image
+- **AND** it is not a fixed constant such as `1.0`
+
+#### Scenario: Detection parameters do not perturb solve math
+- **WHEN** `solve_from_image` and `solve_from_centroids` are run on the same resulting centroids
+- **THEN** the search loop, verification, attitude recovery, and `combos_examined` agree —
+  detection parameters change which centroids are found, not how they are solved
 
 ### Requirement: Preparation
 
