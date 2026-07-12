@@ -36,3 +36,10 @@ large_stack_arrays = "warn"
 # Code quality
 cloned_instead_of_copied = "warn"
 redundant_clone = "warn"
+
+# cargo-machete cannot see through tonic/prost codegen: prost is consumed by the
+# gRPC code that build.rs generates into OUT_DIR (prost::Message impls), so the
+# "unused dependency" finding is a false positive. Metadata-only ignore; the
+# reference oracle's behavior is unchanged. (bead: ps-txu)
+[package.metadata.cargo-machete]
+ignored = ["prost"]
