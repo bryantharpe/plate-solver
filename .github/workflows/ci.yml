@@ -3,7 +3,7 @@
 # Derived from bryantharpe/agent-standards rust/ci/ci.yml (to be subtree-imported
 # as standards/ once standards-sync exists; this is the direct install).
 #
-# GATED ON BUILDABLE CODE: the rewrite branch starts spec-only. The `detect` job
+# GATED ON BUILDABLE CODE: main starts spec-only (the specs-only rewrite). The `detect` job
 # checks for a root Cargo.toml; every cargo job skips cleanly until the first
 # crate lands (GitHub treats skipped required checks as satisfied), so branch
 # protection can require all jobs TODAY and the gates arm themselves the moment
@@ -15,7 +15,7 @@ name: ci
 
 on:
   push:
-    branches: [main, rewrite]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
