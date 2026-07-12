@@ -24,8 +24,17 @@ Everything that is *implementation* rather than *specification*: all `ps-*` crat
 Cargo workspace and lockfile, `rust-toolchain.toml`, the `tools/` and `notes/` directories,
 the v1 planning docs, and the `.claude/` tooling. These are rebuilt from scratch.
 
-> `openspec/STATUS.md` and `openspec/IMPLEMENTATION-STATUS.md` describe **v1's** status —
-> treat them as the baseline the rewrite starts from, not the state of this branch.
+Also removed: every artifact that reported **v1's implementation status** — `openspec/STATUS.md`,
+`openspec/IMPLEMENTATION-STATUS.md`, `CODEBASE-REVIEW.md`, and the two changes written against
+v1's now-deleted code (`feat-09-eval-harness`, whose tasks were checked off against a `tools/parity/`
+harness that no longer exists, and `feat-10-solve-from-image-detect-params`, a patch for a defect
+in deleted code). They described code that does not exist on this branch, and an agent reading them
+would build against an API that was never here. Their surviving *requirements* were folded into
+`openspec/specs/` rather than dropped — see the `plate-solver` and `grpc-service` specs on detection
+parameters and image-estimated noise.
+
+**No code exists on this branch.** Nothing here reports implementation progress; the rewrite's
+progress is tracked in beads (`ps-*`), not in `openspec/`.
 
 ## Getting started
 
