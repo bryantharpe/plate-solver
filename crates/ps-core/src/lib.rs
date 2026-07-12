@@ -99,12 +99,7 @@ mod tests {
 
     #[test]
     fn round_trip_is_identity() {
-        let cases = [
-            (0.0, 0.0),
-            (PI, FRAC_PI_2 - 0.1),
-            (3.0, -0.5),
-            (6.0, 0.78),
-        ];
+        let cases = [(0.0, 0.0), (PI, FRAC_PI_2 - 0.1), (3.0, -0.5), (6.0, 0.78)];
         for (ra, dec) in cases {
             let v = UnitVector::from_radec(ra, dec);
             let (ra_out, dec_out) = v.to_radec();
