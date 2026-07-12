@@ -79,14 +79,16 @@ PR opened by the author polecat
   │     semver-checks · cargo-deny(4) · secret-scan · differential/parity
   │
   ▼  ② INDEPENDENT REVIEW — authoritative
-  │     an Opus (cloud-Claude) adversarial review pass. Opus is a DIFFERENT
-  │     model lineage than the qwen/glm authors, which removes the
-  │     self-selection-bias objection: the reviewer and author are not the
-  │     same reasoner.
+  │     an adversarial review by the `judge` role (glm-5.2, Zhipu), a DIFFERENT
+  │     model lineage than every author seat (qwen/Alibaba, kimi/Moonshot),
+  │     which removes the self-selection-bias objection: the reviewer and
+  │     author are not the same reasoner. The verdict is published as the
+  │     required status check `review/judge`; absence fails closed.
   │
   ▼  ③ HUMAN SIGN-OFF — only when required
-  │     • the change touches a CRITICAL PATH (declared in the overlay below), or
-  │     • the Opus review dissents.
+  │     • the change touches a CRITICAL PATH (declared in the overlay below),
+  │     • the judge dissents until the retry bound is exhausted, or
+  │     • a human overrides a dissent (recorded, with reason — never a bypass).
   │     Otherwise ② is sufficient and the merge is autonomous.
   │
   ▼  MERGE  (enforcement mechanism: branch protection — required checks;
@@ -105,12 +107,11 @@ lands, and never let it claim more than what is enforced.
 
 | Layer | Status |
 |-------|--------|
-| Branch protection, `rewrite` | **ENFORCED** — 9 required checks from `ci.yml`; enforced for admins; force-push and deletion disabled. Blanket required review **removed 2026-07-12 by ratified decision** (checks-only merges). Interim gap, stated plainly: until the cargo jobs arm and `review/opus` is wired, a merge is gated by detect + secret-scan alone. |
-| Branch protection, `main` | **LOCKED** read-only — frozen at v1-original + PR #10 (two test files + one `#[doc(hidden)]` test accessor). |
-| Fast Tier-2 CI (① — `ci.yml`) | **INSTALLED, self-arming** — detect + secret-scan run now; the cargo jobs skip-satisfy until a root `Cargo.toml` exists, then fire automatically. Armed, not yet firing. |
-| Independent Opus review (②) | **SPECIFIED ONLY** — mechanism in [`standards/universal/OPUS-REVIEW.md`](./standards/universal/OPUS-REVIEW.md); no `review/opus` status check exists yet, and it is not in the required-checks list. Until wired, ② happens out-of-band or not at all — do not read this doc as claiming it runs. |
+| Branch protection, `main` | **ENFORCED** — **10 required checks** (`ci.yml`'s 9 + `review/judge`); enforced for admins; force-push and deletion disabled. Blanket required review removed 2026-07-12 by ratified decision (checks-only merges). `main` became the one working branch on 2026-07-12: the orphan `rewrite` branch converged into it (merge `f93eaf8`, tree identical to the rewrite tip) and was deleted; v1 remains reachable as the merge's second parent and under tag **`v1`**. |
+| Independent review (② — `review/judge`) | **ENFORCED at the branch-protection level** — a PR whose head SHA lacks a passing `review/judge` status cannot merge; absence fails closed. The reviewer (`judge` role, glm-5.2 — a different lineage than every author seat) runs town-side; only the verdict is published. Proven on canary PR #16 (blocked with 9/10 satisfied → judge APPROVE → mergeable; closed unmerged as the test record). The in-situ refinery dissent loop (FIX_NEEDED → resubmit) is armed but unexercised until a `Cargo.toml` and honest `test_command` exist. |
+| Fast Tier-2 CI (① — `ci.yml`) | **INSTALLED, self-arming** — detect + secret-scan run now; the cargo jobs skip-satisfy until a root `Cargo.toml` exists, then fire automatically. Armed, not yet firing. Until they arm, a merge is gated by detect + secret-scan + the judge's verdict. |
 | Deep nightly gates (`deep.yml`) | **NOT INSTALLED.** |
-| Standards subtree | `standards/` pinned at **agent-standards v1.0**. |
+| Standards subtree | `standards/` pinned at **agent-standards v1.0** (v1.1 — the judge-role U3 — is released upstream; adoption is a deliberate subtree bump, not yet taken, so `standards/universal/OPUS-REVIEW.md` here still shows the v1.0 Opus mechanism). |
 
 ## Where the human is in the loop
 
@@ -134,7 +135,7 @@ Every merged line traces backward through an unbroken chain:
 
 ```
 approved openspec change  →  bead  →  polecat branch  →  PR
-   →  green Tier-2 CI run  →  independent Opus review  →  (human sign-off if required)
+   →  green Tier-2 CI run  →  independent `judge` review  →  (human sign-off if required)
       →  merge commit
 ```
 
