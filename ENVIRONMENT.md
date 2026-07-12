@@ -89,22 +89,23 @@ PR opened by the author polecat
   │     • the Opus review dissents.
   │     Otherwise ② is sufficient and the merge is autonomous.
   │
-  ▼  MERGE  (enforcement mechanism: branch protection — required checks +
-             required review; live on this repo, see enforcement status below)
+  ▼  MERGE  (enforcement mechanism: branch protection — required checks;
+             human review only via ③, not as a blanket rule; live on this
+             repo, see enforcement status below)
 ```
 
 Nightly, the **deep** gates (`standards/rust/ci/deep.yml`) run mutation testing,
 fuzzing, Miri, SBOM, and benchmarks. A mutation-score drop or a fuzz crash blocks
 the next release.
 
-## Enforcement status — this rig, as of 2026-07-11
+## Enforcement status — this rig, as of 2026-07-12
 
 Every claim below is true at time of writing; update this section as wiring
 lands, and never let it claim more than what is enforced.
 
 | Layer | Status |
 |-------|--------|
-| Branch protection, `rewrite` | **ENFORCED** — 9 required checks from `ci.yml` + required review; enforced for admins; force-push and deletion disabled. |
+| Branch protection, `rewrite` | **ENFORCED** — 9 required checks from `ci.yml`; enforced for admins; force-push and deletion disabled. Blanket required review **removed 2026-07-12 by ratified decision** (checks-only merges). Interim gap, stated plainly: until the cargo jobs arm and `review/opus` is wired, a merge is gated by detect + secret-scan alone. |
 | Branch protection, `main` | **LOCKED** read-only — frozen at v1-original + PR #10 (two test files + one `#[doc(hidden)]` test accessor). |
 | Fast Tier-2 CI (① — `ci.yml`) | **INSTALLED, self-arming** — detect + secret-scan run now; the cargo jobs skip-satisfy until a root `Cargo.toml` exists, then fire automatically. Armed, not yet firing. |
 | Independent Opus review (②) | **SPECIFIED ONLY** — mechanism in [`standards/universal/OPUS-REVIEW.md`](./standards/universal/OPUS-REVIEW.md); no `review/opus` status check exists yet, and it is not in the required-checks list. Until wired, ② happens out-of-band or not at all — do not read this doc as claiming it runs. |
