@@ -121,6 +121,91 @@ fn atan2_mod_tau(y: f64, x: f64) -> f64 {
     }
 }
 
+/// Pinhole camera parameters.
+///
+/// `fov` is the horizontal field of view in radians; `width` and `height` are
+/// the image dimensions in pixels. Pixel coordinates use `(y, x)` with
+/// `(0.5, 0.5)` at the top-left pixel center.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PinholeCamera {
+    /// Horizontal field of view in radians.
+    pub fov: f64,
+    /// Image width in pixels.
+    pub width: f64,
+    /// Image height in pixels.
+    pub height: f64,
+}
+
+impl PinholeCamera {
+    /// Create a new pinhole camera from width, height, and horizontal FOV.
+    pub fn new(width: f64, height: f64, fov: f64) -> Self {
+        Self { width, height, fov }
+    }
+
+    /// Horizontal pixel scale factor: `2·tan(fov/2)/width`.
+    fn scale_factor(&self) -> f64 {
+        2.0 * (self.fov / 2.0).tan() / self.width
+    }
+
+    /// Image center `(y, x)` = `[height/2, width/2]`.
+    fn center(&self) -> (f64, f64) {
+        (self.height / 2.0, self.width / 2.0)
+    }
+
+    /// Map pixel centroids `(y, x)` to camera-frame unit vectors `(i, j, k)`.
+    ///
+    /// The boresight is `i`. For each centroid:
+    /// * `k = (height/2 - y) * scale_factor`
+    /// * `j = (width/2 - x) * scale_factor`
+    /// * `i = 1`
+    ///
+    /// The resulting `(i, j, k)` vector is normalized to unit length.
+    /// Centroids that produce a zero-length vector return `None`.
+    pub fn unproject(&self, centroids: &[(f64, f64)]) -> Vec<Option<UnitVector>> {
+        let scale = self.scale_factor();
+        let (cy, cx) = self.center();
+        centroids
+            .iter()
+            .map(|&(y, x)| {
+                let k = (cy - y) * scale;
+                let j = (cx - x) * scale;
+                let i = 1.0;
+                UnitVector { x: i, y: j, z: k }.normalize()
+            })
+            .collect()
+    }
+
+    /// Map derotated camera-frame vectors back to pixel coordinates.
+    ///
+    /// For each vector with positive boresight component (`i > 0`):
+    /// * `scale_factor = -width / (2·tan(fov/2))`
+    /// * `y = height/2 + scale_factor * k / i`
+    /// * `x = width/2 + scale_factor * j / i`
+    ///
+    /// Returns the pixel coordinates and the indices of vectors that fall inside
+    /// the image (`0 < y < height`, `0 < x < width`). Vectors with `i <= 0`
+    /// (behind the camera) are excluded.
+    pub fn project(&self, vectors: &[UnitVector]) -> (Vec<(f64, f64)>, Vec<usize>) {
+        let scale = -self.width / (2.0 * (self.fov / 2.0).tan());
+        let (cy, cx) = self.center();
+        let mut pixels = Vec::with_capacity(vectors.len());
+        let mut keep = Vec::new();
+        for (idx, v) in vectors.iter().enumerate() {
+            if v.x <= 0.0 {
+                pixels.push((f64::NAN, f64::NAN));
+                continue;
+            }
+            let y = cy + scale * v.z / v.x;
+            let x = cx + scale * v.y / v.x;
+            if y > 0.0 && y < self.height && x > 0.0 && x < self.width {
+                keep.push(idx);
+            }
+            pixels.push((y, x));
+        }
+        (pixels, keep)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,5 +289,85 @@ mod tests {
         let dy = a.y - b.y;
         let dz = a.z - b.z;
         (dx * dx + dy * dy + dz * dz).sqrt()
+    }
+
+    #[test]
+    fn pinhole_image_center_maps_to_boresight() {
+        let cam = PinholeCamera::new(1024.0, 768.0, 1.2);
+        let center = (cam.height / 2.0, cam.width / 2.0);
+        let v = cam.unproject(&[center])[0].expect("center should unproject");
+        assert!((v.x - 1.0).abs() < 1e-12, "i (x) = {}", v.x);
+        assert!(v.y.abs() < 1e-12, "j (y) = {}", v.y);
+        assert!(v.z.abs() < 1e-12, "k (z) = {}", v.z);
+    }
+
+    #[test]
+    fn pinhole_horizontal_edge_maps_to_tan_half_fov() {
+        let fov = 1.2;
+        let cam = PinholeCamera::new(1024.0, 768.0, fov);
+        // Horizontal edge: half-width from center in x.
+        // Center x = width/2; edge x = width/2 + width/2 = width.
+        let edge = (cam.height / 2.0, cam.width);
+        let raw = UnitVector {
+            x: 1.0,
+            y: (cam.width / 2.0 - cam.width) * cam.scale_factor(),
+            z: 0.0,
+        };
+        let v = cam.unproject(&[edge])[0].expect("edge should unproject");
+        // Before normalization: j = (width/2 - width) * scale = -width/2 * scale = -tan(fov/2).
+        // Recover the pre-normalization j component by multiplying the unit vector's y by the raw norm.
+        let expected_tan = (fov / 2.0).tan();
+        let j_before = v.y * raw.norm();
+        assert!(
+            (j_before.abs() - expected_tan).abs() < 1e-12,
+            "|j| before normalization = {}, expected tan(fov/2) = {}",
+            j_before.abs(),
+            expected_tan
+        );
+    }
+
+    #[test]
+    fn pinhole_projection_inverts_unprojection() {
+        let cam = PinholeCamera::new(1024.0, 768.0, 1.2);
+        // Pick an in-frame centroid away from the center and edges.
+        let original = (300.5, 400.5);
+        let v = cam.unproject(&[original])[0].expect("should unproject");
+        let (pixels, keep) = cam.project(&[v]);
+        assert_eq!(keep.len(), 1, "in-frame vector should be kept");
+        let recovered = pixels[keep[0]];
+        assert!(
+            (recovered.0 - original.0).abs() < 1e-9,
+            "y diff = {}",
+            recovered.0 - original.0
+        );
+        assert!(
+            (recovered.1 - original.1).abs() < 1e-9,
+            "x diff = {}",
+            recovered.1 - original.1
+        );
+    }
+
+    #[test]
+    fn pinhole_behind_camera_vectors_are_dropped() {
+        let cam = PinholeCamera::new(1024.0, 768.0, 1.2);
+        let behind = UnitVector {
+            x: -1.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let front = UnitVector {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let (pixels, keep) = cam.project(&[behind, front]);
+        // The front vector projects to the image center and is kept.
+        assert_eq!(
+            pixels.len(),
+            2,
+            "both vectors should produce pixel coordinates"
+        );
+        assert_eq!(keep.len(), 1, "only the front vector should be in-frame");
+        assert_eq!(keep[0], 1, "kept index should be the front vector");
     }
 }
