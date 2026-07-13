@@ -87,3 +87,4 @@ history or as a note — it survives as a **requirement and a regression scenari
 3. Validate against `reference-solutions/` as each capability lands.
 4. A CI pipeline (quality / security / test gates) will be added once there is buildable
    code to run it against.
+# test
