@@ -94,17 +94,40 @@ say ""
 # the strongest possible signal that an implementation both existed and was
 # withdrawn — exactly the thing an agent might go digging for — and relying on a
 # human to remember to add it to a text file is how this gate quietly rots.
+#
+# THE LIST IS NOT IN THE REPO ANY MORE. It used to live in
+# .github/provenance-priors.txt, and on 2026-07-13 a polecat on a from-specs bead
+# ran `cat .github/provenance-priors.txt` as its 10th command and then spent six
+# more hunting the SHA it found there (`git show <sha>`, `git ls-tree`, `cat-file
+# -p`, and finally the raw packed-refs of the shared store). It found nothing —
+# the object store is depth-1 — but the gate that exists to CATCH recovery had
+# handed it the map. A checked-in list of "the answers you must not copy" is a
+# treasure map, and the polecat clones the repo.
+#
+# So the SHAs now come from the PROVENANCE_PRIORS Actions variable, which exists
+# only inside CI. The polecat's checkout cannot see it. (hq-judge-02)
 priors=()
-if [[ -f "$PRIORS_FILE" ]]; then
-  while read -r line; do
-    line="${line%%#*}"; line="$(tr -d '[:space:]' <<<"$line")"
-    [[ -z "$line" ]] && continue
+if [[ -n "${PROVENANCE_PRIORS:-}" ]]; then
+  declared=0
+  for line in $PROVENANCE_PRIORS; do
+    declared=$((declared + 1))
     if sha="$(git rev-parse --verify --quiet "${line}^{commit}")"; then
       priors+=("$sha")
     else
-      warn "prior '$line' from $PRIORS_FILE is not reachable — ignoring (shallow clone?)"
+      warn "declared prior '$line' is not reachable in this checkout"
     fi
-  done < "$PRIORS_FILE"
+  done
+
+  # FAIL CLOSED. "I could not reach the priors" is not "the PR is fresh". If every
+  # declared prior is unreachable, this gate is comparing against NOTHING and would
+  # green-light a byte-identical restore — the exact failure it was built for. That
+  # is one `fetch-depth:` edit away, so it must be an error, not a warning.
+  if (( declared > 0 && ${#priors[@]} == 0 )); then
+    say "FAIL — $declared prior(s) declared, NONE reachable in this checkout."
+    say "The provenance gate cannot compare against anything and will not pass by default."
+    say "Fix: the provenance job needs 'fetch-depth: 0' (a shallow checkout hides the priors)."
+    exit 2
+  fi
 fi
 
 while read -r rsha; do

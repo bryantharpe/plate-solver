@@ -190,6 +190,12 @@ jobs:
       - run: bash scripts/ci/verify-fresh-authoring.sh
         env:
           BASE_REF: origin/main
+          # The prior SHAs are an Actions variable, NOT a file in the repo. They used
+          # to live in .github/provenance-priors.txt — until a polecat on a from-specs
+          # bead ran `cat .github/provenance-priors.txt`, then spent six commands
+          # hunting the SHA it found there. The gate built to catch recovery was
+          # handing out the map. Edit with: gh variable set PROVENANCE_PRIORS
+          PROVENANCE_PRIORS: ${{ vars.PROVENANCE_PRIORS }}
 
   # hq-hold-01. On 2026-07-12 a human converted a PR to DRAFT to stop it while its
   # contents were in question; an agent marked it ready_for_review 2m26s later and
