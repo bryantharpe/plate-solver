@@ -210,13 +210,15 @@ transcript distinguishes them.
 The grade below was produced by replaying the guard's own RED/YELLOW patterns
 (`scripts/guards/authoring-integrity-guard.sh`) over nux's session transcript.
 
-**VERDICT: CLEAN — RED = 0, YELLOW = 0, over 57 shell commands.**
+**VERDICT: CLEAN — RED = 0, YELLOW = 0, over 56 shell commands.**
 
-> **A note on the count.** The guard reports this as "154 command(s)". That figure is
-> `grep -c .` over the extracted command text, so it counts every *line* of a multi-line
-> script as a separate command. The true number of Bash tool calls is **57**, spanning 154
-> lines. The verdict is unaffected — RED=0 is RED=0 either way — but the label is wrong and
-> is being corrected in the guard.
+> **A note on the count.** The guard originally reported "154 command(s)". That figure was
+> `grep -c .` over the extracted command text — it counted every *line* of a multi-line script
+> as a separate command. The session issued **57 Bash tool calls, of which 56 executed**; the
+> 57th was a malformed tool call (the model emitted two JSON objects fused together, so the
+> harness never parsed it and it never ran). The verdict was never in doubt — RED=0 is RED=0
+> however you count the denominator — but a number that lands in an audit trail as evidence of
+> what an agent did must be right. Fixed in the guard: `gt-town-config` `a60d876`.
 
 | Probe | Meaning | Count |
 |---|---|---|
@@ -238,7 +240,7 @@ named risk on *this* bead. So the transcript was checked for it directly:
 | Files read | `openspec/specs/math-core/spec.md`; its own `crates/math-core/{src/lib.rs, Cargo.toml}` |
 | Files written | `crates/math-core/src/lib.rs` |
 | Session wall-clock | 6 min 41 s (16:18:20 → 16:25:01) |
-| Bash tool calls | 57 |
+| Bash tool calls | 57 issued, **56 executed** (1 malformed, never ran) |
 
 **It read the spec and its own crate. Nothing else.** It never opened the 81 MB Python oracle
 sitting in the same working tree. This is the single strongest piece of evidence in this
@@ -310,7 +312,7 @@ See §5. Non-blocking by policy, but they are outstanding defects in merged code
 2. **An independent model found no blocking defect.** glm-5.2, a different lineage from the
    author seat, reviewed the diff and approved it — while raising three nits it is worth
    reading. *(gate #11)*
-3. **The model built it, rather than finding it.** 155 commands, zero reaches into git
+3. **The model built it, rather than finding it.** 56 commands, zero reaches into git
    history, zero reads of the Python reference sitting in the same tree. It read the spec and
    its own crate. *(§6)*
 
@@ -346,7 +348,7 @@ gh pr view 33 -R $R --json comments --jq '.comments[].body'
 # §6  the behavioural evidence (needs the polecat transcript)
 J=~/.claude/projects/-home-admin-gt-plate-solver-polecats-nux-plate-solver/80827f28-*.jsonl
 jq '[.message.content[]? | select(.type=="tool_use" and .name=="Bash")] | length' $J \
-  | awk '{s+=$1} END{print s}'                                                  # 57 tool calls
+  | awk '{s+=$1} END{print s}'                                                  # 57 issued
 jq -r 'select(.message.content) | .message.content[]?
        | select(.type=="tool_use" and .name=="Read") | .input.file_path' $J | sort -u
 # RED/YELLOW patterns: scripts/guards/authoring-integrity-guard.sh
@@ -369,3 +371,46 @@ gh api "repos/$R/actions/jobs/86871592353/logs" | grep -aE "Comparing|ok —|PAS
 | 16:24:25 | 11:24:25 | squash-merged as `f1dbff8` |
 | 16:25:01 | 11:25:01 | nux session ends (6 min 41 s total) |
 | 16:25:01 | 11:25:01 | integrity guard sweeps — **already merged, never graded** |
+
+---
+
+## Appendix C — the audit found two defects in the gates it was auditing
+
+Writing this report exercised the controls, and two of them failed under it. Recorded here
+because an audit that only reports on the *subject* and never on the *instruments* is
+measuring with a ruler it has not checked.
+
+**1. The guard inflated its own evidence.** The clean-path stamp read
+`grep -c . <<<"$cmds"` — a count of *lines of command text*, not commands. Run 7's stamp
+claimed 154; the session issued 57 tool calls and executed 56. The verdict was never wrong,
+but the number was, and it was the number going into the record as evidence of what the agent
+did. *Fixed: `gt-town-config` `a60d876`.*
+
+**2. This very PR was falsely stamped `integrity:graded`.** The audit PR (#42) is a docs
+change written by a human. Its body mentions `ps-math-05-pinhole` — because it is an audit
+*of* that run. The guard scraped bead ids out of the PR body, resolved that one, saw it was
+from-specs, graded **nux's** transcript, and stamped **this** PR with nux's clean grade. It
+merged carrying an authoring grade for work it did not do.
+
+Backwards, that is a live exploit: a polecat on a dirty run pushes a bare branch, cites any
+already-clean from-specs bead in its PR body, and collects that bead's green stamp. The
+earlier fix closed the *branch-name* bypass and replaced it with a *bead-name* bypass — both
+branch names and PR prose are author-controlled, so neither can be the anchor.
+
+The anchor is now the one thing an author cannot forge: **which session produced the branch.**
+A branch name appears in the transcript of the session that created and pushed it, and nowhere
+else. If no polecat transcript contains the branch, no agent authored the PR and it cannot
+receive an authoring grade. If one does, *that* session is graded — and a bead named in the PR
+is honoured only if it is genuinely assigned to the polecat that made the branch.
+*Fixed: `gt-town-config` `44e936c`.*
+
+Regression-verified against live PRs, all three paths:
+
+| PR | Branch | Transcript | Ruling |
+|---|---|---|---|
+| #43 | human branch, name-drops `ps-math-05-pinhole` | none references it | `integrity:n-a` — *was falsely `graded`* |
+| #44 | `polecat/nux/ps-math-05-pinhole@…` | nux, run 7 | `integrity:graded` (RED=0 over 56 cmds) |
+| #45 | `polecat/nux/ps-math-02-unitvec-run4@…` | nux, run 4 | `hold:human` (18 RED) |
+
+**The lesson is the one this project keeps relearning: a control is only as good as the thing
+it anchors on, and anything the author can type is not an anchor.**
