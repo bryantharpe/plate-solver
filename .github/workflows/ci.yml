@@ -260,16 +260,34 @@ jobs:
           sha="$PR_SHA"
           repo="$PR_REPO"
 
-          # Not every PR is from a polecat on a from-specs bead. Only those are in scope.
-          case "$branch" in
-            polecat/*) ;;
-            *) echo "Not a polecat branch ($branch) — integrity gate does not apply."
-               echo "PASS"
-               exit 0 ;;
-          esac
-
-          # A positive stamp is one of the two labels the town-side guard / operator use.
-          if printf '%s' "$PR_LABELS_JSON" | jq -e 'map(select(. == "integrity:graded" or . == "integrity:cleared")) | length > 0' >/dev/null 2>&1; then
+          # NEVER SCOPE THIS GATE ON THE BRANCH NAME.
+          #
+          # It used to open with `case "$branch" in polecat/*) ;; *) PASS ;; esac`, and the
+          # town-side guard skipped on the same prefix. Which made the entire integrity
+          # control plane OPT-IN BY A NAME THE AGENT CHOOSES ITSELF: push to a branch not
+          # called polecat/*, and CI waves you through and the guard never reads your
+          # transcript.
+          #
+          # PR #34 — the PR that INTRODUCED this gate — ran from a branch called
+          # `ps-ops-03-integrity-gate-race`, logged "Not a polecat branch — integrity gate
+          # does not apply. PASS", and merged ungraded. The polecat was not evading; it just
+          # named its working branch plainly, and the control evaporated. A gate that any
+          # author can step around by choosing a different branch name is decoration.
+          #
+          # So EVERY PR needs a positive ruling. CI cannot read beads, so it cannot tell a
+          # from-specs PR from an ordinary one — and it must not try. The town-side guard
+          # can, and it rules on every open PR each sweep:
+          #
+          #   integrity:graded  — from-specs, transcript scanned, no recovery reconnaissance
+          #   integrity:n-a     — not an authoring PR (no bead, or the bead is not from-specs)
+          #   integrity:cleared — an OPERATOR has adjudicated a finding (agents: never apply)
+          #   hold:human        — a RED hit, or unverifiable. Blocks via the `hold` check.
+          #
+          # An ordinary PR is therefore red for one guard sweep (~2 min) and then goes green
+          # on the `labeled` trigger. That wait is the cost of the gate being real. If you
+          # need to move now, apply integrity:cleared — deliberately, and on the record.
+          # (ps-ops-05)
+          if printf '%s' "$PR_LABELS_JSON" | jq -e 'map(select(. == "integrity:graded" or . == "integrity:cleared" or . == "integrity:n-a")) | length > 0' >/dev/null 2>&1; then
             echo "Positive integrity stamp present."
             echo "PASS"
             exit 0
@@ -284,9 +302,14 @@ jobs:
             exit 0
           fi
 
-          # FAIL CLOSED. No stamp means ungraded, not clean.
-          echo "::error::No positive integrity stamp on from-specs PR #$pr."
-          echo "The polecat transcript has not been graded by the town-side guard."
-          echo "Merging is blocked until the guard applies 'integrity:graded' or an operator applies 'integrity:cleared'."
+          # FAIL CLOSED. No stamp means UNGRADED, and ungraded is not clean.
+          echo "::error::PR #$pr ($branch) carries no integrity ruling."
+          echo "The town-side guard has not yet ruled on this PR. It sweeps every 2 minutes and"
+          echo "will apply one of: integrity:graded (from-specs, clean) · integrity:n-a (not an"
+          echo "authoring PR) · hold:human (recovery reconnaissance found, or unverifiable)."
+          echo ""
+          echo "If this stays red for more than a few minutes the guard is not running — that is"
+          echo "the failure this gate is designed to surface, not a reason to bypass it. An"
+          echo "operator may apply 'integrity:cleared' to override, deliberately and on the record."
           echo "FAIL"
           exit 1
