@@ -1,0 +1,11 @@
+[package]
+name = "math-core"
+description = "Celestial unit-vector conversion and angular distance primitives."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
