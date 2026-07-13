@@ -121,6 +121,94 @@ fn atan2_mod_tau(y: f64, x: f64) -> f64 {
     }
 }
 
+/// Pinhole camera parameters.
+///
+/// `fov` is the horizontal field of view in radians; `width` and `height` are
+/// the image dimensions in pixels. Pixel coordinates use `(y, x)` with
+/// `(0.5, 0.5)` at the top-left pixel center.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PinholeCamera {
+    /// Horizontal field of view in radians.
+    pub fov: f64,
+    /// Image width in pixels.
+    pub width: f64,
+    /// Image height in pixels.
+    pub height: f64,
+}
+
+impl PinholeCamera {
+    /// Create a new pinhole camera from width, height, and horizontal FOV.
+    pub fn new(width: f64, height: f64, fov: f64) -> Self {
+        Self {
+            width,
+            height,
+            fov,
+        }
+    }
+
+    /// Horizontal pixel scale factor: `2·tan(fov/2)/width`.
+    fn scale_factor(&self) -> f64 {
+        2.0 * (self.fov / 2.0).tan() / self.width
+    }
+
+    /// Image center `(y, x)` = `[height/2, width/2]`.
+    fn center(&self) -> (f64, f64) {
+        (self.height / 2.0, self.width / 2.0)
+    }
+
+    /// Map pixel centroids `(y, x)` to camera-frame unit vectors `(i, j, k)`.
+    ///
+    /// The boresight is `i`. For each centroid:
+    /// * `k = (height/2 - y) * scale_factor`
+    /// * `j = (width/2 - x) * scale_factor`
+    /// * `i = 1`
+    ///
+    /// The resulting `(i, j, k)` vector is normalized to unit length.
+    /// Centroids that produce a zero-length vector return `None`.
+    pub fn unproject(&self, centroids: &[(f64, f64)]) -> Vec<Option<UnitVector>> {
+        let scale = self.scale_factor();
+        let (cy, cx) = self.center();
+        centroids
+            .iter()
+            .map(|&(y, x)| {
+                let k = (cy - y) * scale;
+                let j = (cx - x) * scale;
+                let i = 1.0;
+                UnitVector { x: i, y: j, z: k }.normalize()
+            })
+            .collect()
+    }
+
+    /// Map derotated camera-frame vectors back to pixel coordinates.
+    ///
+    /// For each vector with positive boresight component (`i > 0`):
+    /// * `scale_factor = -width / (2·tan(fov/2))`
+    /// * `y = height/2 + scale_factor * k / i`
+    /// * `x = width/2 + scale_factor * j / i`
+    ///
+    /// Returns the pixel coordinates and the indices of vectors that fall inside
+    /// the image (`0 < y < height`, `0 < x < width`). Vectors with `i <= 0`
+    /// (behind the camera) are excluded.
+    pub fn project(&self, vectors: &[UnitVector]) -> (Vec<(f64, f64)>, Vec<usize>) {
+        let scale = -self.width / (2.0 * (self.fov / 2.0).tan());
+        let (cy, cx) = self.center();
+        let mut pixels = Vec::new();
+        let mut keep = Vec::new();
+        for (idx, v) in vectors.iter().enumerate() {
+            if v.x <= 0.0 {
+                continue;
+            }
+            let y = cy + scale * v.z / v.x;
+            let x = cx + scale * v.y / v.x;
+            if y > 0.0 && y < self.height && x > 0.0 && x < self.width {
+                keep.push(idx);
+            }
+            pixels.push((y, x));
+        }
+        (pixels, keep)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
