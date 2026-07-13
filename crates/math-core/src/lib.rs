@@ -192,10 +192,11 @@ impl PinholeCamera {
     pub fn project(&self, vectors: &[UnitVector]) -> (Vec<(f64, f64)>, Vec<usize>) {
         let scale = -self.width / (2.0 * (self.fov / 2.0).tan());
         let (cy, cx) = self.center();
-        let mut pixels = Vec::new();
+        let mut pixels = Vec::with_capacity(vectors.len());
         let mut keep = Vec::new();
         for (idx, v) in vectors.iter().enumerate() {
             if v.x <= 0.0 {
+                pixels.push((f64::NAN, f64::NAN));
                 continue;
             }
             let y = cy + scale * v.z / v.x;
@@ -292,5 +293,57 @@ mod tests {
         let dy = a.y - b.y;
         let dz = a.z - b.z;
         (dx * dx + dy * dy + dz * dz).sqrt()
+    }
+
+    #[test]
+    fn pinhole_image_center_maps_to_boresight() {
+        let cam = PinholeCamera::new(1024.0, 768.0, 1.2);
+        let center = (cam.height / 2.0, cam.width / 2.0);
+        let v = cam.unproject(&[center])[0].expect("center should unproject");
+        assert!((v.x - 1.0).abs() < 1e-12, "i (x) = {}", v.x);
+        assert!(v.y.abs() < 1e-12, "j (y) = {}", v.y);
+        assert!(v.z.abs() < 1e-12, "k (z) = {}", v.z);
+    }
+
+    #[test]
+    fn pinhole_horizontal_edge_maps_to_tan_half_fov() {
+        let fov = 1.2;
+        let cam = PinholeCamera::new(1024.0, 768.0, fov);
+        // Horizontal edge: half-width from center in x.
+        // Center x = width/2; edge x = width/2 + width/2 = width.
+        let edge = (cam.height / 2.0, cam.width);
+        let raw = UnitVector { x: 1.0, y: (cam.width / 2.0 - cam.width) * cam.scale_factor(), z: 0.0 };
+        let v = cam.unproject(&[edge])[0].expect("edge should unproject");
+        // Before normalization: j = (width/2 - width) * scale = -width/2 * scale = -tan(fov/2).
+        // Recover the pre-normalization j component by multiplying the unit vector's y by the raw norm.
+        let expected_tan = (fov / 2.0).tan();
+        let j_before = v.y * raw.norm();
+        assert!((j_before.abs() - expected_tan).abs() < 1e-12,
+            "|j| before normalization = {}, expected tan(fov/2) = {}", j_before.abs(), expected_tan);
+    }
+
+    #[test]
+    fn pinhole_projection_inverts_unprojection() {
+        let cam = PinholeCamera::new(1024.0, 768.0, 1.2);
+        // Pick an in-frame centroid away from the center and edges.
+        let original = (300.5, 400.5);
+        let v = cam.unproject(&[original])[0].expect("should unproject");
+        let (pixels, keep) = cam.project(&[v]);
+        assert_eq!(keep.len(), 1, "in-frame vector should be kept");
+        let recovered = pixels[keep[0]];
+        assert!((recovered.0 - original.0).abs() < 1e-9, "y diff = {}", recovered.0 - original.0);
+        assert!((recovered.1 - original.1).abs() < 1e-9, "x diff = {}", recovered.1 - original.1);
+    }
+
+    #[test]
+    fn pinhole_behind_camera_vectors_are_dropped() {
+        let cam = PinholeCamera::new(1024.0, 768.0, 1.2);
+        let behind = UnitVector { x: -1.0, y: 0.0, z: 0.0 };
+        let front = UnitVector { x: 1.0, y: 0.0, z: 0.0 };
+        let (pixels, keep) = cam.project(&[behind, front]);
+        // The front vector projects to the image center and is kept.
+        assert_eq!(pixels.len(), 2, "both vectors should produce pixel coordinates");
+        assert_eq!(keep.len(), 1, "only the front vector should be in-frame");
+        assert_eq!(keep[0], 1, "kept index should be the front vector");
     }
 }
