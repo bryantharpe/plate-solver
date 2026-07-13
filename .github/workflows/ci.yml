@@ -219,3 +219,70 @@ jobs:
           echo "and do NOT mark this PR ready for review. Leave it parked and say so."
           exit 1
       - run: echo "No operator hold. Proceeding."
+
+  # ps-ops-03-integrity-gate-race. The authoring-integrity guard runs on a 5-minute
+  # cron and only scans OPEN PRs. The refinery pipeline can open and merge a PR in
+  # ~2 minutes, so the transcript grade is never produced before merge. A cron job
+  # that an agent can outrun is not a gate; only a REQUIRED CHECK that is RED while
+  # the stamp is absent can block merge before GitHub allows it.
+  #
+  # This job mirrors the hold job above: it runs on every PR event that can change
+  # labels, and it FAILS CLOSED. A from-specs PR with no positive integrity grade is
+  # UNGRADED, not clean. The stamp can be either:
+  #   * an `integrity:graded` label applied by the town-side guard after it scans the
+  #     polecat transcript and finds RED=0, or
+  #   * an `integrity:cleared` label applied by a human operator who has adjudicated
+  #     a finding (the guard's existing release hatch).
+  #
+  # Non-from-specs PRs (no polecat branch, no from-specs bead) are not subject to
+  # this gate and pass immediately. The check must still REPORT on every PR so branch
+  # protection sees a status; a filtered-away job would leave the PR hanging on
+  # "Expected — waiting for status".
+  integrity:
+    name: integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with: { fetch-depth: 0 }
+      - name: Verify positive integrity stamp
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+
+          pr='${{ github.event.pull_request.number }}'
+          branch='${{ github.event.pull_request.head.ref }}'
+          sha='${{ github.event.pull_request.head.sha }}'
+          repo='${{ github.repository }}'
+
+          # Not every PR is from a polecat on a from-specs bead. Only those are in scope.
+          case "$branch" in
+            polecat/*) ;;
+            *) echo "Not a polecat branch ($branch) — integrity gate does not apply."
+               echo "PASS"
+               exit 0 ;;
+          esac
+
+          # A positive stamp is one of the two labels the town-side guard / operator use.
+          labels='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          if printf '%s' "$labels" | jq -e 'map(select(. == "integrity:graded" or . == "integrity:cleared")) | length > 0' >/dev/null 2>&1; then
+            echo "Positive integrity stamp present."
+            echo "PASS"
+            exit 0
+          fi
+
+          # Also accept a posted success status from the town-side guard (future path).
+          status_state="$(gh api "repos/$repo/commits/$sha/status" \
+            --jq '[.statuses[] | select(.context == "integrity/grade")][0].state // "absent"' 2>/dev/null || echo absent)"
+          if [[ "$status_state" == "success" ]]; then
+            echo "integrity/grade status is success."
+            echo "PASS"
+            exit 0
+          fi
+
+          # FAIL CLOSED. No stamp means ungraded, not clean.
+          echo "::error::No positive integrity stamp on from-specs PR #$pr."
+          echo "The polecat transcript has not been graded by the town-side guard."
+          echo "Merging is blocked until the guard applies 'integrity:graded' or an operator applies 'integrity:cleared'."
+          echo "FAIL"
+          exit 1
