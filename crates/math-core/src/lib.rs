@@ -1,0 +1,208 @@
+//! Shared numerical foundation for the plate-solver rewrite.
+//!
+//! Implements the primitives every other capability computes on: celestial
+//! unit-vector conversion, angular distance via the chord form, and related
+//! geometric helpers.
+
+use std::f64::consts::TAU;
+
+/// A 3-dimensional unit vector in equatorial coordinates.
+///
+/// Components are `x = cos(RA)cos(Dec)`, `y = sin(RA)cos(Dec)`, `z = sin(Dec)`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UnitVector {
+    /// X component (cos RA cos Dec).
+    pub x: f64,
+    /// Y component (sin RA cos Dec).
+    pub y: f64,
+    /// Z component (sin Dec).
+    pub z: f64,
+}
+
+impl UnitVector {
+    /// Create a unit vector from right-ascension and declination in radians.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use math_core::UnitVector;
+    /// use std::f64::consts::PI;
+    ///
+    /// let v = UnitVector::from_radec(PI / 4.0, PI / 6.0);
+    /// assert!((v.norm() - 1.0).abs() < 1e-12);
+    /// ```
+    pub fn from_radec(ra: f64, dec: f64) -> Self {
+        let cos_dec = dec.cos();
+        Self {
+            x: ra.cos() * cos_dec,
+            y: ra.sin() * cos_dec,
+            z: dec.sin(),
+        }
+    }
+
+    /// Recover `(RA, Dec)` in radians from this unit vector.
+    ///
+    /// `RA` is returned in `[0, 2π)`; `Dec` is in `[-π/2, π/2]`.
+    pub fn to_radec(self) -> (f64, f64) {
+        let ra = atan2_mod_tau(self.y, self.x);
+        let dec = self.z.asin();
+        (ra, dec)
+    }
+
+    /// Euclidean norm.
+    pub fn norm(self) -> f64 {
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    }
+
+    /// Normalize this vector to unit length.
+    ///
+    /// Returns `None` if the vector is zero (or NaN).
+    pub fn normalize(self) -> Option<Self> {
+        let n = self.norm();
+        if n.is_finite() && n > 0.0 {
+            Some(Self {
+                x: self.x / n,
+                y: self.y / n,
+                z: self.z / n,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Compute the central angle between two unit vectors using `2·arcsin(d/2)`.
+///
+/// `d` is the Euclidean (chord) distance between the two vectors. The chord is
+/// clamped to `[0, 2]` before the `asin` to protect against floating-point
+/// overshoot at antipodal points.
+///
+/// # Examples
+///
+/// ```
+/// use math_core::{angle_from_chord, chord_from_angle};
+/// use std::f64::consts::PI;
+///
+/// let angle = 0.1;
+/// let chord = chord_from_angle(angle);
+/// assert!((angle_from_chord(chord) - angle).abs() < 1e-12);
+/// assert!((angle_from_chord(2.0) - PI).abs() < 1e-12);
+/// ```
+pub fn angle_from_chord(d: f64) -> f64 {
+    let clamped = d.clamp(0.0, 2.0);
+    2.0 * (clamped / 2.0).asin()
+}
+
+/// Compute the chord distance corresponding to a central angle.
+///
+/// Inverse of [`angle_from_chord`]: `d = 2·sin(angle/2)`.
+pub fn chord_from_angle(angle: f64) -> f64 {
+    2.0 * (angle / 2.0).sin()
+}
+
+/// Angular distance between two unit vectors.
+///
+/// Uses the chord form for small-angle conditioning.
+pub fn angular_distance(a: UnitVector, b: UnitVector) -> f64 {
+    let dx = a.x - b.x;
+    let dy = a.y - b.y;
+    let dz = a.z - b.z;
+    let d = (dx * dx + dy * dy + dz * dz).sqrt();
+    angle_from_chord(d)
+}
+
+/// `atan2(y, x)` normalized to `[0, 2π)`.
+fn atan2_mod_tau(y: f64, x: f64) -> f64 {
+    let a = y.atan2(x);
+    if a < 0.0 {
+        a + TAU
+    } else {
+        a
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f64::consts::PI;
+
+    #[test]
+    fn forward_conversion_produces_unit_vector() {
+        let ra = 1.2;
+        let dec = 0.3;
+        let v = UnitVector::from_radec(ra, dec);
+        assert!((v.norm() - 1.0).abs() < 1e-12, "norm = {}", v.norm());
+        let expected_x = ra.cos() * dec.cos();
+        let expected_y = ra.sin() * dec.cos();
+        let expected_z = dec.sin();
+        assert!((v.x - expected_x).abs() < 1e-12);
+        assert!((v.y - expected_y).abs() < 1e-12);
+        assert!((v.z - expected_z).abs() < 1e-12);
+    }
+
+    #[test]
+    fn round_trip_is_identity() {
+        let cases = [
+            (0.0, 0.0),
+            (1.5, 0.75),
+            (5.9, -1.2),
+            (std::f64::consts::PI, 0.0),
+            (0.0, std::f64::consts::FRAC_PI_4),
+        ];
+        for (ra, dec) in cases {
+            let v = UnitVector::from_radec(ra, dec);
+            let (ra_out, dec_out) = v.to_radec();
+            let ra_diff = ((ra_out - ra).rem_euclid(TAU) + TAU / 2.0).rem_euclid(TAU) - TAU / 2.0;
+            assert!(
+                ra_diff.abs() < 1e-12,
+                "ra round-trip failed for ({}, {}): got {}",
+                ra,
+                dec,
+                ra_out
+            );
+            assert!(
+                (dec_out - dec).abs() < 1e-12,
+                "dec round-trip failed for ({}, {}): got {}",
+                ra,
+                dec,
+                dec_out
+            );
+        }
+    }
+
+    #[test]
+    fn angle_chord_inversion() {
+        for angle in [0.0, 0.001, 0.1, 1.0, std::f64::consts::FRAC_PI_2] {
+            let chord = chord_from_angle(angle);
+            let recovered = angle_from_chord(chord);
+            assert!((recovered - angle).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn small_angle_conditioning() {
+        // Two unit vectors separated by a sub-arcsecond angle.
+        let angle = 1.0_f64.to_radians() / 3600.0; // 1 arcsec
+        let a = UnitVector::from_radec(0.0, 0.0);
+        let b = UnitVector::from_radec(angle, 0.0);
+        let computed = angular_distance(a, b);
+        assert!((computed - angle).abs() < 1e-15);
+    }
+
+    #[test]
+    fn antipodal_clamp_avoids_nan() {
+        let a = UnitVector::from_radec(0.0, 0.0);
+        let b = UnitVector::from_radec(PI, 0.0);
+        let d = chord_distance(a, b);
+        assert!(d <= 2.0 + 1e-12);
+        let angle = angle_from_chord(d);
+        assert!((angle - PI).abs() < 1e-12, "angle = {}", angle);
+    }
+
+    fn chord_distance(a: UnitVector, b: UnitVector) -> f64 {
+        let dx = a.x - b.x;
+        let dy = a.y - b.y;
+        let dz = a.z - b.z;
+        (dx * dx + dy * dy + dz * dz).sqrt()
+    }
+}
