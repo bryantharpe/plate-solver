@@ -60,6 +60,12 @@ jobs:
             echo "has_code=false" >> "$GITHUB_OUTPUT"
             echo "::notice::No root Cargo.toml yet (spec-only branch) — cargo gates skip until the first crate lands"
           fi
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: detect
+          proves: "whether a root Cargo.toml exists, which is what arms every cargo gate below"
+          measured: "has_code=${{ steps.check.outputs.has_code }}"
 
   fmt:
     name: rustfmt
@@ -71,6 +77,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with: { components: rustfmt }
       - run: cargo fmt --all --check
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: rustfmt
+          proves: "every file in the workspace is byte-identical to its rustfmt output"
+          measured: "0 files deviate"
 
   clippy:
     name: clippy
@@ -85,6 +97,12 @@ jobs:
         with: { components: clippy }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: clippy
+          proves: "clippy raises zero lints across the whole workspace, all targets and all features, with warnings denied"
+          measured: "0 lints"
 
   test-coverage:
     name: test-coverage
@@ -100,9 +118,29 @@ jobs:
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo install cargo-llvm-cov --version "$CARGO_LLVM_COV_VERSION" --locked
       - name: Tests + coverage gate (90% floor on ps-core per rig overlay; 80% workspace)
-        run: cargo llvm-cov --workspace --locked --all-features --fail-under-lines 80 --lcov --output-path lcov.info
+        id: cov
+        run: |
+          set -uo pipefail
+          cargo llvm-cov --workspace --locked --all-features \
+            --fail-under-lines 80 --lcov --output-path lcov.info || exit 1
+          # KEEP THE NUMBER. The gate asserts >=80 and, with --lcov, prints nothing a human or
+          # an audit can read — so "passed" was the only surviving fact and 80.1% was
+          # indistinguishable from 100%. `report` re-renders the profdata the run just produced;
+          # it re-runs no tests. Never let it fail the gate: the coverage FLOOR is the gate, this
+          # is only the evidence.
+          pct="$(cargo llvm-cov report --summary-only --json 2>/dev/null \
+                 | jq -r '.data[0].totals.lines.percent // empty' 2>/dev/null || true)"
+          [ -n "$pct" ] && pct="$(printf '%.2f' "$pct")"
+          echo "pct=${pct:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "line coverage: ${pct:-unknown}% (floor 80%)"
       - name: Doctests (coverage tool excludes them)
         run: cargo test --workspace --locked --doc
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: test-coverage
+          proves: "workspace line coverage is at or above the 80% floor; all tests and doctests pass under --locked"
+          measured: "${{ steps.cov.outputs.pct }}% lines (floor 80%)"
 
   docs:
     name: docs
@@ -115,6 +153,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: docs
+          proves: "rustdoc builds the whole workspace with zero warnings (broken intra-doc links included)"
+          measured: "0 rustdoc warnings"
 
   msrv:
     name: msrv
@@ -129,6 +173,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with: { toolchain: "1.96.0" }
       - run: cargo build --workspace --locked
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: msrv
+          proves: "the workspace still builds on the oldest Rust we claim to support, so no dependency or syntax has silently raised the floor"
+          measured: "builds on 1.96.0 (the declared MSRV)"
 
   unused-deps:
     name: cargo-machete
@@ -140,6 +190,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       - run: cargo install cargo-machete --version "$CARGO_MACHETE_VERSION" --locked
       - run: cargo machete
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: cargo-machete
+          proves: "every dependency declared in a Cargo.toml is actually used by the crate that declares it"
+          measured: "0 unused dependencies (cargo-machete ${{ env.CARGO_MACHETE_VERSION }})"
 
   deny:
     name: cargo-deny
@@ -151,6 +207,12 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe # v2.0.20
         with:
           command: check advisories bans sources licenses
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: cargo-deny
+          proves: "no dependency carries a known security advisory, a banned crate, an unvetted source registry, or a disallowed licence"
+          measured: "0 findings across advisories, bans, sources, licenses"
 
   # cargo-semver-checks intentionally ABSENT until the first tagged release
   # exists as a baseline — an unfailable job would be a fake gate.
@@ -164,6 +226,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       - run: cargo install ripsecrets --version "$RIPSECRETS_VERSION" --locked
       - run: ripsecrets .
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: secret-scan
+          proves: "no committed file in the full history contains anything ripsecrets recognises as a credential"
+          measured: "0 secrets (ripsecrets ${{ env.RIPSECRETS_VERSION }}, full history, fetch-depth 0)"
 
   # hq-judge-01. Every other gate here asks "is this code GOOD?". None of them
   # asks "did this agent WRITE it?" — and on 2026-07-12 that gap let a
@@ -187,6 +255,19 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with: { fetch-depth: 0 }
       - run: git fetch -q origin main
+      - id: priors
+        env:
+          PROVENANCE_PRIORS: ${{ vars.PROVENANCE_PRIORS }}
+        # HOW MANY PRIORS DID IT ACTUALLY COMPARE AGAINST? Green meant "no prior matches", which
+        # is exactly what an EMPTY prior list also produces. A gate whose pass and whose no-op
+        # are indistinguishable is not yet evidence. Count them — the count only, never the SHAs
+        # (the list is an Actions variable and not a file precisely because a polecat once ran
+        # `cat .github/provenance-priors.txt` and went hunting the SHA it found).
+        run: |
+          set -uo pipefail
+          n="$(printf '%s\n' $PROVENANCE_PRIORS | grep -c '[0-9a-f]' || true)"
+          echo "n=${n:-0}" >> "$GITHUB_OUTPUT"
+          echo "comparing against ${n:-0} known prior implementation(s)"
       - run: bash scripts/ci/verify-fresh-authoring.sh
         env:
           BASE_REF: origin/main
@@ -196,6 +277,12 @@ jobs:
           # hunting the SHA it found there. The gate built to catch recovery was
           # handing out the map. Edit with: gh variable set PROVENANCE_PRIORS
           PROVENANCE_PRIORS: ${{ vars.PROVENANCE_PRIORS }}
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: provenance
+          proves: "no file in this diff is byte-identical to the same file in any known prior implementation"
+          measured: "0 byte-identical files, compared against ${{ steps.priors.outputs.n }} prior implementation(s)"
 
   # hq-hold-01. On 2026-07-12 a human converted a PR to DRAFT to stop it while its
   # contents were in question; an agent marked it ready_for_review 2m26s later and
@@ -211,6 +298,9 @@ jobs:
     name: hold
     runs-on: ubuntu-latest
     steps:
+      # Checkout is here only so the attest action below can be resolved from the repo.
+      # The hold assertion itself reads the label from the event payload and needs no code.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Fail while an operator has parked this PR
         if: contains(github.event.pull_request.labels.*.name, 'hold:human')
         run: |
@@ -219,6 +309,12 @@ jobs:
           echo "and do NOT mark this PR ready for review. Leave it parked and say so."
           exit 1
       - run: echo "No operator hold. Proceeding."
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: hold
+          proves: "no operator has parked this PR — green here means the hold:human label was ABSENT, not that anyone approved"
+          measured: "hold:human absent"
 
   # ps-ops-03-integrity-gate-race. The authoring-integrity guard runs on a 5-minute
   # cron and only scans OPEN PRs. The refinery pipeline can open and merge a PR in
@@ -245,6 +341,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with: { fetch-depth: 0 }
       - name: Verify positive integrity stamp
+        id: stamp
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -287,8 +384,16 @@ jobs:
           # on the `labeled` trigger. That wait is the cost of the gate being real. If you
           # need to move now, apply integrity:cleared — deliberately, and on the record.
           # (ps-ops-05)
-          if printf '%s' "$PR_LABELS_JSON" | jq -e 'map(select(. == "integrity:graded" or . == "integrity:cleared" or . == "integrity:n-a")) | length > 0' >/dev/null 2>&1; then
-            echo "Positive integrity stamp present."
+          # WHICH stamp let this through is part of the finding, not a detail. `integrity:graded`
+          # means a transcript was read and came back clean. `integrity:n-a` means nobody looked,
+          # because there was nothing to look at. `integrity:cleared` means a HUMAN overrode a
+          # finding. All three are green here and they are not remotely the same claim — so the
+          # attestation names the one that actually applied.
+          stamp="$(printf '%s' "$PR_LABELS_JSON" \
+            | jq -r 'map(select(. == "integrity:graded" or . == "integrity:cleared" or . == "integrity:n-a")) | first // empty' 2>/dev/null || true)"
+          if [[ -n "$stamp" ]]; then
+            echo "stamp=$stamp" >> "$GITHUB_OUTPUT"
+            echo "Positive integrity stamp present: $stamp"
             echo "PASS"
             exit 0
           fi
@@ -297,6 +402,7 @@ jobs:
           status_state="$(gh api "repos/$repo/commits/$sha/status" \
             --jq '[.statuses[] | select(.context == "integrity/grade")][0].state // "absent"' 2>/dev/null || echo absent)"
           if [[ "$status_state" == "success" ]]; then
+            echo "stamp=integrity/grade status" >> "$GITHUB_OUTPUT"
             echo "integrity/grade status is success."
             echo "PASS"
             exit 0
@@ -313,3 +419,10 @@ jobs:
           echo "operator may apply 'integrity:cleared' to override, deliberately and on the record."
           echo "FAIL"
           exit 1
+
+      - uses: ./.github/actions/attest
+        continue-on-error: true
+        with:
+          gate: integrity
+          proves: "a positive integrity ruling exists for this PR — CI cannot read beads or transcripts, so this gate proves only that the town-side guard RULED, never what it saw"
+          measured: "stamp: ${{ steps.stamp.outputs.stamp }}"
