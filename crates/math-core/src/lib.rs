@@ -139,11 +139,7 @@ pub struct PinholeCamera {
 impl PinholeCamera {
     /// Create a new pinhole camera from width, height, and horizontal FOV.
     pub fn new(width: f64, height: f64, fov: f64) -> Self {
-        Self {
-            width,
-            height,
-            fov,
-        }
+        Self { width, height, fov }
     }
 
     /// Horizontal pixel scale factor: `2·tan(fov/2)/width`.
@@ -312,14 +308,22 @@ mod tests {
         // Horizontal edge: half-width from center in x.
         // Center x = width/2; edge x = width/2 + width/2 = width.
         let edge = (cam.height / 2.0, cam.width);
-        let raw = UnitVector { x: 1.0, y: (cam.width / 2.0 - cam.width) * cam.scale_factor(), z: 0.0 };
+        let raw = UnitVector {
+            x: 1.0,
+            y: (cam.width / 2.0 - cam.width) * cam.scale_factor(),
+            z: 0.0,
+        };
         let v = cam.unproject(&[edge])[0].expect("edge should unproject");
         // Before normalization: j = (width/2 - width) * scale = -width/2 * scale = -tan(fov/2).
         // Recover the pre-normalization j component by multiplying the unit vector's y by the raw norm.
         let expected_tan = (fov / 2.0).tan();
         let j_before = v.y * raw.norm();
-        assert!((j_before.abs() - expected_tan).abs() < 1e-12,
-            "|j| before normalization = {}, expected tan(fov/2) = {}", j_before.abs(), expected_tan);
+        assert!(
+            (j_before.abs() - expected_tan).abs() < 1e-12,
+            "|j| before normalization = {}, expected tan(fov/2) = {}",
+            j_before.abs(),
+            expected_tan
+        );
     }
 
     #[test]
@@ -331,18 +335,38 @@ mod tests {
         let (pixels, keep) = cam.project(&[v]);
         assert_eq!(keep.len(), 1, "in-frame vector should be kept");
         let recovered = pixels[keep[0]];
-        assert!((recovered.0 - original.0).abs() < 1e-9, "y diff = {}", recovered.0 - original.0);
-        assert!((recovered.1 - original.1).abs() < 1e-9, "x diff = {}", recovered.1 - original.1);
+        assert!(
+            (recovered.0 - original.0).abs() < 1e-9,
+            "y diff = {}",
+            recovered.0 - original.0
+        );
+        assert!(
+            (recovered.1 - original.1).abs() < 1e-9,
+            "x diff = {}",
+            recovered.1 - original.1
+        );
     }
 
     #[test]
     fn pinhole_behind_camera_vectors_are_dropped() {
         let cam = PinholeCamera::new(1024.0, 768.0, 1.2);
-        let behind = UnitVector { x: -1.0, y: 0.0, z: 0.0 };
-        let front = UnitVector { x: 1.0, y: 0.0, z: 0.0 };
+        let behind = UnitVector {
+            x: -1.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let front = UnitVector {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        };
         let (pixels, keep) = cam.project(&[behind, front]);
         // The front vector projects to the image center and is kept.
-        assert_eq!(pixels.len(), 2, "both vectors should produce pixel coordinates");
+        assert_eq!(
+            pixels.len(),
+            2,
+            "both vectors should produce pixel coordinates"
+        );
         assert_eq!(keep.len(), 1, "only the front vector should be in-frame");
         assert_eq!(keep[0], 1, "kept index should be the front vector");
     }
