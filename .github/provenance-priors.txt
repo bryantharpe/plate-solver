@@ -1,0 +1,32 @@
+# Prior implementations the `provenance` gate must refuse to let through.
+#
+# One commit per line. Anything reachable here is compared, byte for byte, against
+# every PR that touches product code (see scripts/ci/verify-fresh-authoring.sh).
+#
+# You do not need to list reverted work — the gate auto-discovers the parents of
+# any `Revert "..."` commit on main, and it always compares against the tip of
+# main itself. This file is for implementations that are NOT reachable that way,
+# and for pinning the ones we care most about so the check is legible on the PR.
+#
+# NEVER remove an entry to make a red check go green. If you believe the gate has
+# a false positive, say so on the PR and let a human decide. The whole point of
+# this file is that it is harder to quietly delete a line than to quietly copy a
+# file.
+
+# ── The first bead: celestial unit-vector conversion + angular distance ───────
+# Four attempts, three of which produced code. The task is tightly specified, so
+# a genuinely fresh implementation still differs by hundreds of lines (run 3 vs
+# run 1: 356). A restore differs by zero.
+
+# Run 1 (ps-5q6, PR #18). The original implementation — free functions.
+21c71d4e636d65ecaacfc2351d7a9e7996e0b3b4
+
+# Run 2b (ps-66m, PR #22). NOT a second implementation: a byte-identical restore
+# of run 1, recovered from a stale polecat branch and produced in 90 seconds. Ten
+# green checks and an APPROVE from the judge. This commit is why the gate exists;
+# it is the gate's regression test.
+66a88b7c5d4afb9c82cefe945595f09264cc371d
+
+# Run 3 (ps-math-01, PR #24). Authored from the spec — a UnitVector struct rather
+# than free functions, 86.57% coverage. This is what a clean run looks like.
+7a428c7c01ba1f1cf9d821e9e4e81db4af464ce0

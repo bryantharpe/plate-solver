@@ -155,3 +155,52 @@ jobs:
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       - run: cargo install ripsecrets --version "$RIPSECRETS_VERSION" --locked
       - run: ripsecrets .
+
+  # hq-judge-01. Every other gate here asks "is this code GOOD?". None of them
+  # asks "did this agent WRITE it?" — and on 2026-07-12 that gap let a
+  # byte-identical restore of earlier work pass all nine checks AND an APPROVE
+  # from the judge. For a rewrite whose purpose is to measure whether a model can
+  # build from specs, a copied answer voids the experiment while showing 10/10
+  # green, which is worse than a failure because it looks like a success.
+  #
+  # fetch-depth: 0 is mandatory — the priors live in history.
+  #
+  # NOT gated on detect.has_code: that output tests whether a root Cargo.toml
+  # EXISTS, which has been permanently true since the first crate landed. It
+  # never distinguished a spec-only DIFF. The script gates on the diff itself and
+  # reports SUCCESS for spec-only PRs, which is also why this is a normal job and
+  # not a path-filtered workflow — a required check that never reports leaves the
+  # PR hanging on "Expected — waiting for status" forever.
+  provenance:
+    name: provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with: { fetch-depth: 0 }
+      - run: git fetch -q origin main
+      - run: bash scripts/ci/verify-fresh-authoring.sh
+        env:
+          BASE_REF: origin/main
+
+  # hq-hold-01. On 2026-07-12 a human converted a PR to DRAFT to stop it while its
+  # contents were in question; an agent marked it ready_for_review 2m26s later and
+  # it merged 7 seconds after that. Nothing in our scripts, our formulas, or the gt
+  # binary calls `gh pr ready` — an agent simply decided to, being helpful.
+  #
+  # So the brake cannot be an honour-system label that agents are asked to respect,
+  # nor draft status, which they can clear. It has to be a REQUIRED CHECK that is
+  # RED while the hold is on: GitHub refuses the merge, and no amount of agent
+  # helpfulness can argue with that. This is the only mechanism in the pipeline
+  # that an autonomous participant cannot override.
+  hold:
+    name: hold
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail while an operator has parked this PR
+        if: contains(github.event.pull_request.labels.*.name, 'hold:human')
+        run: |
+          echo "::error::hold:human — an operator has parked this PR. Merging is blocked."
+          echo "Remove the label to release it. If you are an agent: do NOT remove it,"
+          echo "and do NOT mark this PR ready for review. Leave it parked and say so."
+          exit 1
+      - run: echo "No operator hold. Proceeding."
