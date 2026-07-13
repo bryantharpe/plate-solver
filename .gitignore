@@ -34,3 +34,6 @@ tools/parity/benchmark/results.json
 .logs/
 __pycache__/
 state.json
+
+# Polecat/bead bookkeeping — never product code (nux committed .beads/redirect into PR #29)
+.beads/
