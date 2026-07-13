@@ -118,7 +118,9 @@ pub fn angular_distance(a: [f64; 3], b: [f64; 3]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{angular_distance, chord_distance, chord_from_angle, radec_to_unit, unit_to_radec};
+    use super::{
+        angle_from_chord, angular_distance, chord_from_angle, radec_to_unit, unit_to_radec,
+    };
     use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
     fn close(a: f64, b: f64, eps: f64) -> bool {
@@ -165,7 +167,10 @@ mod tests {
         for &angle in &angles {
             let d = chord_from_angle(angle);
             let recovered = angle_from_chord(d);
-            assert!(close(recovered, angle, 1e-12), "angle {angle} -> {recovered}");
+            assert!(
+                close(recovered, angle, 1e-12),
+                "angle {angle} -> {recovered}"
+            );
         }
     }
 
