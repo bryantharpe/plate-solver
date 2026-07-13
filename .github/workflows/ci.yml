@@ -17,6 +17,15 @@ on:
   push:
     branches: [main]
   pull_request:
+    # `labeled`/`unlabeled` are NOT in the default set ([opened, synchronize,
+    # reopened]), and the `hold` job is useless without them: applying
+    # `hold:human` would not re-run CI, so the required check would sit GREEN and
+    # the brake would not brake.
+    #
+    # Found the hard way on the first real hold (PR #27) — the label went on and
+    # nothing turned red. The thing described as "the only mechanism an autonomous
+    # participant cannot override" was, until this line, decoration.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
