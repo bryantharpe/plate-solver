@@ -53,7 +53,6 @@ pub fn detect_stars(
         sigma_noise_2,
         sigma_noise_3,
     );
-    eprintln!("candidates={}", candidates.len());
 
     let candidates = if detect_hot_pixels {
         reject_hot_pixels(&candidates, image, width, height, binning)
@@ -62,14 +61,15 @@ pub fn detect_stars(
     };
 
     let blobs = form_blobs(candidates, detection.max_size);
-    eprintln!("blobs={}", blobs.len());
     let mut stars = Vec::new();
 
-    for (i, blob) in blobs.iter().enumerate() {
-        eprintln!("blob {}: {:?}", i, blob);
+    for blob in blobs {
         if let Some(star) = process_blob(
-            blob.clone(),
-            true,
+            blob,
+            &detection.data,
+            detection.width,
+            detection.height,
+            detection.binning,
             &higher.data,
             higher.width,
             higher.height,
@@ -103,6 +103,12 @@ struct Candidate {
 }
 
 /// Scan every row of the detection image and emit 1-D candidates.
+///
+/// A pixel qualifies when it is part of a local-maximum run: the pixel and its
+/// immediate neighbors/margins are not higher than the run value, the significance
+/// test passes, and the border background is uniform. Consecutive pixels of equal
+/// value are merged and exactly one candidate — the midpoint of the run — is
+/// emitted, guaranteeing one center per flat-topped peak.
 fn scan_rows(
     image: &[u8],
     width: usize,
@@ -132,31 +138,50 @@ fn scan_rows(
 
         let threshold = row_min as i64 + sigma_noise_2 / 2;
 
+        let mut run_start: Option<usize> = None;
+        let mut run_value: u8 = 0;
+
         for x in scan_left..scan_right {
-            let c = image[row_offset + x] as i64;
-            if c < threshold {
-                continue;
-            }
-            let ok = gate_star_1d(image, width, height, x, y, sigma_noise_2, sigma_noise_3);
-            if (18..=22).contains(&y) && (17..=23).contains(&x) {
-                eprintln!(
-                    "gate x={} y={} c={} threshold={} ok={}",
-                    x, y, c, threshold, ok
-                );
-            }
+            let c = image[row_offset + x];
+            let ok = c as i64 >= threshold
+                && is_row_peak(image, width, height, x, y, sigma_noise_2, sigma_noise_3);
+
             if ok {
-                candidates.push(Candidate { x, y });
+                if run_start.is_none() {
+                    run_start = Some(x);
+                    run_value = c;
+                } else if c != run_value {
+                    // End the previous run and start a new one.
+                    emit_run_center(&mut candidates, run_start.unwrap(), x - 1, y);
+                    run_start = Some(x);
+                    run_value = c;
+                }
+            } else if let Some(start) = run_start {
+                emit_run_center(&mut candidates, start, x - 1, y);
+                run_start = None;
             }
+        }
+
+        if let Some(start) = run_start {
+            emit_run_center(&mut candidates, start, scan_right - 1, y);
         }
     }
 
     candidates
 }
 
-/// 7-pixel 1-D gate centered at `(cx, cy)`.
+fn emit_run_center(candidates: &mut Vec<Candidate>, start: usize, end: usize, y: usize) {
+    let center = (start + end) / 2;
+    candidates.push(Candidate { x: center, y });
+}
+
+/// 7-pixel 1-D local-maximum test centered at `(cx, cy)`.
 ///
-/// Pixels are laid out as: lb l lm C rm r rb.
-fn gate_star_1d(
+/// Pixels are laid out as: lb l lm C rm r rb. A pixel is part of a local
+/// maximum run when it is not lower than its neighbors and margins and the
+/// significance/uniform-background tests pass. The caller collapses consecutive
+/// equal-valued local maxima to a single center.
+fn is_row_peak(
     image: &[u8],
     width: usize,
     _height: usize,
@@ -174,39 +199,13 @@ fn gate_star_1d(
     let r = image[row_offset + cx + 2] as i64;
     let rb = image[row_offset + cx + 3] as i64;
 
-    if cx == 20 && cy == 20 {
-        eprintln!(
-            "gate vals c={} lb={} l={} lm={} rm={} r={} rb={} sn2={} sn3={}",
-            c, lb, l, lm, rm, r, rb, sigma_noise_2, sigma_noise_3
-        );
-    }
-
     // Significance: 2*C - (lb+rb) >= sigma_noise_2.
     if 2 * c - (lb + rb) < sigma_noise_2 {
         return false;
     }
 
-    // Neighbors not higher than center.
-    if l > c || r > c {
-        return false;
-    }
-
-    // Margins strictly lower than center.
-    if lm >= c || rm >= c {
-        return false;
-    }
-
-    // Flat-top tie-breaks: claim the center only if it is the leftmost or
-    // rightmost pixel of the flat top. This guarantees one center per peak.
-    // Left tie-break: if l == c, then lm must also equal c (so the run extends
-    // left and this is not the left edge). Equivalently, we keep the pixel
-    // only when l < c or (l == c && lm == c). Since l <= c from the neighbor
-    // test, l == c is the only remaining case. The same logic applies on the
-    // right.
-    if l == c && lm == c {
-        return false;
-    }
-    if r == c && rm == c {
+    // Neighbors and margins not higher than center.
+    if l > c || r > c || lm > c || rm > c {
         return false;
     }
 
@@ -436,11 +435,14 @@ fn form_blobs(candidates: Vec<Candidate>, _max_size: usize) -> Vec<Blob> {
         .collect()
 }
 
-/// Apply the 2-D gate and centroid a blob.
+/// Apply the 2-D gate on the detection image and centroid on the higher-res image.
 #[allow(clippy::too_many_arguments)]
 fn process_blob(
     blob: Blob,
-    debug: bool,
+    detection_image: &[u8],
+    detection_width: usize,
+    detection_height: usize,
+    detection_binning: usize,
     higher_image: &[u8],
     higher_width: usize,
     higher_height: usize,
@@ -450,80 +452,70 @@ fn process_blob(
     sigma: f64,
     max_size: usize,
 ) -> Option<Star> {
-    // Core is the blob bounding box.
+    // Core is the blob bounding box in detection coordinates.
     let core_left = blob.left();
     let core_top = blob.top();
     let core_width = blob.width();
     let core_height = blob.height();
 
-    // Concentric boxes.
+    // Size gate: a blob is acceptable if at least one dimension fits max_size.
+    // This keeps narrow 1-D peak stacks (common for small synthetic stars) while
+    // still rejecting large 2-D bleeding blobs where both dimensions are oversized.
+    if core_width > max_size && core_height > max_size {
+        return None;
+    }
+
+    // Concentric boxes for the 2-D gate, computed on the detection image.
     let nb_left = core_left.saturating_sub(1);
     let nb_top = core_top.saturating_sub(1);
-    let nb_width = (core_width + 2).min(higher_width - nb_left);
-    let nb_height = (core_height + 2).min(higher_height - nb_top);
+    let nb_width = (core_width + 2).min(detection_width - nb_left);
+    let nb_height = (core_height + 2).min(detection_height - nb_top);
 
     let mg_left = core_left.saturating_sub(2);
     let mg_top = core_top.saturating_sub(2);
-    let mg_width = (core_width + 4).min(higher_width - mg_left);
-    let mg_height = (core_height + 4).min(higher_height - mg_top);
+    let mg_width = (core_width + 4).min(detection_width - mg_left);
+    let mg_height = (core_height + 4).min(detection_height - mg_top);
 
     let pr_left = core_left.saturating_sub(3);
     let pr_top = core_top.saturating_sub(3);
-    let pr_width = (core_width + 6).min(higher_width - pr_left);
-    let pr_height = (core_height + 6).min(higher_height - pr_top);
+    let pr_width = (core_width + 6).min(detection_width - pr_left);
+    let pr_height = (core_height + 6).min(detection_height - pr_top);
 
-    // Size gate.
-    if core_width > max_size || core_height > max_size {
-        if debug {
-            eprintln!(
-                "reject size {}x{} > max_size {}",
-                core_width, core_height, max_size
-            );
-        }
+    // Perimeter must be fully inside the detection image.
+    if pr_left + pr_width > detection_width || pr_top + pr_height > detection_height {
         return None;
     }
-
-    // Perimeter must be fully inside the image.
-    if pr_left + pr_width > higher_width || pr_top + pr_height > higher_height {
-        if debug {
-            eprintln!("reject perimeter out of bounds");
-        }
-        return None;
-    }
-    if pr_left >= higher_width || pr_top >= higher_height {
-        if debug {
-            eprintln!("reject perimeter origin out of bounds");
-        }
+    if pr_left >= detection_width || pr_top >= detection_height {
         return None;
     }
 
     let core_mean = box_mean(
-        higher_image,
-        higher_width,
+        detection_image,
+        detection_width,
         core_left,
         core_top,
         core_width,
         core_height,
     );
     let neighbor_mean = box_mean_excluding_corners(
-        higher_image,
-        higher_width,
+        detection_image,
+        detection_width,
         nb_left,
         nb_top,
         nb_width,
         nb_height,
     );
     let margin_mean = box_mean(
-        higher_image,
-        higher_width,
+        detection_image,
+        detection_width,
         mg_left,
         mg_top,
         mg_width,
         mg_height,
     );
     let (perimeter_mean, perimeter_stddev, perimeter_min, perimeter_max) = box_stats_perimeter(
-        higher_image,
-        higher_width,
+        detection_image,
+        detection_width,
         pr_left,
         pr_top,
         pr_width,
@@ -535,84 +527,79 @@ fn process_blob(
         let inner_left = core_left + core_width / 2 - 1;
         let inner_top = core_top + core_height / 2 - 1;
         let outer_core_mean = box_mean(
-            higher_image,
-            higher_width,
+            detection_image,
+            detection_width,
             core_left,
             core_top,
             core_width,
             core_height,
         );
-        let inner_core_mean = box_mean(higher_image, higher_width, inner_left, inner_top, 3, 3);
-        if debug {
-            eprintln!(
-                "inner_core_mean={} outer_core_mean={}",
-                inner_core_mean, outer_core_mean
-            );
-        }
+        let inner_core_mean = box_mean(
+            detection_image,
+            detection_width,
+            inner_left,
+            inner_top,
+            3,
+            3,
+        );
         if inner_core_mean < outer_core_mean {
-            if debug {
-                eprintln!("reject inner core dimmer");
-            }
             return None;
         }
     }
 
     // Core >= neighbor mean (corners excluded).
-    if debug {
-        eprintln!("core_mean={} neighbor_mean={} margin_mean={} perimeter_mean={} stddev={} min={} max={}", core_mean, neighbor_mean, margin_mean, perimeter_mean, perimeter_stddev, perimeter_min, perimeter_max);
-    }
     if core_mean < neighbor_mean {
-        if debug {
-            eprintln!("reject core < neighbor");
-        }
         return None;
     }
 
     // Core > margin mean.
     if core_mean <= margin_mean {
-        if debug {
-            eprintln!("reject core <= margin");
-        }
         return None;
     }
 
     // Uniform perimeter.
     if perimeter_max - perimeter_min > 3.0 * sigma * noise {
-        if debug {
-            eprintln!(
-                "reject nonuniform perimeter {} > {}",
-                perimeter_max - perimeter_min,
-                3.0 * sigma * noise
-            );
-        }
         return None;
     }
 
     // Significance.
     let effective_noise = noise.max(perimeter_stddev);
     if core_mean - perimeter_mean < sigma * effective_noise {
-        if debug {
-            eprintln!(
-                "reject significance {} < {}",
-                core_mean - perimeter_mean,
-                sigma * effective_noise
-            );
-        }
         return None;
+    }
+
+    // Map the detection core to the higher-res image and expand the measurement
+    // box to include a one-pixel background ring (the "neighbor" box) while also
+    // ensuring it is large enough for centroiding (at least 3x3).
+    let scale_to_higher = detection_binning / higher_binning;
+    let mut meas_left = core_left * scale_to_higher;
+    let mut meas_top = core_top * scale_to_higher;
+    let meas_width = (core_width * scale_to_higher + 2).max(3);
+    let meas_height = (core_height * scale_to_higher + 2).max(3);
+
+    // Center the expansion on the blob.
+    let extra_w = meas_width - (core_width * scale_to_higher);
+    meas_left = meas_left.saturating_sub(extra_w / 2);
+    let extra_h = meas_height - (core_height * scale_to_higher);
+    meas_top = meas_top.saturating_sub(extra_h / 2);
+
+    // Clamp to the higher-res image bounds.
+    if meas_left + meas_width > higher_width {
+        meas_left = higher_width.saturating_sub(meas_width);
+    }
+    if meas_top + meas_height > higher_height {
+        meas_top = higher_height.saturating_sub(meas_height);
     }
 
     // Centroid on the higher-res image, then scale back to input coordinates.
     let star = measure_star(
         higher_image,
         higher_width,
-        core_left,
-        core_top,
-        core_width,
-        core_height,
+        meas_left,
+        meas_top,
+        meas_width,
+        meas_height,
     )?;
-    if debug {
-        eprintln!("measure_star ok");
-    }
 
     let scale = input_binning as f64 / higher_binning as f64;
     Some(Star::new(
