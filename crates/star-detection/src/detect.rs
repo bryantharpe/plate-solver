@@ -55,7 +55,7 @@ pub fn detect_stars(
     );
 
     let candidates = if detect_hot_pixels {
-        reject_hot_pixels(&candidates, image, width, height, binning)
+        reject_hot_pixels(&candidates, image, width, height, binning, sigma_noise_2)
     } else {
         candidates
     };
@@ -229,6 +229,7 @@ fn reject_hot_pixels(
     full_width: usize,
     full_height: usize,
     binning: usize,
+    sigma_noise_2: i64,
 ) -> Vec<Candidate> {
     let mut kept = Vec::with_capacity(candidates.len());
     for &cand in candidates {
@@ -240,7 +241,7 @@ fn reject_hot_pixels(
 
         for y in by0..by1 {
             for x in bx0..bx1 {
-                let class = classify_pixel(full_image, full_width, full_height, x, y);
+                let class = classify_pixel(full_image, full_width, full_height, x, y, sigma_noise_2);
                 match class {
                     PixelClass::Hot => hot_count += 1,
                     PixelClass::Bright => bright_count += 1,
@@ -265,7 +266,14 @@ enum PixelClass {
     Hot,
 }
 
-fn classify_pixel(image: &[u8], width: usize, _height: usize, x: usize, y: usize) -> PixelClass {
+fn classify_pixel(
+    image: &[u8],
+    width: usize,
+    _height: usize,
+    x: usize,
+    y: usize,
+    sigma_noise_2: i64,
+) -> PixelClass {
     let row_offset = y * width;
     let c = image[row_offset + x] as i64;
 
@@ -292,7 +300,9 @@ fn classify_pixel(image: &[u8], width: usize, _height: usize, x: usize, y: usize
     };
 
     let excess = 2 * c - (lb + rb);
-    if excess <= 0 {
+    // A pixel is only "bright" if it exceeds the background by at least
+    // sigma_noise_2, matching the upstream hot-pixel classification.
+    if excess < sigma_noise_2 {
         return PixelClass::Dark;
     }
 
