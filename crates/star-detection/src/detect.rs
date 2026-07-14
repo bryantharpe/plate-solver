@@ -139,7 +139,10 @@ fn scan_rows(
             }
             let ok = gate_star_1d(image, width, height, x, y, sigma_noise_2, sigma_noise_3);
             if y >= 18 && y <= 22 && x >= 17 && x <= 23 {
-                eprintln!("gate x={} y={} c={} threshold={} ok={}", x, y, c, threshold, ok);
+                eprintln!(
+                    "gate x={} y={} c={} threshold={} ok={}",
+                    x, y, c, threshold, ok
+                );
             }
             if ok {
                 candidates.push(Candidate { x, y });
@@ -172,7 +175,10 @@ fn gate_star_1d(
     let rb = image[row_offset + cx + 3] as i64;
 
     if cx == 20 && cy == 20 {
-        eprintln!("gate vals c={} lb={} l={} lm={} rm={} r={} rb={} sn2={} sn3={}", c, lb, l, lm, rm, r, rb, sigma_noise_2, sigma_noise_3);
+        eprintln!(
+            "gate vals c={} lb={} l={} lm={} rm={} r={} rb={} sn2={} sn3={}",
+            c, lb, l, lm, rm, r, rb, sigma_noise_2, sigma_noise_3
+        );
     }
 
     // Significance: 2*C - (lb+rb) >= sigma_noise_2.
@@ -227,7 +233,8 @@ fn reject_hot_pixels(
 ) -> Vec<Candidate> {
     let mut kept = Vec::with_capacity(candidates.len());
     for &cand in candidates {
-        let (bx0, bx1, by0, by1) = binned_to_full_block(cand.x, cand.y, full_width, full_height, binning);
+        let (bx0, bx1, by0, by1) =
+            binned_to_full_block(cand.x, cand.y, full_width, full_height, binning);
 
         let mut hot_count = 0usize;
         let mut bright_count = 0usize;
@@ -259,21 +266,31 @@ enum PixelClass {
     Hot,
 }
 
-fn classify_pixel(
-    image: &[u8],
-    width: usize,
-    _height: usize,
-    x: usize,
-    y: usize,
-) -> PixelClass {
+fn classify_pixel(image: &[u8], width: usize, _height: usize, x: usize, y: usize) -> PixelClass {
     let row_offset = y * width;
     let c = image[row_offset + x] as i64;
 
     // Neighbors and borders in the 7-pixel 1-D window centered on x.
-    let l = if x >= 2 { image[row_offset + x - 2] as i64 } else { 0 };
-    let r = if x + 2 < width { image[row_offset + x + 2] as i64 } else { 0 };
-    let lb = if x >= 3 { image[row_offset + x - 3] as i64 } else { 0 };
-    let rb = if x + 3 < width { image[row_offset + x + 3] as i64 } else { 0 };
+    let l = if x >= 2 {
+        image[row_offset + x - 2] as i64
+    } else {
+        0
+    };
+    let r = if x + 2 < width {
+        image[row_offset + x + 2] as i64
+    } else {
+        0
+    };
+    let lb = if x >= 3 {
+        image[row_offset + x - 3] as i64
+    } else {
+        0
+    };
+    let rb = if x + 3 < width {
+        image[row_offset + x + 3] as i64
+    } else {
+        0
+    };
 
     let excess = 2 * c - (lb + rb);
     if excess <= 0 {
@@ -457,21 +474,37 @@ fn process_blob(
 
     // Size gate.
     if core_width > max_size || core_height > max_size {
-        if debug { eprintln!("reject size {}x{} > max_size {}", core_width, core_height, max_size); }
+        if debug {
+            eprintln!(
+                "reject size {}x{} > max_size {}",
+                core_width, core_height, max_size
+            );
+        }
         return None;
     }
 
     // Perimeter must be fully inside the image.
     if pr_left + pr_width > higher_width || pr_top + pr_height > higher_height {
-        if debug { eprintln!("reject perimeter out of bounds"); }
+        if debug {
+            eprintln!("reject perimeter out of bounds");
+        }
         return None;
     }
     if pr_left >= higher_width || pr_top >= higher_height {
-        if debug { eprintln!("reject perimeter origin out of bounds"); }
+        if debug {
+            eprintln!("reject perimeter origin out of bounds");
+        }
         return None;
     }
 
-    let core_mean = box_mean(higher_image, higher_width, core_left, core_top, core_width, core_height);
+    let core_mean = box_mean(
+        higher_image,
+        higher_width,
+        core_left,
+        core_top,
+        core_width,
+        core_height,
+    );
     let neighbor_mean = box_mean_excluding_corners(
         higher_image,
         higher_width,
@@ -480,46 +513,91 @@ fn process_blob(
         nb_width,
         nb_height,
     );
-    let margin_mean = box_mean(higher_image, higher_width, mg_left, mg_top, mg_width, mg_height);
-    let (perimeter_mean, perimeter_stddev, perimeter_min, perimeter_max) =
-        box_stats_perimeter(higher_image, higher_width, pr_left, pr_top, pr_width, pr_height);
+    let margin_mean = box_mean(
+        higher_image,
+        higher_width,
+        mg_left,
+        mg_top,
+        mg_width,
+        mg_height,
+    );
+    let (perimeter_mean, perimeter_stddev, perimeter_min, perimeter_max) = box_stats_perimeter(
+        higher_image,
+        higher_width,
+        pr_left,
+        pr_top,
+        pr_width,
+        pr_height,
+    );
 
     // Inner-core brightness (3x3 center of core) when core >= 3x3.
     if core_width >= 3 && core_height >= 3 {
         let inner_left = core_left + core_width / 2 - 1;
         let inner_top = core_top + core_height / 2 - 1;
-        let outer_core_mean = box_mean(higher_image, higher_width, core_left, core_top, core_width, core_height);
+        let outer_core_mean = box_mean(
+            higher_image,
+            higher_width,
+            core_left,
+            core_top,
+            core_width,
+            core_height,
+        );
         let inner_core_mean = box_mean(higher_image, higher_width, inner_left, inner_top, 3, 3);
-        if debug { eprintln!("inner_core_mean={} outer_core_mean={}", inner_core_mean, outer_core_mean); }
+        if debug {
+            eprintln!(
+                "inner_core_mean={} outer_core_mean={}",
+                inner_core_mean, outer_core_mean
+            );
+        }
         if inner_core_mean < outer_core_mean {
-            if debug { eprintln!("reject inner core dimmer"); }
+            if debug {
+                eprintln!("reject inner core dimmer");
+            }
             return None;
         }
     }
 
     // Core >= neighbor mean (corners excluded).
-    if debug { eprintln!("core_mean={} neighbor_mean={} margin_mean={} perimeter_mean={} stddev={} min={} max={}", core_mean, neighbor_mean, margin_mean, perimeter_mean, perimeter_stddev, perimeter_min, perimeter_max); }
+    if debug {
+        eprintln!("core_mean={} neighbor_mean={} margin_mean={} perimeter_mean={} stddev={} min={} max={}", core_mean, neighbor_mean, margin_mean, perimeter_mean, perimeter_stddev, perimeter_min, perimeter_max);
+    }
     if core_mean < neighbor_mean {
-        if debug { eprintln!("reject core < neighbor"); }
+        if debug {
+            eprintln!("reject core < neighbor");
+        }
         return None;
     }
 
     // Core > margin mean.
     if core_mean <= margin_mean {
-        if debug { eprintln!("reject core <= margin"); }
+        if debug {
+            eprintln!("reject core <= margin");
+        }
         return None;
     }
 
     // Uniform perimeter.
     if perimeter_max - perimeter_min > 3.0 * sigma * noise {
-        if debug { eprintln!("reject nonuniform perimeter {} > {}", perimeter_max - perimeter_min, 3.0 * sigma * noise); }
+        if debug {
+            eprintln!(
+                "reject nonuniform perimeter {} > {}",
+                perimeter_max - perimeter_min,
+                3.0 * sigma * noise
+            );
+        }
         return None;
     }
 
     // Significance.
     let effective_noise = noise.max(perimeter_stddev);
     if core_mean - perimeter_mean < sigma * effective_noise {
-        if debug { eprintln!("reject significance {} < {}", core_mean - perimeter_mean, sigma * effective_noise); }
+        if debug {
+            eprintln!(
+                "reject significance {} < {}",
+                core_mean - perimeter_mean,
+                sigma * effective_noise
+            );
+        }
         return None;
     }
 
@@ -532,7 +610,9 @@ fn process_blob(
         core_width,
         core_height,
     )?;
-    if debug { eprintln!("measure_star ok"); }
+    if debug {
+        eprintln!("measure_star ok");
+    }
 
     let scale = input_binning as f64 / higher_binning as f64;
     Some(Star::new(
@@ -576,8 +656,7 @@ fn box_mean_excluding_corners(
         let row_offset = y * width;
         for x in left..left + box_width {
             let is_corner =
-                (y == top || y == top + box_height - 1) &&
-                (x == left || x == left + box_width - 1);
+                (y == top || y == top + box_height - 1) && (x == left || x == left + box_width - 1);
             if is_corner {
                 continue;
             }
