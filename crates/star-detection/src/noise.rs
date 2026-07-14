@@ -50,12 +50,14 @@ pub fn estimate_noise(image: &[u8], width: usize, height: usize) -> f64 {
     let mut best_mean = f64::INFINITY;
 
     for &cx in &centers_x {
-        let start_x = cx.saturating_sub(cut_half).min(width.saturating_sub(cut_width));
+        let start_x = cx
+            .saturating_sub(cut_half)
+            .min(width.saturating_sub(cut_width));
         let y = mid_y.min(height - 1);
         let row_offset = y * width;
 
-        let mut pixels: Vec<u8> = image[row_offset + start_x..row_offset + start_x + cut_width]
-            .to_vec();
+        let mut pixels: Vec<u8> =
+            image[row_offset + start_x..row_offset + start_x + cut_width].to_vec();
 
         // De-star: discard the brightest outliers.
         pixels.sort_unstable();
@@ -118,7 +120,11 @@ mod tests {
 
         let noise = estimate_noise(&image, width, height);
         // Dark cuts have stddev ~0; floor applies.
-        assert!((noise - 0.2).abs() < 1e-9, "expected floor 0.2, got {}", noise);
+        assert!(
+            (noise - 0.2).abs() < 1e-9,
+            "expected floor 0.2, got {}",
+            noise
+        );
     }
 
     #[test]
