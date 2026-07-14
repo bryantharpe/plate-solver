@@ -6,6 +6,7 @@
 
 use std::f64::consts::TAU;
 
+pub mod attitude;
 pub mod binomial;
 pub mod fov;
 pub mod pattern;
