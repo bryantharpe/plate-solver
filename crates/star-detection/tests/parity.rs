@@ -22,7 +22,9 @@ const BINNING: usize = 1;
 
 #[derive(Debug, Deserialize)]
 struct GoldenImage {
+    #[allow(dead_code)]
     width: u32,
+    #[allow(dead_code)]
     height: u32,
     stars: Vec<GoldenStar>,
 }
@@ -68,7 +70,7 @@ fn match_stars(detected: &[(f64, f64)], golden: &[GoldenStar], tol: f64) -> (Vec
             if dist_sq > tol * tol {
                 continue;
             }
-            if best.map_or(true, |(_, bd)| dist_sq < bd) {
+            if best.is_none_or(|(_, bd)| dist_sq < bd) {
                 best = Some((gi, dist_sq));
             }
         }

@@ -502,18 +502,24 @@ fn process_blob(
     let mg_width = (core_width + 4).min(detection_width - mg_left);
     let mg_height = (core_height + 4).min(detection_height - mg_top);
 
-    let pr_left = core_left.saturating_sub(3);
-    let pr_top = core_top.saturating_sub(3);
-    let pr_width = (core_width + 6).min(detection_width - pr_left);
-    let pr_height = (core_height + 6).min(detection_height - pr_top);
+    // The 2-D gate requires the full core +/- 3 perimeter to fit inside the
+    // detection image. cedar-detect rejects blobs whose perimeter would cross
+    // an edge; clamping the perimeter box to the image bounds instead allows
+    // noisy edge pixels to be mistaken for a uniform background and produces
+    // spurious detections. Reject if the unclamped perimeter would extend
+    // outside the image.
+    if core_left < 3
+        || core_top < 3
+        || core_left + core_width + 3 > detection_width
+        || core_top + core_height + 3 > detection_height
+    {
+        return None;
+    }
 
-    // Perimeter must be fully inside the detection image.
-    if pr_left + pr_width > detection_width || pr_top + pr_height > detection_height {
-        return None;
-    }
-    if pr_left >= detection_width || pr_top >= detection_height {
-        return None;
-    }
+    let pr_left = core_left - 3;
+    let pr_top = core_top - 3;
+    let pr_width = core_width + 6;
+    let pr_height = core_height + 6;
 
     let core_mean = box_mean(
         detection_image,
