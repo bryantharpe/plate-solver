@@ -257,9 +257,9 @@ mod tests {
     #[test]
     fn diagonal_fov_relation() {
         let fov = 1.2;
-        let width = 1024.0;
-        let height = 768.0;
-        let expected = fov * ((width * width + height * height) as f64).sqrt() / width;
+        let width: f64 = 1024.0;
+        let height: f64 = 768.0;
+        let expected = fov * (width * width + height * height).sqrt() / width;
         let diag = diagonal_fov(fov, width, height);
         assert!((diag - expected).abs() < 1e-12);
     }
