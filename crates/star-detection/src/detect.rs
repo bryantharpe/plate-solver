@@ -138,7 +138,7 @@ fn scan_rows(
                 continue;
             }
             let ok = gate_star_1d(image, width, height, x, y, sigma_noise_2, sigma_noise_3);
-            if y >= 18 && y <= 22 && x >= 17 && x <= 23 {
+            if (18..=22).contains(&y) && (17..=23).contains(&x) {
                 eprintln!(
                     "gate x={} y={} c={} threshold={} ok={}",
                     x, y, c, threshold, ok
