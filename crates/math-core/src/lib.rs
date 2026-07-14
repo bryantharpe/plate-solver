@@ -6,6 +6,8 @@
 
 use std::f64::consts::TAU;
 
+pub mod binomial;
+pub mod fov;
 pub mod residuals;
 
 /// A 3-dimensional unit vector in equatorial coordinates.
