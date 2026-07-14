@@ -8,9 +8,11 @@ use crate::UnitVector;
 
 /// Estimate horizontal FOV from a matched pattern.
 ///
-/// If `fov_estimate` is provided, scales it by the ratio of the largest catalog
-/// edge angle to the largest image pixel distance (converted to angle via the
-/// supplied FOV). If no estimate is supplied, solves focal length from the
+/// If `fov_estimate` is provided, the image pixel distance is converted to an
+/// angle using the supplied FOV (`image_angle = image_largest_edge * fov_initial /
+/// width`), then the refined FOV is `catalog_largest_edge / image_angle *
+/// fov_initial`, which simplifies to `catalog_largest_edge * width /
+/// image_largest_edge`. If no estimate is supplied, solves focal length from the
 /// largest pixel distance and the catalog largest angle, then derives FOV.
 ///
 /// `image_largest_edge` is the largest Euclidean distance between matched
@@ -25,7 +27,9 @@ pub fn estimate_fov(
     width: f64,
 ) -> f64 {
     if let Some(fov_initial) = fov_estimate {
-        catalog_largest_edge / image_largest_edge * fov_initial
+        // Convert pixel distance to angle using the supplied FOV, then scale.
+        let image_angle = image_largest_edge * fov_initial / width;
+        catalog_largest_edge / image_angle * fov_initial
     } else {
         let f = image_largest_edge / 2.0 / (catalog_largest_edge / 2.0).tan();
         2.0 * ((width / 2.0) / f).atan()
@@ -59,7 +63,7 @@ pub fn diagonal_fov(fov: f64, width: f64, height: f64) -> f64 {
 pub fn refine_fov(
     fov: f64,
     width: f64,
-    height: f64,
+    _height: f64,
     camera: &[UnitVector],
     catalog: &[UnitVector],
     k: Option<f64>,
@@ -74,7 +78,6 @@ pub fn refine_fov(
         return (fov, k);
     }
 
-    let (_cy, _cx) = (height / 2.0, width / 2.0);
     let _scale = 2.0 * (fov / 2.0).tan() / width;
 
     if k.is_none() {
@@ -217,8 +220,11 @@ mod tests {
         let fov_initial = 1.2;
         let catalog_largest_edge = 0.05;
         let image_largest_edge = 100.0;
-        let fov = estimate_fov(Some(fov_initial), image_largest_edge, catalog_largest_edge, 1024.0);
-        let expected = catalog_largest_edge / image_largest_edge * fov_initial;
+        let width = 1024.0;
+        let fov = estimate_fov(Some(fov_initial), image_largest_edge, catalog_largest_edge, width);
+        // Pixel distance is converted to angle via the supplied FOV before ratio.
+        let image_angle = image_largest_edge * fov_initial / width;
+        let expected = catalog_largest_edge / image_angle * fov_initial;
         assert!((fov - expected).abs() < 1e-12, "fov = {}, expected = {}", fov, expected);
     }
 
@@ -273,10 +279,10 @@ mod tests {
                 // Keep the same (j,k) proportions, recompute i for unit length.
                 let r = (v.y * v.y + v.z * v.z).sqrt();
                 let scale = if r == 0.0 {
-                1.05
-            } else {
-                new_theta.sin() / r
-            };
+                    1.05
+                } else {
+                    new_theta.sin() / r
+                };
                 UnitVector {
                     x: new_theta.cos(),
                     y: v.y * scale,
