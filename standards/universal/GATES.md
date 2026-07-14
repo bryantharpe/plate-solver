@@ -18,11 +18,23 @@ tools.
 
 ## Notes
 
-- **U3 is the anti-self-selection-bias rule.** Authors are local qwen/glm models;
-  the authoritative reviewer is Opus. Same-lineage review (a model reviewing its
-  own family's output) is explicitly *not* sufficient. The invocation mechanism
-  (CI job → Opus → required status check `review/opus`) is specified in
-  [`OPUS-REVIEW.md`](./OPUS-REVIEW.md) — specified, not yet wired in any consumer.
+- **U3 is the anti-self-selection-bias rule.** The invariant is **lineage
+  independence**: the reviewer must share a pretraining lineage with NO author.
+  Same-lineage review (a model reviewing its own family's output) is explicitly
+  *not* sufficient — the gate is void even if the check goes green.
+  Current seats (2026-07-14): both authors — `coder-small` and `coder-large` — are
+  kimi (Moonshot); the authoritative reviewer is the `judge` role (glm-5.2, Zhipu).
+  Disjoint, so the invariant holds. **glm is the judge and must NEVER be seated as an
+  author** — that, not the number of author lineages, is what would void U3.
+  The invocation mechanism (refinery → `judge` → required status check
+  `review/judge`) is specified in [`OPUS-REVIEW.md`](./OPUS-REVIEW.md).
+
+  > ⚠ **This copy is a stale v1.0 vintage and `OPUS-REVIEW.md` still names Opus as
+  > the reviewer, which the fleet has not used since 2026-07-12.** `judge-pr.sh`
+  > feeds THIS file to the live judge, so the drift is load-bearing, not cosmetic.
+  > The canonical v2.0 standards live in `~/agent-standards` (`JUDGE-REVIEW.md`).
+  > Syncing them is tracked as **ps-ops-09-standards-drift** — do not assume this
+  > file is current.
 - **U2 and U8** are what stop the verification pipeline from becoming the attack
   surface — an unpinned action or a wildcard dependency silently defeats every
   other gate.
