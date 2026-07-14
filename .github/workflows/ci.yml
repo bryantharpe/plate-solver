@@ -325,8 +325,13 @@ jobs:
           # a required check, is never posted and the PR stays unmergeable no matter what you
           # click. Two PRs were closed unmerged from this page because the release path was a
           # lie and the Close button was the only thing that worked (#53/#54, 2026-07-14).
-          echo "OPERATOR — to release this PR, from the town:"
-          echo "    scripts/ops/mq-release.sh <rig> ${{ github.event.pull_request.number }} --yes"
+          # ABSOLUTE PATH, ON PURPOSE. This text is read on github.com, in the Actions log of
+          # THIS repo — and `scripts/` does not exist in this repo. It lives in the town
+          # (gt-town-config, deployed to ~/gt). A bare `scripts/ops/...` sends the operator
+          # looking in the wrong checkout, which is the same class of mistake as the line this
+          # message replaced.
+          echo "OPERATOR — to release this PR, on the town host:"
+          echo "    ~/gt/scripts/ops/mq-release.sh plate_solver ${{ github.event.pull_request.number }} --yes"
           echo "It adds integrity:cleared, drops the hold, and RESUBMITS the merge request"
           echo "(without which the judge never runs and this PR can never merge)."
           echo "Removing the label by hand will NOT work. Run it without --yes for a dry run."
