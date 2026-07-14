@@ -294,6 +294,14 @@ jobs:
   # RED while the hold is on: GitHub refuses the merge, and no amount of agent
   # helpfulness can argue with that. This is the only mechanism in the pipeline
   # that an autonomous participant cannot override.
+  #
+  # THIS JOB IS UNIVERSAL AND MUST STAY THAT WAY. DO NOT make it conditional on the
+  # rig's `hold.enabled` flag. The flag (config/rig-flags.json, town-side) governs only
+  # whether authoring-integrity-guard may APPLY the label automatically. The job is inert
+  # without the label — green by construction on a rig where nothing applies it — so
+  # leaving it universal costs nothing, keeps branch protection identical across rigs, and
+  # preserves the thing the label is actually for: an operator can park ANY PR, on ANY rig,
+  # by hand, and every tool in the pipeline will respect it.
   hold:
     name: hold
     runs-on: ubuntu-latest
@@ -305,8 +313,23 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'hold:human')
         run: |
           echo "::error::hold:human — an operator has parked this PR. Merging is blocked."
-          echo "Remove the label to release it. If you are an agent: do NOT remove it,"
-          echo "and do NOT mark this PR ready for review. Leave it parked and say so."
+          echo
+          echo "If you are an agent: do NOT remove the label, and do NOT mark this PR ready"
+          echo "for review. Leave it parked and say so."
+          echo
+          # This used to say 'Remove the label to release it', which was FALSE and was the
+          # last thing an operator read before acting. Removing the label does two things,
+          # both wrong: authoring-integrity-guard re-applies it within 2 minutes (a finding
+          # is cleared by ADDING integrity:cleared, never by removing a label), and it does
+          # not bring back the merge request that holding the PR destroyed — so `review/judge`,
+          # a required check, is never posted and the PR stays unmergeable no matter what you
+          # click. Two PRs were closed unmerged from this page because the release path was a
+          # lie and the Close button was the only thing that worked (#53/#54, 2026-07-14).
+          echo "OPERATOR — to release this PR, from the town:"
+          echo "    scripts/ops/mq-release.sh <rig> ${{ github.event.pull_request.number }} --yes"
+          echo "It adds integrity:cleared, drops the hold, and RESUBMITS the merge request"
+          echo "(without which the judge never runs and this PR can never merge)."
+          echo "Removing the label by hand will NOT work. Run it without --yes for a dry run."
           exit 1
       - run: echo "No operator hold. Proceeding."
       - uses: ./.github/actions/attest
@@ -389,8 +412,18 @@ jobs:
           # because there was nothing to look at. `integrity:cleared` means a HUMAN overrode a
           # finding. All three are green here and they are not remotely the same claim — so the
           # attestation names the one that actually applied.
+          #   integrity:flagged — a finding WAS recorded, on a rig whose operator has
+          #                       hold.enabled=false (config/rig-flags.json). Observe-only:
+          #                       graded, escalated, permanently labelled — and NOT blocked.
+          #                       It is green here because the alternative is worse. Gating
+          #                       the hold without adding this stamp would leave a flagged PR
+          #                       with NO stamp at all, so this fail-closed check would block
+          #                       it anyway, with no label saying why: the brake made invisible
+          #                       rather than removed. plate_solver keeps hold.enabled=true, so
+          #                       there a finding still gets hold:human and still blocks — a
+          #                       self-applied integrity:flagged buys an agent nothing.
           stamp="$(printf '%s' "$PR_LABELS_JSON" \
-            | jq -r 'map(select(. == "integrity:graded" or . == "integrity:cleared" or . == "integrity:n-a")) | first // empty' 2>/dev/null || true)"
+            | jq -r 'map(select(. == "integrity:graded" or . == "integrity:cleared" or . == "integrity:n-a" or . == "integrity:flagged")) | first // empty' 2>/dev/null || true)"
           if [[ -n "$stamp" ]]; then
             echo "stamp=$stamp" >> "$GITHUB_OUTPUT"
             echo "Positive integrity stamp present: $stamp"
