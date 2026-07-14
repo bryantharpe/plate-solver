@@ -501,13 +501,7 @@ mod tests {
         let tol = 1e-6;
         let maxiter = 30;
         let centroids = [(300.5, 400.5), (50.0, 50.0), (900.0, 950.0)];
-        let _ = distort_centroids(&centroids,
-            width,
-            height,
-            k,
-            Some(tol),
-            Some(maxiter),
-        );
+        let _ = distort_centroids(&centroids, width, height, k, Some(tol), Some(maxiter));
         // The function is exercised above; convergence is verified by the
         // round-trip test. This test documents the bound requirement.
     }
