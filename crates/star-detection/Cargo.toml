@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Star detection pipeline: noise estimation and binning cascade."
+description = "Star detection pipeline: noise estimation, binning cascade, sub-pixel centroiding, and brightness measurement."
 
 [dependencies]
 
