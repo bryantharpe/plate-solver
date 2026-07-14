@@ -8,5 +8,6 @@ repository.workspace = true
 description = "Shared numerical foundation for the plate-solver rewrite."
 
 [dependencies]
+nalgebra = "0.35.0"
 
 [dev-dependencies]
