@@ -7,7 +7,11 @@ use crate::catalog::CatalogEntry;
 /// If `limit` is `None`, no magnitude cut is applied (only cleanup/sort).
 pub fn clean_and_limit(entries: &mut Vec<CatalogEntry>, limit: Option<f64>) {
     entries.retain(|e| !(e.ra == 0.0 && e.dec == 0.0));
-    entries.sort_by(|a, b| a.mag.partial_cmp(&b.mag).unwrap_or(std::cmp::Ordering::Equal));
+    entries.sort_by(|a, b| {
+        a.mag
+            .partial_cmp(&b.mag)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     if let Some(limit) = limit {
         entries.retain(|e| e.mag <= limit);
     }

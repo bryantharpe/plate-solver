@@ -76,16 +76,14 @@ fn tyc_parses_three_part_id() {
 
 #[test]
 fn proper_motion_pole_guard() {
-    let mut entries = vec![
-        database_generation::catalog::CatalogEntry {
-            ra: 0.0,
-            dec: 89.0f64.to_radians(),
-            mag: 1.0,
-            id: CatalogId::Hip(1),
-            pm_ra: Some(100.0),
-            pm_dec: Some(50.0),
-        },
-    ];
+    let mut entries = vec![database_generation::catalog::CatalogEntry {
+        ra: 0.0,
+        dec: 89.0f64.to_radians(),
+        mag: 1.0,
+        id: CatalogId::Hip(1),
+        pm_ra: Some(100.0),
+        pm_dec: Some(50.0),
+    }];
     propagate(&mut entries, HIP_TYC_PM_ORIGIN, HIP_TYC_PM_ORIGIN + 10.0);
     assert!((entries[0].ra - 0.0).abs() < 1e-12);
     assert!((entries[0].dec - 89.0f64.to_radians()).abs() < 1e-12);
@@ -93,16 +91,14 @@ fn proper_motion_pole_guard() {
 
 #[test]
 fn proper_motion_propagates_non_pole() {
-    let mut entries = vec![
-        database_generation::catalog::CatalogEntry {
-            ra: 0.0,
-            dec: 0.0,
-            mag: 1.0,
-            id: CatalogId::Hip(1),
-            pm_ra: Some(1000.0), // mas/year
-            pm_dec: Some(500.0),
-        },
-    ];
+    let mut entries = vec![database_generation::catalog::CatalogEntry {
+        ra: 0.0,
+        dec: 0.0,
+        mag: 1.0,
+        id: CatalogId::Hip(1),
+        pm_ra: Some(1000.0), // mas/year
+        pm_dec: Some(500.0),
+    }];
     propagate(&mut entries, HIP_TYC_PM_ORIGIN, HIP_TYC_PM_ORIGIN + 1.0);
     let mas_to_rad = std::f64::consts::PI / (180.0 * 3600.0 * 1000.0);
     assert!((entries[0].ra - 1000.0 * 1.0 * mas_to_rad).abs() < 1e-12);
@@ -113,9 +109,30 @@ fn proper_motion_propagates_non_pole() {
 fn cleanup_drops_zero_zero_and_sorts() {
     use database_generation::catalog::CatalogEntry;
     let mut entries = vec![
-        CatalogEntry { ra: 0.0, dec: 0.0, mag: 1.0, id: CatalogId::Hip(1), pm_ra: None, pm_dec: None },
-        CatalogEntry { ra: 1.0, dec: 0.5, mag: 3.0, id: CatalogId::Hip(2), pm_ra: None, pm_dec: None },
-        CatalogEntry { ra: 2.0, dec: 0.5, mag: 2.0, id: CatalogId::Hip(3), pm_ra: None, pm_dec: None },
+        CatalogEntry {
+            ra: 0.0,
+            dec: 0.0,
+            mag: 1.0,
+            id: CatalogId::Hip(1),
+            pm_ra: None,
+            pm_dec: None,
+        },
+        CatalogEntry {
+            ra: 1.0,
+            dec: 0.5,
+            mag: 3.0,
+            id: CatalogId::Hip(2),
+            pm_ra: None,
+            pm_dec: None,
+        },
+        CatalogEntry {
+            ra: 2.0,
+            dec: 0.5,
+            mag: 2.0,
+            id: CatalogId::Hip(3),
+            pm_ra: None,
+            pm_dec: None,
+        },
     ];
     clean_and_limit(&mut entries, None);
     assert_eq!(entries.len(), 2);
