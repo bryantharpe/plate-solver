@@ -91,7 +91,7 @@ fn cedar_detect_parity_on_all_reference_images() {
 
     for (name, golden) in goldens {
         let (image, width, height) = load_image(&name);
-        let stars = detect_stars(&image, width, height, SIGMA, BINNING, false, false);
+        let stars = detect_stars(&image, width, height, SIGMA, BINNING, false, true);
         let detected: Vec<(f64, f64)> = stars.iter().map(|s| (s.x, s.y)).collect();
         let golden_coords: Vec<GoldenStar> = golden.stars.clone();
 
