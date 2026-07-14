@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/math-core"]
+members = ["crates/math-core", "crates/star-detection"]
 resolver = "2"
 
 [workspace.package]
@@ -11,3 +11,4 @@ repository = "https://github.com/bryantharpe/plate-solver"
 
 [workspace.dependencies]
 math-core = { path = "crates/math-core" }
+star-detection = { path = "crates/star-detection" }
