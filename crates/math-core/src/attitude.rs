@@ -120,11 +120,7 @@ mod tests {
     fn rotation_z(angle: f64) -> RotationMatrix {
         let c = angle.cos();
         let s = angle.sin();
-        RotationMatrix::from_rows([
-            [c, -s, 0.0],
-            [s, c, 0.0],
-            [0.0, 0.0, 1.0],
-        ])
+        RotationMatrix::from_rows([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
     }
 
     fn random_catalog_vectors(n: usize, seed: u64) -> Vec<UnitVector> {
@@ -172,13 +168,13 @@ mod tests {
     fn reflection_is_rejected() {
         let catalog = random_catalog_vectors(10, 7);
         // A pure z-reflection is not a proper rotation.
-        let reflection = RotationMatrix::from_rows([
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, -1.0],
-        ]);
+        let reflection =
+            RotationMatrix::from_rows([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]);
         let image: Vec<UnitVector> = catalog.iter().map(|v| reflection.rotate(*v)).collect();
-        assert!(solve_attitude(&image, &catalog).is_none(), "reflection should be rejected");
+        assert!(
+            solve_attitude(&image, &catalog).is_none(),
+            "reflection should be rejected"
+        );
     }
 
     #[test]
@@ -195,7 +191,11 @@ mod tests {
 
         let ra_diff = ((ra_out - ra + PI).rem_euclid(TAU)) - PI;
         assert!(ra_diff.abs() < 1e-12, "ra diff = {}", ra_diff);
-        assert!((dec_out - dec).abs() < 1e-12, "dec diff = {}", dec_out - dec);
+        assert!(
+            (dec_out - dec).abs() < 1e-12,
+            "dec diff = {}",
+            dec_out - dec
+        );
     }
 
     #[test]
@@ -240,7 +240,12 @@ mod tests {
         // For this construction R[1,2] = -sin(roll_in) and R[2,2] = cos(roll_in),
         // so the raw atan2 is -roll_in, which normalizes to 2π - roll_in.
         let expected = TAU - roll_in;
-        assert!((roll_out - expected).abs() < 1e-12, "roll = {} expected {}", roll_out, expected);
+        assert!(
+            (roll_out - expected).abs() < 1e-12,
+            "roll = {} expected {}",
+            roll_out,
+            expected
+        );
     }
 
     fn max_abs_diff(a: &RotationMatrix, b: &RotationMatrix) -> f64 {
@@ -255,25 +260,33 @@ mod tests {
 
     fn rotation_pointing_at(ra: f64, dec: f64) -> RotationMatrix {
         let r0 = UnitVector::from_radec(ra, dec);
-        let mut tmp = UnitVector { x: 0.0, y: 0.0, z: 1.0 };
+        let mut tmp = UnitVector {
+            x: 0.0,
+            y: 0.0,
+            z: 1.0,
+        };
         if (r0.x * tmp.x + r0.y * tmp.y + r0.z * tmp.z).abs() > 0.99 {
-            tmp = UnitVector { x: 0.0, y: 1.0, z: 0.0 };
+            tmp = UnitVector {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            };
         }
         let row1 = cross(r0, tmp);
         let row1 = normalize(row1);
         let row2 = cross(r0, row1);
-        RotationMatrix::from_rows([[r0.x, r0.y, r0.z], [row1.x, row1.y, row1.z], [row2.x, row2.y, row2.z]])
+        RotationMatrix::from_rows([
+            [r0.x, r0.y, r0.z],
+            [row1.x, row1.y, row1.z],
+            [row2.x, row2.y, row2.z],
+        ])
     }
 
     fn rotation_with_roll(roll: f64) -> RotationMatrix {
         // Boresight along x, roll around x by `roll`.
         let c = roll.cos();
         let s = roll.sin();
-        RotationMatrix::from_rows([
-            [1.0, 0.0, 0.0],
-            [0.0, c, -s],
-            [0.0, s, c],
-        ])
+        RotationMatrix::from_rows([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
     }
 
     fn cross(a: UnitVector, b: UnitVector) -> UnitVector {
