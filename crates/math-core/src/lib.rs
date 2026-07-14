@@ -6,6 +6,8 @@
 
 use std::f64::consts::TAU;
 
+pub mod residuals;
+
 /// A 3-dimensional unit vector in equatorial coordinates.
 ///
 /// Components are `x = cos(RA)cos(Dec)`, `y = sin(RA)cos(Dec)`, `z = sin(Dec)`.
