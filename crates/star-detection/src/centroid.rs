@@ -242,7 +242,11 @@ mod tests {
         }
         let star = measure_star(&img, 10, 0, 0, 5, 5).unwrap();
         // Perimeter mean = 50, inset sum = 9 * 150 = 1350, expected brightness = 1350 - 9*50 = 900
-        assert!((star.brightness - 900.0).abs() < 1e-9, "brightness = {}", star.brightness);
+        assert!(
+            (star.brightness - 900.0).abs() < 1e-9,
+            "brightness = {}",
+            star.brightness
+        );
     }
 
     #[test]
