@@ -221,11 +221,21 @@ mod tests {
         let catalog_largest_edge = 0.05;
         let image_largest_edge = 100.0;
         let width = 1024.0;
-        let fov = estimate_fov(Some(fov_initial), image_largest_edge, catalog_largest_edge, width);
+        let fov = estimate_fov(
+            Some(fov_initial),
+            image_largest_edge,
+            catalog_largest_edge,
+            width,
+        );
         // Pixel distance is converted to angle via the supplied FOV before ratio.
         let image_angle = image_largest_edge * fov_initial / width;
         let expected = catalog_largest_edge / image_angle * fov_initial;
-        assert!((fov - expected).abs() < 1e-12, "fov = {}, expected = {}", fov, expected);
+        assert!(
+            (fov - expected).abs() < 1e-12,
+            "fov = {}, expected = {}",
+            fov,
+            expected
+        );
     }
 
     #[test]
@@ -236,7 +246,12 @@ mod tests {
         let f = image_largest_edge / 2.0f64 / (catalog_largest_edge / 2.0f64).tan();
         let expected = 2.0 * ((width / 2.0f64) / f).atan();
         let fov = estimate_fov(None, image_largest_edge, catalog_largest_edge, width);
-        assert!((fov - expected).abs() < 1e-12, "fov = {}, expected = {}", fov, expected);
+        assert!(
+            (fov - expected).abs() < 1e-12,
+            "fov = {}, expected = {}",
+            fov,
+            expected
+        );
     }
 
     #[test]
@@ -264,11 +279,7 @@ mod tests {
             (height * 0.25, width / 2.0),
             (height * 0.75, width * 0.75),
         ];
-        let camera: Vec<UnitVector> = cam
-            .unproject(&centroids)
-            .into_iter()
-            .flatten()
-            .collect();
+        let camera: Vec<UnitVector> = cam.unproject(&centroids).into_iter().flatten().collect();
 
         // Catalog vectors are the same directions scaled by 1.05 in angle.
         let catalog: Vec<UnitVector> = camera
@@ -278,11 +289,7 @@ mod tests {
                 let new_theta = theta * 1.05;
                 // Keep the same (j,k) proportions, recompute i for unit length.
                 let r = (v.y * v.y + v.z * v.z).sqrt();
-                let scale = if r == 0.0 {
-                    1.05
-                } else {
-                    new_theta.sin() / r
-                };
+                let scale = if r == 0.0 { 1.05 } else { new_theta.sin() / r };
                 UnitVector {
                     x: new_theta.cos(),
                     y: v.y * scale,
@@ -327,18 +334,10 @@ mod tests {
         let distorted = distort_centroids(&undistorted, width, height, planted_k, Some(1e-9), None);
 
         // Camera vectors come from the distorted centroids.
-        let camera: Vec<UnitVector> = cam
-            .unproject(&distorted)
-            .into_iter()
-            .flatten()
-            .collect();
+        let camera: Vec<UnitVector> = cam.unproject(&distorted).into_iter().flatten().collect();
 
         // Catalog vectors are the ideal directions from the undistorted centroids.
-        let catalog: Vec<UnitVector> = cam
-            .unproject(&undistorted)
-            .into_iter()
-            .flatten()
-            .collect();
+        let catalog: Vec<UnitVector> = cam.unproject(&undistorted).into_iter().flatten().collect();
 
         let (refined_fov, refined_k) =
             refine_fov_with_distortion(true_fov, width, height, &camera, &catalog);

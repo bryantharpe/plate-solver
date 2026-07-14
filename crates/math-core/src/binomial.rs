@@ -102,7 +102,10 @@ fn binomial_lower_tail(k: usize, n: usize, p: f64) -> f64 {
         }
     }
 
-    let sum = terms.iter().map(|&ln_prob| (ln_prob - max_log).exp()).sum::<f64>();
+    let sum = terms
+        .iter()
+        .map(|&ln_prob| (ln_prob - max_log).exp())
+        .sum::<f64>();
     sum * max_log.exp()
 }
 
@@ -195,7 +198,9 @@ mod tests {
             assert!(
                 (computed - naive).abs() < 1e-9,
                 "k={}: computed={}, naive={}",
-                k, computed, naive
+                k,
+                computed,
+                naive
             );
         }
     }
