@@ -280,7 +280,7 @@ mod tests {
         let a = Star::new(1.0, 1.0, 100, 50.0, 0);
         let b = Star::new(2.0, 2.0, 200, 100.0, 0);
         let c = Star::new(3.0, 3.0, 150, 75.0, 0);
-        let mut stars = vec![a, b, c];
+        let mut stars = [a, b, c];
         stars.sort();
         assert_eq!(stars[0].brightness, 100.0);
         assert_eq!(stars[1].brightness, 75.0);
