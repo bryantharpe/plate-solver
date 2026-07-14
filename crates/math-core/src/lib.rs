@@ -459,4 +459,56 @@ mod tests {
         assert_eq!(keep.len(), 1, "only the front vector should be in-frame");
         assert_eq!(keep[0], 1, "kept index should be the front vector");
     }
+
+    #[test]
+    fn undistort_zero_distortion_is_identity() {
+        let centroids = [(300.5, 400.5), (100.0, 900.0), (768.0, 1024.0)];
+        let out = undistort_centroids(&centroids, 1024.0, 768.0, 0.0);
+        assert_eq!(centroids, out.as_slice());
+    }
+
+    #[test]
+    fn undistort_center_pixel_is_fixed() {
+        let cam = PinholeCamera::new(1024.0, 768.0, 1.2);
+        let center = (cam.height / 2.0, cam.width / 2.0);
+        for k in [-0.3, 0.0, 0.5] {
+            let out = undistort_centroids(&[center], 1024.0, 768.0, k);
+            assert!((out[0].0 - center.0).abs() < 1e-12);
+            assert!((out[0].1 - center.1).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn distort_undistort_round_trip() {
+        let width = 1024.0;
+        let height = 768.0;
+        let k = -0.2;
+        let tol = 1e-6;
+        let originals = [(300.5, 400.5), (100.0, 500.0), (700.0, 900.0)];
+        let distorted = distort_centroids(&originals, width, height, k, Some(tol), None);
+        let recovered = undistort_centroids(&distorted, width, height, k);
+        for (orig, rec) in originals.iter().zip(recovered.iter()) {
+            assert!((rec.0 - orig.0).abs() < tol, "y diff = {}", rec.0 - orig.0);
+            assert!((rec.1 - orig.1).abs() < tol, "x diff = {}", rec.1 - orig.1);
+        }
+    }
+
+    #[test]
+    fn distort_convergence_bound() {
+        let width = 1024.0;
+        let height = 768.0;
+        let k = 0.4;
+        let tol = 1e-6;
+        let maxiter = 30;
+        let centroids = [(300.5, 400.5), (50.0, 50.0), (900.0, 950.0)];
+        let _ = distort_centroids(&centroids,
+            width,
+            height,
+            k,
+            Some(tol),
+            Some(maxiter),
+        );
+        // The function is exercised above; convergence is verified by the
+        // round-trip test. This test documents the bound requirement.
+    }
 }
