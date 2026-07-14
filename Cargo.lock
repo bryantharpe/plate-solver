@@ -26,9 +26,6 @@ checksum = "d6aedf8ae72766347502cf3cb4f41cf5e9cc37d28bee90f1fdaaae15f9cf9424"
 [[package]]
 name = "database-generation"
 version = "0.1.0"
-dependencies = [
- "math-core",
-]
 
 [[package]]
 name = "glam"
