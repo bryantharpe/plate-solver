@@ -1,0 +1,20 @@
+[package]
+name = "pattern-database"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "On-disk pattern database format, loader, writer, and star KD-tree."
+
+[dependencies]
+math-core = { path = "../math-core" }
+nalgebra = "0.35.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+memmap2 = "0.9"
+byteorder = "1.5"
+thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = "3.10"
