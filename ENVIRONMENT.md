@@ -80,10 +80,10 @@ PR opened by the author polecat
   │
   ▼  ② INDEPENDENT REVIEW — authoritative
   │     an adversarial review by the `judge` role (glm-5.2, Zhipu), a DIFFERENT
-  │     model lineage than every author seat (qwen/Alibaba, kimi/Moonshot),
-  │     which removes the self-selection-bias objection: the reviewer and
-  │     author are not the same reasoner. The verdict is published as the
-  │     required status check `review/judge`; absence fails closed.
+  │     model lineage than every author seat (coder-small and coder-large, both
+  │     kimi/Moonshot), which removes the self-selection-bias objection: the
+  │     reviewer and author are not the same reasoner. The verdict is published
+  │     as the required status check `review/judge`; absence fails closed.
   │
   ▼  ③ HUMAN SIGN-OFF — only when required
   │     • the change touches a CRITICAL PATH (declared in the overlay below),
