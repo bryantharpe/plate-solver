@@ -1,0 +1,12 @@
+[package]
+name = "database-generation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Offline star-catalog preprocessing for the plate-solver sky index."
+
+[dependencies]
+
+[dev-dependencies]
