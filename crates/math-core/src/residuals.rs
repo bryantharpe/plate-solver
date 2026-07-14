@@ -110,9 +110,7 @@ mod tests {
         let image: Vec<UnitVector> = (0..10)
             .map(|i| UnitVector::from_radec(0.0, (i as f64) * 1e-4))
             .collect();
-        let catalog: Vec<UnitVector> = (0..10)
-            .map(|_| UnitVector::from_radec(0.0, 0.0))
-            .collect();
+        let catalog: Vec<UnitVector> = (0..10).map(|_| UnitVector::from_radec(0.0, 0.0)).collect();
 
         let stats = residual_stats(&image, &catalog);
 
