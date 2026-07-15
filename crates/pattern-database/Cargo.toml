@@ -8,7 +8,7 @@ repository.workspace = true
 description = "On-disk pattern database format, loader, writer, and star KD-tree."
 
 [dependencies]
-math-core = { path = "../math-core" }
+math-core = { path = "../math-core", version = "0.1.0" }
 nalgebra = "0.35.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

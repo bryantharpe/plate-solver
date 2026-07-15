@@ -192,22 +192,23 @@ mod tests {
     use tempfile::NamedTempFile;
 
     fn sample_db() -> PatternDatabase {
-        let mut properties = DatabaseProperties::default();
-        properties.pattern_mode = "edge_ratio".to_string();
-        properties.pattern_size = 4;
-        properties.pattern_bins = 10;
-        properties.pattern_max_error = 0.01;
-        properties.max_fov = 10.0;
-        properties.min_fov = 5.0;
-        properties.star_catalog = "test".to_string();
-        properties.epoch_equinox = 2000.0;
-        properties.epoch_proper_motion = 2000.0;
-        properties.verification_stars_per_fov = 20;
-        properties.catalog_stars_per_fov = 20;
-        properties.star_max_magnitude = 6.5;
-        properties.star_min_magnitude = 6.5;
-        properties.hash_table_type = "quadratic_probe".to_string();
-        properties.num_patterns = 2;
+        let properties = DatabaseProperties {
+            pattern_mode: "edge_ratio".to_string(),
+            pattern_size: 4,
+            pattern_bins: 10,
+            pattern_max_error: 0.01,
+            max_fov: 10.0,
+            min_fov: 5.0,
+            star_catalog: "test".to_string(),
+            epoch_equinox: 2000.0,
+            epoch_proper_motion: 2000.0,
+            verification_stars_per_fov: 20,
+            catalog_stars_per_fov: 20,
+            star_max_magnitude: 6.5,
+            star_min_magnitude: 6.5,
+            hash_table_type: "quadratic_probe".to_string(),
+            num_patterns: 2,
+        };
 
         let star_table = vec![
             StarRow::from_radec_mag(0.0, 0.0, 1.0),
@@ -242,7 +243,11 @@ mod tests {
         assert_eq!(loaded.pattern_catalog, db.pattern_catalog);
         assert_eq!(loaded.pattern_key_hashes, db.pattern_key_hashes);
         assert_eq!(loaded.star_catalog_ids, db.star_catalog_ids);
-        for (a, b) in loaded.pattern_largest_edge.iter().zip(&db.pattern_largest_edge) {
+        for (a, b) in loaded
+            .pattern_largest_edge
+            .iter()
+            .zip(&db.pattern_largest_edge)
+        {
             let diff = (a - b).abs();
             assert!(diff < 1e-3, "f16 round-trip diff too large: {}", diff);
         }
@@ -250,12 +255,14 @@ mod tests {
 
     #[test]
     fn legacy_fallbacks_populate_missing_fields() {
-        let mut properties = DatabaseProperties::default();
-        properties.pattern_mode = "edge_ratio".to_string();
-        properties.max_fov = 12.0;
-        properties.catalog_stars_per_fov = 15;
-        properties.star_min_magnitude = 7.0;
-        properties.hash_table_type = "linear_probe".to_string();
+        let properties = DatabaseProperties {
+            pattern_mode: "edge_ratio".to_string(),
+            max_fov: 12.0,
+            catalog_stars_per_fov: 15,
+            star_min_magnitude: 7.0,
+            hash_table_type: "linear_probe".to_string(),
+            ..Default::default()
+        };
 
         let db = PatternDatabase {
             properties,

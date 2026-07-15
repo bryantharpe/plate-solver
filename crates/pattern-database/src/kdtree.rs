@@ -76,7 +76,10 @@ impl StarKdTree {
                 .expect("finite magnitude")
                 .then_with(|| self.indices[*a].cmp(&self.indices[*b]))
         });
-        found.into_iter().map(|tree_idx| self.indices[tree_idx]).collect()
+        found
+            .into_iter()
+            .map(|tree_idx| self.indices[tree_idx])
+            .collect()
     }
 
     fn query_recursive(
