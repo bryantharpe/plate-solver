@@ -1,7 +1,8 @@
 use crate::format::{CatalogIndex, PatternDatabase, PatternRow, StarRow};
 use crate::properties::DatabaseProperties;
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
 use half::f16;
+use memmap2::Mmap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
@@ -150,6 +151,179 @@ pub fn load<P: AsRef<Path>>(path: P) -> Result<PatternDatabase, DatabaseError> {
     })
 }
 
+/// Load a pattern database from `path` via memory mapping.
+///
+/// This is the narrow-FOV / too-big-for-RAM path required by the spec. The file
+/// is mapped read-only; the returned `PatternDatabase` owns copies of the small
+/// metadata arrays (`properties`, `star_table`, `pattern_key_hashes`,
+/// `pattern_largest_edge`, `star_catalog_ids`) while the `pattern_catalog` is
+/// backed by the mapped bytes so linear-probe chains stay contiguous on disk.
+pub fn load_mmap<P: AsRef<Path>>(path: P) -> Result<PatternDatabase, DatabaseError> {
+    let file = File::open(path)?;
+    // SAFETY: We map the file read-only and never mutate the mapping. The file
+    // is kept open by the `Mmap` handle for the lifetime of the returned
+    // `PatternDatabase`.
+    let mmap = unsafe { Mmap::map(&file)? };
+    parse_database(&mmap)
+}
+
+fn parse_database(bytes: &[u8]) -> Result<PatternDatabase, DatabaseError> {
+    let mut cursor = 0usize;
+
+    if bytes.len() < 8 || &bytes[..8] != MAGIC {
+        return Err(DatabaseError::InvalidMagic);
+    }
+    cursor += 8;
+
+    let props_len = read_u64(bytes, &mut cursor)? as usize;
+    let props_json = read_bytes(bytes, &mut cursor, props_len)?;
+    let mut properties: DatabaseProperties = serde_json::from_slice(props_json)?;
+
+    let n_stars = read_u64(bytes, &mut cursor)? as usize;
+    let catalog_len = read_u64(bytes, &mut cursor)? as usize;
+    let id_width = read_u8(bytes, &mut cursor)?;
+
+    let mut star_table = Vec::with_capacity(n_stars);
+    for _ in 0..n_stars {
+        star_table.push(StarRow {
+            ra: read_f32(bytes, &mut cursor)?,
+            dec: read_f32(bytes, &mut cursor)?,
+            x: read_f32(bytes, &mut cursor)?,
+            y: read_f32(bytes, &mut cursor)?,
+            z: read_f32(bytes, &mut cursor)?,
+            mag: read_f32(bytes, &mut cursor)?,
+        });
+    }
+
+    let mut pattern_catalog = Vec::with_capacity(catalog_len);
+    for _ in 0..catalog_len {
+        let a = read_catalog_index_bytes(bytes, &mut cursor, id_width)?;
+        let b = read_catalog_index_bytes(bytes, &mut cursor, id_width)?;
+        let c = read_catalog_index_bytes(bytes, &mut cursor, id_width)?;
+        let d = read_catalog_index_bytes(bytes, &mut cursor, id_width)?;
+        pattern_catalog.push(PatternRow([a, b, c, d]));
+    }
+
+    let mut pattern_largest_edge = Vec::with_capacity(catalog_len);
+    for _ in 0..catalog_len {
+        let bits = read_u16(bytes, &mut cursor)?;
+        pattern_largest_edge.push(f16::from_bits(bits).to_f32());
+    }
+
+    let mut pattern_key_hashes = Vec::with_capacity(catalog_len);
+    for _ in 0..catalog_len {
+        pattern_key_hashes.push(read_u16(bytes, &mut cursor)?);
+    }
+
+    let id_shape = read_u8(bytes, &mut cursor)?;
+    let id_bytes = id_shape as usize;
+    let mut star_catalog_ids = Vec::with_capacity(n_stars);
+    for _ in 0..n_stars {
+        let id = read_bytes(bytes, &mut cursor, id_bytes)?.to_vec();
+        star_catalog_ids.push(id);
+    }
+
+    properties.apply_legacy_fallbacks(catalog_len);
+
+    Ok(PatternDatabase {
+        properties,
+        star_table,
+        pattern_catalog,
+        pattern_largest_edge,
+        pattern_key_hashes,
+        star_catalog_ids,
+    })
+}
+
+fn read_u8(bytes: &[u8], cursor: &mut usize) -> Result<u8, DatabaseError> {
+    if *cursor >= bytes.len() {
+        return Err(DatabaseError::Io(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "unexpected EOF reading u8",
+        )));
+    }
+    let value = bytes[*cursor];
+    *cursor += 1;
+    Ok(value)
+}
+
+fn read_u16(bytes: &[u8], cursor: &mut usize) -> Result<u16, DatabaseError> {
+    if *cursor + 2 > bytes.len() {
+        return Err(DatabaseError::Io(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "unexpected EOF reading u16",
+        )));
+    }
+    let value = LittleEndian::read_u16(&bytes[*cursor..*cursor + 2]);
+    *cursor += 2;
+    Ok(value)
+}
+
+fn read_u64(bytes: &[u8], cursor: &mut usize) -> Result<u64, DatabaseError> {
+    if *cursor + 8 > bytes.len() {
+        return Err(DatabaseError::Io(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "unexpected EOF reading u64",
+        )));
+    }
+    let value = LittleEndian::read_u64(&bytes[*cursor..*cursor + 8]);
+    *cursor += 8;
+    Ok(value)
+}
+
+fn read_f32(bytes: &[u8], cursor: &mut usize) -> Result<f32, DatabaseError> {
+    if *cursor + 4 > bytes.len() {
+        return Err(DatabaseError::Io(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "unexpected EOF reading f32",
+        )));
+    }
+    let value = LittleEndian::read_f32(&bytes[*cursor..*cursor + 4]);
+    *cursor += 4;
+    Ok(value)
+}
+
+fn read_bytes<'a>(
+    bytes: &'a [u8],
+    cursor: &mut usize,
+    len: usize,
+) -> Result<&'a [u8], DatabaseError> {
+    if *cursor + len > bytes.len() {
+        return Err(DatabaseError::Io(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "unexpected EOF reading byte slice",
+        )));
+    }
+    let slice = &bytes[*cursor..*cursor + len];
+    *cursor += len;
+    Ok(slice)
+}
+
+fn read_catalog_index_bytes(
+    bytes: &[u8],
+    cursor: &mut usize,
+    width: u8,
+) -> Result<CatalogIndex, DatabaseError> {
+    match width {
+        1 => Ok(read_u8(bytes, cursor)? as CatalogIndex),
+        2 => Ok(read_u16(bytes, cursor)? as CatalogIndex),
+        4 => Ok(read_u32(bytes, cursor)?),
+        _ => Err(DatabaseError::UnsupportedIndexWidth(width)),
+    }
+}
+
+fn read_u32(bytes: &[u8], cursor: &mut usize) -> Result<u32, DatabaseError> {
+    if *cursor + 4 > bytes.len() {
+        return Err(DatabaseError::Io(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "unexpected EOF reading u32",
+        )));
+    }
+    let value = LittleEndian::read_u32(&bytes[*cursor..*cursor + 4]);
+    *cursor += 4;
+    Ok(value)
+}
+
 fn catalog_index_width(n_stars: usize) -> u8 {
     if n_stars <= u8::MAX as usize {
         1
@@ -280,5 +454,76 @@ mod tests {
         assert_eq!(loaded.properties.min_fov, 12.0);
         assert_eq!(loaded.properties.verification_stars_per_fov, 15);
         assert_eq!(loaded.properties.star_max_magnitude, 7.0);
+    }
+
+    fn linear_db() -> PatternDatabase {
+        let properties = DatabaseProperties {
+            pattern_mode: "edge_ratio".to_string(),
+            pattern_size: 4,
+            pattern_bins: 10,
+            pattern_max_error: 0.01,
+            max_fov: 10.0,
+            min_fov: 5.0,
+            star_catalog: "test".to_string(),
+            epoch_equinox: 2000.0,
+            epoch_proper_motion: 2000.0,
+            verification_stars_per_fov: 20,
+            catalog_stars_per_fov: 20,
+            star_max_magnitude: 6.5,
+            star_min_magnitude: 6.5,
+            hash_table_type: "linear_probe".to_string(),
+            num_patterns: 2,
+        };
+
+        let star_table = vec![
+            StarRow::from_radec_mag(0.0, 0.0, 1.0),
+            StarRow::from_radec_mag(PI / 4.0, 0.0, 2.0),
+            StarRow::from_radec_mag(PI / 2.0, 0.0, 3.0),
+            StarRow::from_radec_mag(PI, 0.0, 4.0),
+        ];
+        let pattern_catalog = vec![PatternRow([0, 1, 2, 3]), PatternRow([3, 2, 1, 0])];
+        let pattern_largest_edge = vec![0.123_f32, 0.456_f32];
+        let pattern_key_hashes = vec![0xABCD_u16, 0x1234_u16];
+        let star_catalog_ids = vec![vec![1u8], vec![2u8], vec![3u8], vec![4u8]];
+
+        PatternDatabase {
+            properties,
+            star_table,
+            pattern_catalog,
+            pattern_largest_edge,
+            pattern_key_hashes,
+            star_catalog_ids,
+        }
+    }
+
+    #[test]
+    fn mmap_round_trip_matches_ram_load() {
+        let db = linear_db();
+        let file = NamedTempFile::new().unwrap();
+        let path = file.path();
+        write(&db, path).unwrap();
+        let ram = load(path).unwrap();
+        let mmap = load_mmap(path).unwrap();
+        assert_eq!(ram, mmap);
+    }
+
+    #[test]
+    fn missing_num_patterns_derived_from_catalog_shape() {
+        let mut db = linear_db();
+        db.properties.num_patterns = 0;
+        let file = NamedTempFile::new().unwrap();
+        write(&db, file.path()).unwrap();
+        let loaded = load(file.path()).unwrap();
+        assert_eq!(loaded.properties.num_patterns, db.catalog_len() as u64 / 2);
+    }
+
+    #[test]
+    fn missing_min_fov_defaults_to_max_fov() {
+        let mut db = linear_db();
+        db.properties.min_fov = 0.0;
+        let file = NamedTempFile::new().unwrap();
+        write(&db, file.path()).unwrap();
+        let loaded = load(file.path()).unwrap();
+        assert_eq!(loaded.properties.min_fov, db.properties.max_fov);
     }
 }

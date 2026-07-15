@@ -122,3 +122,32 @@ impl StarKdTree {
 pub fn angle_between(a: UnitVector, b: UnitVector) -> f64 {
     angular_distance(a, b)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::format::StarRow;
+    use std::f64::consts::PI;
+
+    #[test]
+    fn radius_query_returns_expected_star_brightest_first() {
+        let star_table = vec![
+            StarRow::from_radec_mag(0.0, 0.0, 2.0),
+            StarRow::from_radec_mag(PI / 4.0, 0.0, 1.0),
+            StarRow::from_radec_mag(PI / 2.0, 0.0, 3.0),
+        ];
+        let tree = StarKdTree::from_star_rows(&star_table);
+
+        // Query around the first star with a generous radius.
+        let found = tree.query_radius(star_table[0].unit_vector(), 0.1);
+        assert_eq!(found, vec![0]);
+
+        // Query around the second star; it is the brightest (mag 1.0).
+        let found = tree.query_radius(star_table[1].unit_vector(), 0.1);
+        assert_eq!(found, vec![1]);
+
+        // Large radius should return all stars, ordered brightest-first.
+        let found = tree.query_radius(star_table[0].unit_vector(), PI);
+        assert_eq!(found, vec![1, 0, 2]);
+    }
+}
