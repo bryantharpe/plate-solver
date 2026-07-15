@@ -256,7 +256,8 @@ fn reject_hot_pixels(
 
         for y in by0..by1 {
             for x in bx0..bx1 {
-                let class = classify_pixel(full_image, full_width, full_height, x, y, sigma_noise_2);
+                let class =
+                    classify_pixel(full_image, full_width, full_height, x, y, sigma_noise_2);
                 match class {
                     PixelClass::Hot => hot_count += 1,
                     PixelClass::Bright => bright_count += 1,
@@ -791,14 +792,7 @@ mod tests {
         // the upstream 1-D gate (margin must be strictly darker than center), so
         // we use a realistic peaked profile. The brighter star has a larger footprint
         // so its background-subtracted brightness is strictly greater.
-        fn draw_peaked(
-            img: &mut [u8],
-            width: usize,
-            cx: usize,
-            cy: usize,
-            peak: u8,
-            radius: i32,
-        ) {
+        fn draw_peaked(img: &mut [u8], width: usize, cx: usize, cy: usize, peak: u8, radius: i32) {
             for dy in -radius..=radius {
                 for dx in -radius..=radius {
                     let x = (cx as i32 + dx) as usize;

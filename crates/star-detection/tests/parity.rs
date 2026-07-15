@@ -14,7 +14,10 @@ use image::ImageReader;
 use serde::Deserialize;
 use star_detection::detect_stars;
 
-const GOLDEN_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/cedar_goldens_bin1_sigma8.json");
+const GOLDEN_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/data/cedar_goldens_bin1_sigma8.json"
+);
 const TEST_DATA_DIR: &str = "../../reference-solutions/cedar-detect/test_data";
 const TOLERANCE_PX: f64 = 0.1;
 const SIGMA: f64 = 8.0;
@@ -55,7 +58,11 @@ fn load_image(name: &str) -> (Vec<u8>, usize, usize) {
 
 /// Match detected stars to golden stars by nearest neighbor within tolerance.
 /// Returns (matched pairs, unmatched detected, unmatched golden).
-fn match_stars(detected: &[(f64, f64)], golden: &[GoldenStar], tol: f64) -> (Vec<(usize, usize)>, Vec<usize>, Vec<usize>) {
+fn match_stars(
+    detected: &[(f64, f64)],
+    golden: &[GoldenStar],
+    tol: f64,
+) -> (Vec<(usize, usize)>, Vec<usize>, Vec<usize>) {
     let mut pairs = Vec::new();
     let mut used_golden = vec![false; golden.len()];
     let mut used_detected = vec![false; detected.len()];
@@ -81,8 +88,18 @@ fn match_stars(detected: &[(f64, f64)], golden: &[GoldenStar], tol: f64) -> (Vec
         }
     }
 
-    let unmatched_detected: Vec<usize> = used_detected.iter().enumerate().filter(|(_, u)| !**u).map(|(i, _)| i).collect();
-    let unmatched_golden: Vec<usize> = used_golden.iter().enumerate().filter(|(_, u)| !**u).map(|(i, _)| i).collect();
+    let unmatched_detected: Vec<usize> = used_detected
+        .iter()
+        .enumerate()
+        .filter(|(_, u)| !**u)
+        .map(|(i, _)| i)
+        .collect();
+    let unmatched_golden: Vec<usize> = used_golden
+        .iter()
+        .enumerate()
+        .filter(|(_, u)| !**u)
+        .map(|(i, _)| i)
+        .collect();
     (pairs, unmatched_detected, unmatched_golden)
 }
 
@@ -97,7 +114,8 @@ fn cedar_detect_parity_on_all_reference_images() {
         let detected: Vec<(f64, f64)> = stars.iter().map(|s| (s.x, s.y)).collect();
         let golden_coords: Vec<GoldenStar> = golden.stars.clone();
 
-        let (pairs, unmatched_detected, unmatched_golden) = match_stars(&detected, &golden_coords, TOLERANCE_PX);
+        let (pairs, unmatched_detected, unmatched_golden) =
+            match_stars(&detected, &golden_coords, TOLERANCE_PX);
 
         if !unmatched_golden.is_empty() || !unmatched_detected.is_empty() {
             failures.push(format!(
@@ -112,5 +130,9 @@ fn cedar_detect_parity_on_all_reference_images() {
         }
     }
 
-    assert!(failures.is_empty(), "parity failures:\n{}", failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "parity failures:\n{}",
+        failures.join("\n")
+    );
 }
