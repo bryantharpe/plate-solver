@@ -9,9 +9,9 @@
 /// Minimum returned noise level, in ADU.
 const NOISE_FLOOR: f64 = 0.2;
 
-/// Fraction of the cut width treated as bright outliers and discarded before
-/// computing statistics. This matches the "de-star" step in the specification.
-const OUTLIER_FRACTION: f64 = 0.1;
+/// Sigma used for the star-removal cutoff when de-starring each cut's
+/// histogram. This matches the upstream cedar-detect implementation.
+const DE_STAR_SIGMA: f64 = 8.0;
 
 /// Estimate RMS noise from a grayscale image.
 ///
@@ -21,8 +21,11 @@ const OUTLIER_FRACTION: f64 = 0.1;
 /// 1. Takes three 1-pixel-tall horizontal cuts of width `min(50, width/4)`
 ///    centered vertically on the image and horizontally at approximately
 ///    `width/4`, `width/2`, and `3*width/4`.
-/// 2. For each cut, discards the brightest 10% of pixels (de-starring).
-/// 3. Computes the mean and standard deviation of the remaining pixels.
+/// 2. For each cut, builds a histogram, trims the brightest 10% of samples,
+///    and then removes any remaining bins whose value exceeds
+///    `mean + 8 * max(stddev, 1.0)` (the upstream de-star step).
+/// 3. Computes the mean and population standard deviation of the remaining
+///    histogram.
 /// 4. Returns the standard deviation of the cut with the lowest mean,
 ///    clamped to at least `0.2`.
 ///
@@ -56,16 +59,28 @@ pub fn estimate_noise(image: &[u8], width: usize, height: usize) -> f64 {
         let y = mid_y.min(height - 1);
         let row_offset = y * width;
 
-        let mut pixels: Vec<u8> =
-            image[row_offset + start_x..row_offset + start_x + cut_width].to_vec();
+        let pixels = &image[row_offset + start_x..row_offset + start_x + cut_width];
 
-        // De-star: discard the brightest outliers.
-        pixels.sort_unstable();
-        let keep = (pixels.len() as f64 * (1.0 - OUTLIER_FRACTION)).floor() as usize;
-        let kept = &pixels[..keep.max(1).min(pixels.len())];
+        // Build histogram of the cut.
+        let mut histogram = [0u32; 256];
+        for &v in pixels {
+            histogram[v as usize] += 1;
+        }
 
-        let mean = mean_u8(kept);
-        let stddev = stddev_u8(kept, mean);
+        // De-star: first trim the brightest 10% to get a coarse background
+        // estimate, then remove any bins above `mean + 8 * max(stddev, 1.0)`.
+        let pixel_count: u32 = pixels.len() as u32;
+        let mut trimmed = histogram;
+        trim_histogram(&mut trimmed, pixel_count * 9 / 10);
+        let (mean, stddev) = stats_for_histogram(&trimmed);
+        let star_cutoff = (mean + DE_STAR_SIGMA * stddev.max(1.0)) as usize;
+        for (h, count) in histogram.iter_mut().enumerate() {
+            if h >= star_cutoff {
+                *count = 0;
+            }
+        }
+
+        let (mean, stddev) = stats_for_histogram(&histogram);
 
         if mean < best_mean {
             best_mean = mean;
@@ -76,27 +91,39 @@ pub fn estimate_noise(image: &[u8], width: usize, height: usize) -> f64 {
     best_stddev.max(NOISE_FLOOR)
 }
 
-fn mean_u8(values: &[u8]) -> f64 {
-    if values.is_empty() {
-        return 0.0;
+/// Trim a histogram so that at most `count_to_keep` samples remain,
+/// discarding the brightest samples first.
+fn trim_histogram(histogram: &mut [u32; 256], count_to_keep: u32) {
+    let mut count = 0u32;
+    for bin in histogram.iter_mut() {
+        let bin_count = *bin;
+        if count + bin_count > count_to_keep {
+            let excess = count + bin_count - count_to_keep;
+            *bin -= excess;
+        }
+        count += *bin;
     }
-    let sum: u64 = values.iter().map(|&v| u64::from(v)).sum();
-    sum as f64 / values.len() as f64
 }
 
-fn stddev_u8(values: &[u8], mean: f64) -> f64 {
-    if values.len() < 2 {
-        return 0.0;
+/// Compute the population mean and standard deviation of a histogram.
+fn stats_for_histogram(histogram: &[u32; 256]) -> (f64, f64) {
+    let mut count = 0u64;
+    let mut first_moment = 0u64;
+    for (h, &bin_count) in histogram.iter().enumerate() {
+        count += bin_count as u64;
+        first_moment += bin_count as u64 * h as u64;
     }
-    let variance: f64 = values
-        .iter()
-        .map(|&v| {
-            let d = f64::from(v) - mean;
-            d * d
-        })
-        .sum::<f64>()
-        / (values.len() - 1) as f64;
-    variance.sqrt()
+    if count == 0 {
+        return (0.0, 0.0);
+    }
+    let mean = first_moment as f64 / count as f64;
+    let mut second_moment = 0.0f64;
+    for (h, &bin_count) in histogram.iter().enumerate() {
+        let d = h as f64 - mean;
+        second_moment += bin_count as f64 * d * d;
+    }
+    let variance = second_moment / count as f64;
+    (mean, variance.sqrt())
 }
 
 #[cfg(test)]

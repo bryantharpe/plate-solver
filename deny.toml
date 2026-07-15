@@ -17,7 +17,13 @@ all-features = true
 # A yanked crate in the lockfile is a hard failure — replace it.
 yanked = "deny"
 # RUSTSEC IDs consciously accepted go here, each with a justification comment.
-ignore = []
+ignore = [
+    # paste is unmaintained (RUSTSEC-2024-0436) and no safe upgrade is available.
+    # It is only pulled in transitively by the `image` dev-dependency used by the
+    # parity test in crates/star-detection; it is not part of the production
+    # dependency graph.
+    "RUSTSEC-2024-0436",
+]
 
 [licenses]
 # Permissive licenses only. Anything outside this set fails the gate and must be
