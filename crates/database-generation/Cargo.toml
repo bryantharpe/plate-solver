@@ -8,5 +8,6 @@ repository.workspace = true
 description = "Offline star-catalog preprocessing for the plate-solver sky index."
 
 [dependencies]
+math-core = { version = "0.1.0", path = "../math-core" }
 
 [dev-dependencies]
