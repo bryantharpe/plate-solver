@@ -28,6 +28,43 @@ pub fn pattern_bins(pattern_max_error: f64) -> u32 {
     (1.0 / (4.0 * pattern_max_error)).round() as u32
 }
 
+/// Return the smallest prime number greater than or equal to `n`.
+///
+/// Uses trial division matching the reference implementation: advance to the next
+/// odd number after `n` and test divisibility by odd integers up to `sqrt(n)`.
+/// `next_prime(0) == 2`, `next_prime(2) == 2`.
+pub fn next_prime(n: u64) -> u64 {
+    if n <= 2 {
+        return 2;
+    }
+    let mut candidate = if n.is_multiple_of(2) { n + 1 } else { n };
+    loop {
+        if is_prime(candidate) {
+            return candidate;
+        }
+        candidate += 2;
+    }
+}
+
+fn is_prime(n: u64) -> bool {
+    if n < 2 {
+        return false;
+    }
+    if n == 2 {
+        return true;
+    }
+    if n.is_multiple_of(2) {
+        return false;
+    }
+    let limit = (n as f64).sqrt() as u64 + 1;
+    for d in (3..=limit).step_by(2) {
+        if n.is_multiple_of(d) {
+            return false;
+        }
+    }
+    true
+}
+
 /// Compute the edge-ratio pattern key for a 4-star pattern.
 ///
 /// Forms all six pairwise central angles using the chord form `2·arcsin(d/2)`,
@@ -237,6 +274,19 @@ mod tests {
     fn bins_follow_max_error_formula() {
         assert_eq!(pattern_bins(0.001), 250);
         assert_eq!(pattern_bins(0.005), 50);
+    }
+
+    #[test]
+    fn next_prime_matches_reference() {
+        assert_eq!(next_prime(0), 2);
+        assert_eq!(next_prime(1), 2);
+        assert_eq!(next_prime(2), 2);
+        assert_eq!(next_prime(3), 3);
+        assert_eq!(next_prime(4), 5);
+        assert_eq!(next_prime(14), 17);
+        assert_eq!(next_prime(100), 101);
+        assert_eq!(next_prime(101), 101);
+        assert_eq!(next_prime(200), 211);
     }
 
     #[test]
