@@ -9,8 +9,8 @@
 use crate::catalog::CatalogEntry;
 use crate::patterns::Pattern;
 use math_core::pattern::{
-    insert_at_index, order_pattern_by_centroid_distance, pattern_key, pattern_key_hash,
-    pattern_key_hash16, pattern_key_hash_index, next_prime, PATTERN_SIZE,
+    insert_at_index, next_prime, order_pattern_by_centroid_distance, pattern_key, pattern_key_hash,
+    pattern_key_hash16, pattern_key_hash_index, PATTERN_SIZE,
 };
 use math_core::{angular_distance, UnitVector};
 
@@ -69,15 +69,13 @@ pub fn build_pattern_catalog(
 
     for &pattern in patterns {
         let pat_vectors = pattern.map(|idx| vectors[idx]);
-        let (key, largest) = pattern_key(&pat_vectors,
-            bins);
+        let (key, largest) = pattern_key(&pat_vectors, bins);
         let key_hash = pattern_key_hash(&key, bins);
         let hash_index = pattern_key_hash_index(key_hash, table_size, linear_probe);
 
         // Presort the pattern's star indices by centroid distance.
         let order = order_pattern_by_centroid_distance(&pat_vectors);
-        let sorted_pattern: [usize; PATTERN_SIZE] =
-            std::array::from_fn(|i| pattern[order[i]]);
+        let sorted_pattern: [usize; PATTERN_SIZE] = std::array::from_fn(|i| pattern[order[i]]);
 
         let slot = insert_at_index(
             sorted_pattern,
@@ -203,8 +201,7 @@ mod tests {
             .position(|row| row[0] != usize::MAX)
             .unwrap();
         assert!(
-            (catalog.pattern_largest_edge[slot] - (expected_largest * 1000.0) as f32).abs()
-                < 1e-3
+            (catalog.pattern_largest_edge[slot] - (expected_largest * 1000.0) as f32).abs() < 1e-3
         );
     }
 }

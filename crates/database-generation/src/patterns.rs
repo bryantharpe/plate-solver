@@ -107,7 +107,10 @@ pub fn enumerate_patterns(
 /// Variant of itertools-style combinations that advances the last element
 /// slowest, so combinations using the brightest (earliest) stars are yielded
 /// first. This matches `breadth_first_combinations.py` from the reference.
-fn breadth_first_combinations(sequence: &[usize], r: usize) -> impl Iterator<Item = Pattern> + use<'_> {
+fn breadth_first_combinations(
+    sequence: &[usize],
+    r: usize,
+) -> impl Iterator<Item = Pattern> + use<'_> {
     let mut state: Vec<usize> = Vec::new();
 
     std::iter::from_fn(move || {
@@ -181,11 +184,7 @@ mod tests {
         entries.sort_by(|a, b| a.mag.partial_cmp(&b.mag).unwrap());
 
         let patterns = enumerate_patterns(
-            &entries,
-            10.0,
-            10.0,
-            150.0,
-            1.0, // low oversampling to keep test fast
+            &entries, 10.0, 10.0, 150.0, 1.0, // low oversampling to keep test fast
             100,
         );
 
@@ -194,11 +193,7 @@ mod tests {
             let ras: Vec<f64> = pat.iter().map(|&i| entries[i].ra.to_degrees()).collect();
             let span = ras.iter().copied().fold(f64::NAN, f64::max)
                 - ras.iter().copied().fold(f64::NAN, f64::min);
-            assert!(
-                span < 10.0,
-                "pattern spans {} degrees, exceeding FOV",
-                span
-            );
+            assert!(span < 10.0, "pattern spans {} degrees, exceeding FOV", span);
         }
     }
 
@@ -215,12 +210,8 @@ mod tests {
 
         let budget = 3;
         let patterns = enumerate_patterns(
-            &entries,
-            1.0,
-            1.0,
-            10.0, // low density -> large separation, but still 8 stars
-            1.0,
-            budget,
+            &entries, 1.0, 1.0, 10.0, // low density -> large separation, but still 8 stars
+            1.0, budget,
         );
 
         // With one field and a budget of 3, we should get at most 3 patterns.

@@ -86,10 +86,13 @@ mod tests {
         ];
         entries.sort_by(|a, b| a.mag.partial_cmp(&b.mag).unwrap());
         let kept = thin_by_density(&entries, 0.005);
-        let kept_ids: Vec<u32> = kept.iter().map(|i| match entries[*i].id {
-            CatalogId::Hip(n) => n,
-            _ => panic!("unexpected id"),
-        }).collect();
+        let kept_ids: Vec<u32> = kept
+            .iter()
+            .map(|i| match entries[*i].id {
+                CatalogId::Hip(n) => n,
+                _ => panic!("unexpected id"),
+            })
+            .collect();
         // Brightest overall (#5) and the outlier (#6) should be kept.
         assert_eq!(kept_ids.len(), 2);
         assert_eq!(kept_ids[0], 5);
