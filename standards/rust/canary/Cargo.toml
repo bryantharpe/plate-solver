@@ -1,0 +1,35 @@
+# Canary workspace — a deliberately tiny Rust project whose only job is to give
+# every Tier-2 verification gate something real to measure. It is a permanent
+# self-test of the standards: agent-standards CI runs this workspace through the
+# full gate suite on every change, so a broken/rotted gate fails loudly here
+# before it ever reaches a real rig.
+[workspace]
+resolver = "2"
+members = ["crates/canary-core", "crates/canary-parse"]
+# The fuzz crate is intentionally excluded — it is built only under `cargo +nightly fuzz`.
+exclude = ["crates/canary-parse/fuzz"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96"        # MSRV — enforced by the `msrv` CI job.
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bryantharpe/agent-standards"
+
+# Shared lint policy. Each crate opts in with `[lints] workspace = true`.
+# This is the mechanized floor; individual crates may tighten (e.g. canary-core
+# adds `#![forbid(unsafe_code)]`) but never loosen without a named override.
+[workspace.lints.rust]
+missing_docs = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+unreachable_pub = "warn"
+# Lint groups get priority = -1 so individual lints above can override them
+# (Cargo ignores table order; without this, clippy::lint_groups_priority fires).
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+
+[profile.release]
+# Deterministic, debuggable release builds for perf work.
+debug = "line-tables-only"

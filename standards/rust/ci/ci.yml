@@ -1,0 +1,130 @@
+# Tier-2 verification — FAST gates (blocking on every PR and push to main).
+#
+# This is the reusable workflow the org-standards layer installs into a rig. The
+# deep/slow gates (mutation, fuzz, Miri, SBOM, bench) live in `deep.yml` on a
+# schedule so PR latency stays low.
+#
+# Supply-chain hardening: third-party actions are pinned by commit SHA; the token
+# is least-privilege (`contents: read`); every cargo invocation is `--locked`.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+  # Pinned tool versions — proven against the canary. Bump deliberately, in a
+  # reviewed change; floating-latest tools make gate behavior non-reproducible.
+  CARGO_LLVM_COV_VERSION: "0.8.7"
+  CARGO_MACHETE_VERSION: "0.9.2"
+  CARGO_SEMVER_CHECKS_VERSION: "0.48.0"
+  RIPSECRETS_VERSION: "0.1.11"
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with: { components: rustfmt }
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with: { components: clippy }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+  test-coverage:
+    name: test + coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with: { components: llvm-tools-preview }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      # Installed pinned from crates.io; swap to a SHA-pinned
+      # taiki-e/install-action for speed if desired.
+      - run: cargo install cargo-llvm-cov --version "$CARGO_LLVM_COV_VERSION" --locked
+      - name: Tests + coverage gate
+        run: cargo llvm-cov --workspace --locked --all-features --fail-under-lines 80 --lcov --output-path lcov.info
+      - name: Doctests (coverage tool excludes them)
+        run: cargo test --workspace --locked --doc
+
+  docs:
+    name: cargo doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
+
+  msrv:
+    name: msrv build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Pin to the crate's declared rust-version. Keep this in sync with
+      # `rust-version` in Cargo.toml (the single source of truth).
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with: { toolchain: "1.96.0" }
+      - run: cargo build --workspace --locked
+
+  unused-deps:
+    name: cargo-machete
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - run: cargo install cargo-machete --version "$CARGO_MACHETE_VERSION" --locked
+      - run: cargo machete
+
+  semver:
+    name: cargo-semver-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with: { fetch-depth: 0 }
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - run: cargo install cargo-semver-checks --version "$CARGO_SEMVER_CHECKS_VERSION" --locked
+      # Compare the PR head against the merge base on the target branch.
+      - run: cargo semver-checks check-release --baseline-rev "origin/${{ github.base_ref || 'main' }}"
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe # v2.0.20
+        with:
+          command: check advisories bans sources licenses
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with: { fetch-depth: 0 }
+      # ripsecrets is used because it installs cleanly everywhere; gitleaks (via
+      # its SHA-pinned action) is the equivalent CI-standard choice.
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - run: cargo install ripsecrets --version "$RIPSECRETS_VERSION" --locked
+      # ripsecrets exits non-zero when secrets are found; no extra flags needed
+      # (--strict is not a real flag — caught by running the tool, not assuming it).
+      - run: ripsecrets .
