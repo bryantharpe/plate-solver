@@ -1,0 +1,9 @@
+# Formatting policy — STABLE keys only, so `cargo fmt --check` is enforceable on
+# stable toolchains (many rustfmt options are nightly-gated). Richer options
+# (imports_granularity, group_imports, wrap_comments) can be layered in via a
+# nightly `fmt` job later; they are intentionally omitted here to keep the gate
+# green on the pinned stable toolchain.
+edition = "2021"
+max_width = 100
+tab_spaces = 4
+newline_style = "Unix"

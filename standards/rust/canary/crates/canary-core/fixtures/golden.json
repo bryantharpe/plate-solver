@@ -1,0 +1,12 @@
+{
+  "_note": "Reference angular separations (radians) computed in Python (math.acos of the normalized dot product). Independence is RUNTIME-level only (different language/libm), NOT authorship-level — the same session authored both sides, so this proves the differential-test MECHANISM, not external validation. A real rig's oracle (e.g. plate-solver's vendored tetra3/cedar outputs) must be authorship-independent. Regenerate only from an independent implementation, never from canary-core.",
+  "tolerance_rad": 1e-9,
+  "cases": [
+    { "a": [1.0, 0.0, 0.0], "b": [0.0, 1.0, 0.0], "sep": 1.5707963267948966 },
+    { "a": [1.0, 0.0, 0.0], "b": [1.0, 0.0, 0.0], "sep": 0.0 },
+    { "a": [1.0, 0.0, 0.0], "b": [-1.0, 0.0, 0.0], "sep": 3.141592653589793 },
+    { "a": [1.0, 1.0, 0.0], "b": [0.0, 1.0, 1.0], "sep": 1.0471975511965979 },
+    { "a": [0.2, 0.5, 0.84], "b": [0.9, 0.1, 0.4], "sep": 0.9606244277806517 },
+    { "a": [2.0, 0.0, 0.0], "b": [0.0, 0.0, 5.0], "sep": 1.5707963267948966 }
+  ]
+}
