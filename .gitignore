@@ -1,0 +1,40 @@
+# Claude Code local settings (personal, machine-specific)
+.claude/settings.local.json
+.claude/commands/handoff.md
+.claude/commands/review.md
+
+# Gas Town per-session runtime state (agent lock, session id)
+.runtime/
+
+# macOS
+.DS_Store
+
+# Rust
+/target
+
+# ps-web frontend (NOTE: frontend/dist is committed by design — the Rust
+# binary embeds it via rust-embed so cargo builds never need node)
+ps-web/frontend/node_modules/
+
+# Standalone parity-capture helper crate (workspace-excluded; builds its own target)
+tools/parity/_capture_binning/target/
+tools/parity/_capture_binning/Cargo.lock
+
+# Parity venvs
+tools/parity/.venv
+tools/parity/.venv-tetra3-orig
+
+# feat-09 eval-harness: regenerable catalog + run output, not source
+tools/parity/benchmark/generated/*.bin
+tools/parity/benchmark/results.json
+
+# Gas Town (added by gt)
+.runtime/
+.claude/
+.logs/
+__pycache__/
+state.json
+
+# Polecat/bead bookkeeping — never product code (nux committed .beads/redirect into PR #29)
+.beads/
+lcov.info

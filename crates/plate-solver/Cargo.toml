@@ -1,0 +1,19 @@
+[package]
+name = "plate-solver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+database-generation = { workspace = true }
+math-core = { workspace = true }
+pattern-database = { workspace = true }
+star-detection = { workspace = true }
+
+[dev-dependencies]
+database-generation = { workspace = true }
+math-core = { workspace = true }
+pattern-database = { workspace = true }
+star-detection = { workspace = true }
