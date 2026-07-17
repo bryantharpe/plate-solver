@@ -52,10 +52,7 @@ pub fn detect_stars(
     // Optional hot-pixel rejection against the full-resolution image.
     let mut filtered = candidates;
     if detect_hot_pixels && binning == 1 {
-        filtered = filtered
-            .into_iter()
-            .filter(|c| !all_bright_are_hot(image, width, height, c.x, c.y, sigma_noise_2))
-            .collect();
+        filtered.retain(|c| !all_bright_are_hot(image, width, height, c.x, c.y, sigma_noise_2));
     }
 
     // Form blobs from vertically adjacent candidates.
@@ -64,7 +61,14 @@ pub fn detect_stars(
     // 2-D gate and centroid each blob.
     let mut stars = Vec::new();
     for blob in blobs {
-        if let Some(star) = gate_and_measure(&blob, &detection, higher_res.as_ref(), binning, noise, sigma) {
+        if let Some(star) = gate_and_measure(
+            &blob,
+            &detection,
+            higher_res.as_ref(),
+            binning,
+            noise,
+            sigma,
+        ) {
             stars.push(star);
         }
     }
@@ -140,15 +144,11 @@ fn gate_star_1d(gate: &[u8], sigma_noise_2: i16, sigma_noise_3: i16) -> bool {
         return false;
     }
     // Flat-top tie-breaks.
-    if l == c {
-        if lm > r {
-            return false;
-        }
+    if l == c && lm > r {
+        return false;
     }
-    if c == r {
-        if l <= rm {
-            return false;
-        }
+    if c == r && l <= rm {
+        return false;
     }
     // Uniform background borders.
     if (lb - rb).abs() > sigma_noise_3 {
@@ -299,14 +299,27 @@ fn gate_and_measure(
     }
 
     // Margin mean.
-    let margin_mean = perimeter_mean(image, width, margin_left, margin_top, margin_width, margin_height);
+    let margin_mean = perimeter_mean(
+        image,
+        width,
+        margin_left,
+        margin_top,
+        margin_width,
+        margin_height,
+    );
     if core_mean <= margin_mean {
         return None;
     }
 
     // Perimeter statistics.
-    let (perimeter_mean_val, perimeter_min, perimeter_max, perimeter_stddev) =
-        perimeter_stats(image, width, perimeter_left, perimeter_top, perimeter_width, perimeter_height);
+    let (perimeter_mean_val, perimeter_min, perimeter_max, perimeter_stddev) = perimeter_stats(
+        image,
+        width,
+        perimeter_left,
+        perimeter_top,
+        perimeter_width,
+        perimeter_height,
+    );
 
     if (perimeter_max as f64 - perimeter_min as f64) > 3.0 * sigma * noise {
         return None;
@@ -319,7 +332,14 @@ fn gate_and_measure(
 
     // Centroid and brightness.
     let star = if binning == 1 {
-        measure_star(image, width, margin_left, margin_top, margin_width, margin_height)?
+        measure_star(
+            image,
+            width,
+            margin_left,
+            margin_top,
+            margin_width,
+            margin_height,
+        )?
     } else {
         // Centroid on the one-less-binned image, then scale by binning/2.
         let h_width = higher_res.unwrap().width;
