@@ -12,3 +12,4 @@ pub mod noise;
 pub mod star;
 
 pub use detect::detect_stars;
+

@@ -1,25 +1,27 @@
 //! Star detection pipeline entry point.
 //!
-//! Implements the full front-end pipeline: noise estimation, binning cascade,
-//! 1-D row gating, hot-pixel rejection, blob formation, 2-D gating, sub-pixel
-//! centroiding, and brightest-first ordering.
+//! Implements the full front-end detection algorithm: noise estimation, optional
+//! binning cascade, one-dimensional row gating, hot-pixel rejection, blob
+//! formation, two-dimensional gating, sub-pixel centroiding, and brightness
+//! measurement. The result is returned brightest-first.
 
-use crate::binning::build_cascade;
+use crate::binning::{build_cascade, max_size, BinnedImage};
 use crate::centroid::measure_star;
 use crate::noise::estimate_noise;
 use crate::star::Star;
 
 /// Detect stars in an 8-bit grayscale image.
 ///
-/// `image` is row-major with `width` columns and `height` rows. `sigma` sets
-/// the detection threshold in units of the estimated RMS noise. `binning` must
-/// be one of 1, 2, 4, or 8. When `normalize_rows` is true, each row's dark level
-/// is shifted to a bias of 2.0 before binning. When `detect_hot_pixels` is true,
-/// isolated single-pixel spikes are rejected.
+/// `image` is laid out row-major with `width` pixels per row. `sigma` is the
+/// significance threshold in units of the estimated RMS noise. `binning` must
+/// be one of 1, 2, 4, or 8. When `normalize_rows` is true and `binning > 1`,
+/// each row's dark level is shifted to a fixed bias before binning. When
+/// `detect_hot_pixels` is true, isolated hot pixels are rejected using the
+/// full-resolution image.
 ///
-/// Returns a `Vec<Star>` sorted by background-subtracted brightness descending.
-/// Coordinates are in full-resolution input-image coordinates with `(0.5,0.5)`
-/// the center of the top-left pixel.
+/// Returned centroids are in full-resolution input-image coordinates where
+/// `(0.5, 0.5)` is the center of the top-left pixel. Stars are sorted by
+/// background-subtracted brightness descending.
 pub fn detect_stars(
     image: &[u8],
     width: usize,
@@ -39,63 +41,61 @@ pub fn detect_stars(
         return Vec::new();
     }
 
-    let (detection, higher) = build_cascade(image, width, height, binning, normalize_rows);
-    let higher = higher.as_ref().unwrap_or(&detection);
+    // Build the binning cascade. For binning > 1 we detect on the most-binned
+    // image and centroid on the one-level-less-binned image.
+    let (detection, higher_res) = build_cascade(image, width, height, binning, normalize_rows);
 
+    // Recompute the noise estimate on the detection image, then apply the floor.
     let noise = estimate_noise(&detection.data, detection.width, detection.height);
-    let sigma_noise_2 = sigma_noise_2(sigma, noise);
-    let sigma_noise_3 = sigma_noise_3(sigma, noise);
 
-    let candidates = scan_rows(
-        &detection.data,
-        detection.width,
-        detection.height,
-        sigma_noise_2,
-        sigma_noise_3,
-    );
+    // Integer thresholds used by the 1-D gate and hot-pixel classifier.
+    let sigma_noise_2 = ((2.0 * sigma * noise) + 0.5).round() as i16;
+    let sigma_noise_2 = sigma_noise_2.max(2);
+    let sigma_noise_3 = ((3.0 * sigma * noise) + 0.5).round() as i16;
+    let sigma_noise_3 = sigma_noise_3.max(3);
 
-    let candidates = if detect_hot_pixels {
-        reject_hot_pixels(&candidates, image, width, height, binning, sigma_noise_2)
+    // Scan the detection image for 1-D candidates.
+    let candidates = scan_image_for_candidates(&detection, sigma_noise_2, sigma_noise_3);
+
+    // Optionally reject hot pixels, using the full-resolution image.
+    let filtered = if detect_hot_pixels {
+        candidates
+            .into_iter()
+            .filter(|c| !all_bright_are_hot(image, width, height, c.x, c.y, binning, sigma_noise_2))
+            .collect()
     } else {
         candidates
     };
 
-    let blobs = form_blobs(candidates, detection.max_size);
-    let mut stars = Vec::new();
+    // Form blobs from vertically-adjacent candidates.
+    let blobs = form_blobs_from_candidates(filtered);
 
+    // Apply the 2-D gate, centroid, and measure brightness.
+    let mut stars = Vec::new();
+    let max_size = detection.max_size;
     for blob in blobs {
-        if let Some(star) = process_blob(
-            blob,
-            &detection.data,
-            detection.width,
-            detection.height,
-            detection.binning,
-            &higher.data,
-            higher.width,
-            higher.height,
-            higher.binning,
+        if let Some(star) = gate_star_2d(
+            &blob,
+            &detection,
+            higher_res.as_ref(),
+            image,
+            width,
+            height,
             binning,
             noise,
             sigma,
-            detection.max_size,
+            max_size,
         ) {
             stars.push(star);
         }
     }
 
+    // Brightest-first ordering.
     stars.sort();
     stars
 }
 
-fn sigma_noise_2(sigma: f64, noise: f64) -> i64 {
-    (2.0 * sigma * noise).round().max(2.0) as i64
-}
-
-fn sigma_noise_3(sigma: f64, noise: f64) -> i64 {
-    (3.0 * sigma * noise).round().max(3.0) as i64
-}
-
-/// A candidate pixel emitted by the 1-D row gate.
+/// A single 1-D candidate emitted by the row gate.
 #[derive(Clone, Copy, Debug)]
 struct Candidate {
     x: usize,
@@ -103,120 +103,76 @@ struct Candidate {
 }
 
 /// Scan every row of the detection image and emit 1-D candidates.
-///
-/// A pixel qualifies when it is part of a local-maximum run: the pixel and its
-/// immediate neighbors/margins are not higher than the run value, the significance
-/// test passes, and the border background is uniform. Consecutive pixels of equal
-/// value are merged and exactly one candidate — the midpoint of the run — is
-/// emitted, guaranteeing one center per flat-topped peak.
-fn scan_rows(
-    image: &[u8],
-    width: usize,
-    height: usize,
-    sigma_noise_2: i64,
-    sigma_noise_3: i64,
+fn scan_image_for_candidates(
+    image: &BinnedImage,
+    sigma_noise_2: i16,
+    sigma_noise_3: i16,
 ) -> Vec<Candidate> {
     let mut candidates = Vec::new();
-    let scan_left = 3usize;
-    let scan_right = width.saturating_sub(3);
-    if scan_left >= scan_right {
+    let width = image.width;
+    let height = image.height;
+    if width < 7 {
         return candidates;
     }
 
     for y in 0..height {
-        let row_offset = y * width;
+        let row_start = y * width;
+        let row = &image.data[row_start..row_start + width];
 
-        // Cheap row_min from every 64th pixel.
-        let mut row_min = u8::MAX;
-        for x in (scan_left..scan_right).step_by(64) {
-            row_min = row_min.min(image[row_offset + x]);
-        }
-        // Guard against an empty sample set on tiny rows.
-        if row_min == u8::MAX {
-            row_min = image[row_offset + scan_left];
-        }
-
-        let threshold = row_min as i64 + sigma_noise_2 / 2;
-
-        let mut run_start: Option<usize> = None;
-        let mut run_value: u8 = 0;
-
-        for x in scan_left..scan_right {
-            let c = image[row_offset + x];
-            let ok = c as i64 >= threshold
-                && is_row_peak(image, width, height, x, y, sigma_noise_2, sigma_noise_3);
-
-            if ok {
-                if run_start.is_none() {
-                    run_start = Some(x);
-                    run_value = c;
-                } else if c != run_value {
-                    // End the previous run and start a new one.
-                    emit_run_center(&mut candidates, run_start.unwrap(), x - 1, y);
-                    run_start = Some(x);
-                    run_value = c;
-                }
-            } else if let Some(start) = run_start {
-                emit_run_center(&mut candidates, start, x - 1, y);
-                run_start = None;
+        // Cheap row-min estimate: sample every 64th pixel.
+        let mut row_min = 255u8;
+        for &p in row.iter().step_by(64) {
+            if p < row_min {
+                row_min = p;
             }
         }
+        let threshold = row_min.saturating_add((sigma_noise_2 as u8) / 2);
 
-        if let Some(start) = run_start {
-            emit_run_center(&mut candidates, start, scan_right - 1, y);
+        for center_x in 3..(width - 3) {
+            let center_pixel = row[center_x];
+            if center_pixel < threshold {
+                continue;
+            }
+            let gate = &row[center_x - 3..center_x + 4];
+            if gate_star_1d(gate, sigma_noise_2, sigma_noise_3) {
+                candidates.push(Candidate { x: center_x, y });
+            }
         }
     }
 
     candidates
 }
 
-fn emit_run_center(candidates: &mut Vec<Candidate>, start: usize, end: usize, y: usize) {
-    let center = (start + end) / 2;
-    candidates.push(Candidate { x: center, y });
-}
-
-/// 7-pixel 1-D local-maximum test centered at `(cx, cy)`.
+/// Apply the 7-pixel horizontal 1-D gate.
 ///
-/// Pixels are laid out as: lb lm l C r rm rb, matching the upstream
-/// `gate_star_1d` window. A pixel is part of a local maximum run when it is not
-/// lower than its immediate neighbors, strictly brighter than its margin pixels,
-/// and the significance/uniform-background tests pass. The caller collapses
-/// consecutive equal-valued local maxima to a single center.
-fn is_row_peak(
-    image: &[u8],
-    width: usize,
-    _height: usize,
-    cx: usize,
-    cy: usize,
-    sigma_noise_2: i64,
-    sigma_noise_3: i64,
-) -> bool {
-    let row_offset = cy * width;
-    let c = image[row_offset + cx] as i64;
-    let lb = image[row_offset + cx - 3] as i64;
-    let lm = image[row_offset + cx - 2] as i64;
-    let l = image[row_offset + cx - 1] as i64;
-    let r = image[row_offset + cx + 1] as i64;
-    let rm = image[row_offset + cx + 2] as i64;
-    let rb = image[row_offset + cx + 3] as i64;
+/// Pixels are labeled `|lb lm l C r rm rb|`. Returns true if the center pixel
+/// qualifies as a star candidate.
+fn gate_star_1d(gate: &[u8], sigma_noise_2: i16, sigma_noise_3: i16) -> bool {
+    let lb = gate[0] as i16;
+    let lm = gate[1] as i16;
+    let l = gate[2] as i16;
+    let c = gate[3] as i16;
+    let r = gate[4] as i16;
+    let rm = gate[5] as i16;
+    let rb = gate[6] as i16;
 
-    // Significance: 2*C - (lb+rb) >= sigma_noise_2.
-    if 2 * c - (lb + rb) < sigma_noise_2 {
+    // Significance: 2*C - (lb+rb) must exceed sigma_noise_2.
+    let center_minus_background_2 = c + c - (lb + rb);
+    if center_minus_background_2 < sigma_noise_2 {
         return false;
     }
 
-    // Center must be at least as bright as its immediate neighbors.
+    // Local maximum vs immediate neighbors.
     if l > c || c < r {
         return false;
     }
 
-    // Center must be strictly brighter than its margin pixels.
+    // Strictly brighter than margins.
     if lm >= c || c <= rm {
         return false;
     }
 
-    // Break ties between equal-valued left/center and center/right runs so that
-    // the run midpoint is emitted exactly once.
+    // Flat-top tie-breaking: claim exactly one center per flat peak.
     if l == c && lm > r {
         return false;
     }
@@ -224,7 +180,7 @@ fn is_row_peak(
         return false;
     }
 
-    // Uniform background: border difference bounded.
+    // Uniform background: border pixels must not differ too much.
     if (lb - rb).abs() > sigma_noise_3 {
         return false;
     }
@@ -232,608 +188,448 @@ fn is_row_peak(
     true
 }
 
-/// Hot-pixel rejection against the full-resolution image.
-///
-/// Each candidate maps back to a block of full-resolution pixels. A backing
-/// pixel is classified as `Hot` when it is bright but isolated, `Dark` when not
-/// bright, otherwise `Bright`. A candidate is dropped when all bright backing
-/// pixels are hot.
-fn reject_hot_pixels(
-    candidates: &[Candidate],
-    full_image: &[u8],
+/// A blob is a set of vertically-adjacent 1-D candidates.
+#[derive(Clone, Debug, Default)]
+struct Blob {
+    candidates: Vec<Candidate>,
+    recipient: Option<usize>,
+}
+
+/// Merge candidates that are vertically adjacent within ±3 in x.
+fn form_blobs_from_candidates(candidates: Vec<Candidate>) -> Vec<Blob> {
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+
+    let max_y = candidates.iter().map(|c| c.y).max().unwrap_or(0);
+    let mut by_row: Vec<Vec<usize>> = vec![Vec::new(); max_y + 1];
+    let mut blobs: Vec<Blob> = Vec::with_capacity(candidates.len());
+
+    for (id, cand) in candidates.into_iter().enumerate() {
+        blobs.push(Blob {
+            candidates: vec![cand],
+            recipient: None,
+        });
+        by_row[cand.y].push(id);
+    }
+
+    for row in 1..=max_y {
+        for &current_id in &by_row[row] {
+            let current_rep = representative(&blobs, current_id);
+            let current_x = blobs[current_rep].candidates[0].x as i32;
+            for &prev_id in &by_row[row - 1] {
+                let prev_rep = representative(&blobs, prev_id);
+                let prev_x = blobs[prev_rep].candidates[0].x as i32;
+                if prev_x < current_x - 3 {
+                    continue;
+                }
+                if prev_x > current_x + 3 {
+                    break;
+                }
+
+                if prev_rep == current_rep {
+                    continue;
+                }
+
+                // Merge the previous blob into the current one.
+                let mut donated = core::mem::take(&mut blobs[prev_rep].candidates);
+                blobs[prev_rep].recipient = Some(current_rep);
+                blobs[current_rep].candidates.append(&mut donated);
+            }
+        }
+    }
+
+    blobs
+        .into_iter()
+        .filter(|b| !b.candidates.is_empty())
+        .collect()
+}
+
+/// Follow recipient pointers until we reach the blob that still owns candidates.
+fn representative(blobs: &[Blob], mut id: usize) -> usize {
+    loop {
+        if let Some(recipient) = blobs[id].recipient {
+            id = recipient;
+        } else {
+            return id;
+        }
+    }
+}
+
+/// Apply the 2-D gate to a blob, and if it passes, centroid and measure it.
+fn gate_star_2d(
+    blob: &Blob,
+    image: &BinnedImage,
+    higher_res: Option<&BinnedImage>,
+    full_res: &[u8],
     full_width: usize,
     full_height: usize,
     binning: usize,
-    sigma_noise_2: i64,
-) -> Vec<Candidate> {
-    let mut kept = Vec::with_capacity(candidates.len());
-    for &cand in candidates {
-        let (bx0, bx1, by0, by1) =
-            binned_to_full_block(cand.x, cand.y, full_width, full_height, binning);
+    noise: f64,
+    sigma: f64,
+    max_size: usize,
+) -> Option<Star> {
+    // Compute the core bounding box from the blob's candidate coordinates.
+    let x_min = blob.candidates.iter().map(|c| c.x).min()?;
+    let x_max = blob.candidates.iter().map(|c| c.x).max()?;
+    let y_min = blob.candidates.iter().map(|c| c.y).min()?;
+    let y_max = blob.candidates.iter().map(|c| c.y).max()?;
 
-        let mut hot_count = 0usize;
-        let mut bright_count = 0usize;
+    let core_width = x_max - x_min + 1;
+    let core_height = y_max - y_min + 1;
 
-        for y in by0..by1 {
-            for x in bx0..bx1 {
-                let class =
-                    classify_pixel(full_image, full_width, full_height, x, y, sigma_noise_2);
-                match class {
-                    PixelClass::Hot => hot_count += 1,
-                    PixelClass::Bright => bright_count += 1,
-                    PixelClass::Dark => {}
-                }
-            }
-        }
-
-        if bright_count == 0 && hot_count > 0 {
-            // All bright pixels are hot -> drop candidate.
-            continue;
-        }
-        kept.push(cand);
+    // Size test and image-edge test.
+    if core_width > max_size || core_height > max_size {
+        return None;
     }
-    kept
+    if x_min < 3 || x_max + 3 >= image.width || y_min < 3 || y_max + 3 >= image.height {
+        return None;
+    }
+
+    // Concentric boxes.
+    let core_left = x_min;
+    let core_top = y_min;
+    let neighbors_left = x_min - 1;
+    let neighbors_top = y_min - 1;
+    let neighbors_width = core_width + 2;
+    let neighbors_height = core_height + 2;
+    let margin_left = x_min - 2;
+    let margin_top = y_min - 2;
+    let margin_width = core_width + 4;
+    let margin_height = core_height + 4;
+    let perimeter_left = x_min - 3;
+    let perimeter_top = y_min - 3;
+    let perimeter_width = core_width + 6;
+    let perimeter_height = core_height + 6;
+
+    // Core mean.
+    let core_mean = roi_mean(&image.data, image.width, core_left, core_top, core_width, core_height);
+
+    // Inner-core brightness test (only for cores >= 3x3).
+    if core_width >= 3 && core_height >= 3 {
+        let outer_core_mean = perimeter_mean(
+            &image.data,
+            image.width,
+            core_left,
+            core_top,
+            core_width,
+            core_height,
+        );
+        if core_mean < outer_core_mean {
+            return None;
+        }
+    }
+
+    // Neighbor mean (perimeter of neighbors box, corners excluded).
+    let neighbor_mean = perimeter_mean_excluding_corners(
+        &image.data,
+        image.width,
+        neighbors_left,
+        neighbors_top,
+        neighbors_width,
+        neighbors_height,
+    );
+    if core_mean < neighbor_mean {
+        return None;
+    }
+
+    // Margin mean (perimeter of margin box).
+    let margin_mean = perimeter_mean(
+        &image.data,
+        image.width,
+        margin_left,
+        margin_top,
+        margin_width,
+        margin_height,
+    );
+    if core_mean <= margin_mean {
+        return None;
+    }
+
+    // Perimeter statistics.
+    let (perimeter_mean, perimeter_stddev, perimeter_min, perimeter_max) = perimeter_stats(
+        &image.data,
+        image.width,
+        perimeter_left,
+        perimeter_top,
+        perimeter_width,
+        perimeter_height,
+    );
+
+    // Uniform perimeter.
+    if (perimeter_max - perimeter_min) as f64 > 3.0 * sigma * noise {
+        return None;
+    }
+
+    // Significance with locally-inflated noise.
+    let max_noise = noise.max(perimeter_stddev);
+    if core_mean - perimeter_mean < sigma * max_noise {
+        return None;
+    }
+
+    // The blob passes all 2-D gates. Measure it.
+    if binning == 1 {
+        measure_star(
+            &image.data,
+            image.width,
+            margin_left,
+            margin_top,
+            margin_width,
+            margin_height,
+        )
+    } else {
+        // Translate the margin box into higher-res image coordinates (scale=2).
+        let higher = higher_res?;
+        let hr_left = margin_left * 2;
+        let hr_top = margin_top * 2;
+        let hr_width = (margin_width * 2).min(higher.width - hr_left);
+        let hr_height = (margin_height * 2).min(higher.height - hr_top);
+
+        let mut star = measure_star(
+            &higher.data,
+            higher.width,
+            hr_left,
+            hr_top,
+            hr_width,
+            hr_height,
+        )?;
+
+        // Scale centroid from higher-res space back to input-image coordinates.
+        let upsample = (binning as f64) / 2.0;
+        star.x *= upsample;
+        star.y *= upsample;
+        Some(star)
+    }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// Mean of a rectangular ROI.
+fn roi_mean(data: &[u8], width: usize, left: usize, top: usize, w: usize, h: usize) -> f64 {
+    let mut sum = 0u64;
+    for y in 0..h {
+        let row_start = (top + y) * width + left;
+        for x in 0..w {
+            sum += data[row_start + x] as u64;
+        }
+    }
+    sum as f64 / (w * h) as f64
+}
+
+/// Mean of the 1-pixel perimeter ring of a box.
+fn perimeter_mean(
+    data: &[u8],
+    width: usize,
+    left: usize,
+    top: usize,
+    w: usize,
+    h: usize,
+) -> f64 {
+    let (sum, count) = perimeter_sum_count(data, width, left, top, w, h);
+    sum as f64 / count as f64
+}
+
+/// Mean of the perimeter ring excluding the four corners.
+fn perimeter_mean_excluding_corners(
+    data: &[u8],
+    width: usize,
+    left: usize,
+    top: usize,
+    w: usize,
+    h: usize,
+) -> f64 {
+    let (mut sum, mut count) = perimeter_sum_count(data, width, left, top, w, h);
+    if w >= 2 && h >= 2 {
+        let right = left + w - 1;
+        let bottom = top + h - 1;
+        sum -= data[top * width + left] as u64;
+        sum -= data[top * width + right] as u64;
+        sum -= data[bottom * width + left] as u64;
+        sum -= data[bottom * width + right] as u64;
+        count -= 4;
+    }
+    sum as f64 / count as f64
+}
+
+/// Sum and pixel count of a perimeter ring.
+fn perimeter_sum_count(
+    data: &[u8],
+    width: usize,
+    left: usize,
+    top: usize,
+    w: usize,
+    h: usize,
+) -> (u64, usize) {
+    let mut sum = 0u64;
+    let mut count = 0usize;
+    let right = left + w - 1;
+    let bottom = top + h - 1;
+
+    // Top and bottom rows.
+    for x in left..=right {
+        sum += data[top * width + x] as u64;
+        sum += data[bottom * width + x] as u64;
+        count += 2;
+    }
+    // Left and right edges, excluding corners.
+    for y in (top + 1)..bottom {
+        sum += data[y * width + left] as u64;
+        sum += data[y * width + right] as u64;
+        count += 2;
+    }
+
+    (sum, count)
+}
+
+/// Mean, stddev, min, and max of a perimeter ring.
+fn perimeter_stats(
+    data: &[u8],
+    width: usize,
+    left: usize,
+    top: usize,
+    w: usize,
+    h: usize,
+) -> (f64, f64, u8, u8) {
+    let right = left + w - 1;
+    let bottom = top + h - 1;
+
+    let mut min = 255u8;
+    let mut max = 0u8;
+    let mut sum = 0u64;
+    let mut count = 0usize;
+
+    for x in left..=right {
+        let v_top = data[top * width + x];
+        let v_bot = data[bottom * width + x];
+        min = min.min(v_top).min(v_bot);
+        max = max.max(v_top).max(v_bot);
+        sum += v_top as u64 + v_bot as u64;
+        count += 2;
+    }
+    for y in (top + 1)..bottom {
+        let v_left = data[y * width + left];
+        let v_right = data[y * width + right];
+        min = min.min(v_left).min(v_right);
+        max = max.max(v_left).max(v_right);
+        sum += v_left as u64 + v_right as u64;
+        count += 2;
+    }
+
+    let mean = sum as f64 / count as f64;
+    let mut dev2 = 0.0f64;
+    for x in left..=right {
+        let d1 = data[top * width + x] as f64 - mean;
+        let d2 = data[bottom * width + x] as f64 - mean;
+        dev2 += d1 * d1 + d2 * d2;
+    }
+    for y in (top + 1)..bottom {
+        let d1 = data[y * width + left] as f64 - mean;
+        let d2 = data[y * width + right] as f64 - mean;
+        dev2 += d1 * d1 + d2 * d2;
+    }
+    let stddev = (dev2 / count as f64).sqrt();
+
+    (mean, stddev, min, max)
+}
+
+/// Check whether every bright backing pixel of a (possibly binned) candidate is hot.
+fn all_bright_are_hot(
+    full_res: &[u8],
+    full_width: usize,
+    full_height: usize,
+    x: usize,
+    y: usize,
+    binning: usize,
+    sigma_noise_2: i16,
+) -> bool {
+    if binning == 1 {
+        if y >= full_height || x >= full_width {
+            return true;
+        }
+        let row_start = y * full_width;
+        let gate = &full_res[row_start + x - 3..row_start + x + 4];
+        return classify_pixel(gate, sigma_noise_2) != PixelClass::Bright;
+    }
+
+    let x_full = x * binning;
+    let y_full = y * binning;
+    for yi in 0..binning {
+        let backing_y = y_full + yi;
+        if backing_y >= full_height {
+            continue;
+        }
+        let row_start = backing_y * full_width;
+        for xi in 0..binning {
+            let backing_x = x_full + xi;
+            if backing_x >= full_width {
+                continue;
+            }
+            let gate = &full_res[row_start + backing_x - 3..row_start + backing_x + 4];
+            if classify_pixel(gate, sigma_noise_2) == PixelClass::Bright {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// Classification of a pixel for hot-pixel rejection.
+#[derive(Debug, Eq, PartialEq)]
 enum PixelClass {
     Dark,
     Bright,
     Hot,
 }
 
-fn classify_pixel(
-    image: &[u8],
-    width: usize,
-    _height: usize,
-    x: usize,
-    y: usize,
-    sigma_noise_2: i64,
-) -> PixelClass {
-    let row_offset = y * width;
-    let c = image[row_offset + x] as i64;
+/// Classify a pixel using its 7-pixel horizontal gate.
+fn classify_pixel(gate: &[u8], sigma_noise_2: i16) -> PixelClass {
+    let lb = gate[0] as i16;
+    let l = gate[2] as i16;
+    let c = gate[3] as i16;
+    let r = gate[4] as i16;
+    let rb = gate[6] as i16;
 
-    // Neighbors and borders in the 7-pixel 1-D window centered on x.
-    // Layout matches the upstream gate: lb lm l C r rm rb.
-    let lb = if x >= 3 {
-        image[row_offset + x - 3] as i64
-    } else {
-        0
-    };
-    let l = if x >= 1 {
-        image[row_offset + x - 1] as i64
-    } else {
-        0
-    };
-    let r = if x + 1 < width {
-        image[row_offset + x + 1] as i64
-    } else {
-        0
-    };
-    let rb = if x + 3 < width {
-        image[row_offset + x + 3] as i64
-    } else {
-        0
-    };
-
-    let excess = 2 * c - (lb + rb);
-    // A pixel is only "bright" if it exceeds the background by at least
-    // sigma_noise_2, matching the upstream hot-pixel classification.
-    if excess < sigma_noise_2 {
+    let est_background_2 = lb + rb;
+    let center_minus_background_2 = c + c - est_background_2;
+    if center_minus_background_2 < sigma_noise_2 {
         return PixelClass::Dark;
     }
 
-    // Hot when neighbors carry < 1/8 of the center excess.
-    // Spec: 4*((l+r)-(lb+rb)) <= (2C-(lb+rb))/2
-    // Rearranged: 8*((l+r)-(lb+rb)) <= 2C-(lb+rb)
-    // i.e. 8*(l+r - lb - rb) <= excess
-    let neighbor_excess = l + r - lb - rb;
-    if 8 * neighbor_excess <= excess {
+    let neighbor_sum_minus_background = (l + r) - est_background_2;
+    if 4 * neighbor_sum_minus_background <= center_minus_background_2 / 2 {
         return PixelClass::Hot;
     }
 
     PixelClass::Bright
 }
 
-/// Map a binned candidate coordinate back to the inclusive full-resolution
-/// pixel block it represents.
-fn binned_to_full_block(
-    bx: usize,
-    by: usize,
-    full_width: usize,
-    full_height: usize,
-    binning: usize,
-) -> (usize, usize, usize, usize) {
-    if binning <= 1 {
-        return (bx, (bx + 1).min(full_width), by, (by + 1).min(full_height));
-    }
-    let x0 = bx * binning;
-    let y0 = by * binning;
-    let x1 = ((bx + 1) * binning).min(full_width);
-    let y1 = ((by + 1) * binning).min(full_height);
-    (x0, x1, y0, y1)
-}
-
-/// A blob is a set of vertically adjacent candidates.
-#[derive(Clone, Debug)]
-struct Blob {
-    pixels: Vec<Candidate>,
-}
-
-impl Blob {
-    fn left(&self) -> usize {
-        self.pixels.iter().map(|p| p.x).min().unwrap_or(0)
-    }
-    fn right(&self) -> usize {
-        self.pixels.iter().map(|p| p.x).max().unwrap_or(0)
-    }
-    fn top(&self) -> usize {
-        self.pixels.iter().map(|p| p.y).min().unwrap_or(0)
-    }
-    fn bottom(&self) -> usize {
-        self.pixels.iter().map(|p| p.y).max().unwrap_or(0)
-    }
-    fn width(&self) -> usize {
-        self.right() - self.left() + 1
-    }
-    fn height(&self) -> usize {
-        self.bottom() - self.top() + 1
-    }
-}
-
-/// Merge candidates into blobs using union-find-style recipient forwarding.
-fn form_blobs(candidates: Vec<Candidate>, _max_size: usize) -> Vec<Blob> {
-    if candidates.is_empty() {
-        return Vec::new();
-    }
-
-    // Bucket candidates by row.
-    let mut by_row: Vec<Vec<Candidate>> = Vec::new();
-    for cand in candidates {
-        if cand.y >= by_row.len() {
-            by_row.resize_with(cand.y + 1, Vec::new);
-        }
-        by_row[cand.y].push(cand);
-    }
-
-    // Union-find over candidate indices.
-    let total = by_row.iter().map(|r| r.len()).sum::<usize>();
-    let mut parent: Vec<usize> = (0..total).collect();
-    let mut index_of: Vec<Vec<usize>> = Vec::with_capacity(by_row.len());
-    let mut offset = 0usize;
-    for row in &by_row {
-        let mut idx = Vec::with_capacity(row.len());
-        for i in 0..row.len() {
-            idx.push(offset + i);
-        }
-        index_of.push(idx);
-        offset += row.len();
-    }
-
-    fn find(parent: &mut [usize], i: usize) -> usize {
-        let mut root = i;
-        while parent[root] != root {
-            root = parent[root];
-        }
-        // Path compression.
-        let mut j = i;
-        while parent[j] != root {
-            let next = parent[j];
-            parent[j] = root;
-            j = next;
-        }
-        root
-    }
-
-    fn union(parent: &mut [usize], a: usize, b: usize) {
-        let ra = find(parent, a);
-        let rb = find(parent, b);
-        if ra != rb {
-            parent[rb] = ra;
-        }
-    }
-
-    // Merge with previous row within +/- 3 in x.
-    for y in 1..by_row.len() {
-        for (i, cand) in by_row[y].iter().enumerate() {
-            let cur_idx = index_of[y][i];
-            for (j, prev) in by_row[y - 1].iter().enumerate() {
-                if prev.x.abs_diff(cand.x) <= 3 {
-                    let prev_idx = index_of[y - 1][j];
-                    union(&mut parent, cur_idx, prev_idx);
-                }
-            }
-        }
-    }
-
-    // Collect blobs.
-    let mut blob_map: std::collections::HashMap<usize, Vec<Candidate>> =
-        std::collections::HashMap::new();
-    for y in 0..by_row.len() {
-        for (i, cand) in by_row[y].iter().enumerate() {
-            let root = find(&mut parent, index_of[y][i]);
-            blob_map.entry(root).or_default().push(*cand);
-        }
-    }
-
-    blob_map
-        .into_values()
-        .map(|pixels| Blob { pixels })
-        .collect()
-}
-
-/// Apply the 2-D gate on the detection image and centroid on the higher-res image.
-#[allow(clippy::too_many_arguments)]
-fn process_blob(
-    blob: Blob,
-    detection_image: &[u8],
-    detection_width: usize,
-    detection_height: usize,
-    detection_binning: usize,
-    higher_image: &[u8],
-    higher_width: usize,
-    higher_height: usize,
-    higher_binning: usize,
-    input_binning: usize,
-    noise: f64,
-    sigma: f64,
-    max_size: usize,
-) -> Option<Star> {
-    // Core is the blob bounding box in detection coordinates.
-    let core_left = blob.left();
-    let core_top = blob.top();
-    let core_width = blob.width();
-    let core_height = blob.height();
-
-    // Size gate: a blob is acceptable if at least one dimension fits max_size.
-    // This keeps narrow 1-D peak stacks (common for small synthetic stars) while
-    // still rejecting large 2-D bleeding blobs where both dimensions are oversized.
-    if core_width > max_size && core_height > max_size {
-        return None;
-    }
-
-    // Concentric boxes for the 2-D gate, computed on the detection image.
-    let nb_left = core_left.saturating_sub(1);
-    let nb_top = core_top.saturating_sub(1);
-    let nb_width = (core_width + 2).min(detection_width - nb_left);
-    let nb_height = (core_height + 2).min(detection_height - nb_top);
-
-    let mg_left = core_left.saturating_sub(2);
-    let mg_top = core_top.saturating_sub(2);
-    let mg_width = (core_width + 4).min(detection_width - mg_left);
-    let mg_height = (core_height + 4).min(detection_height - mg_top);
-
-    // The 2-D gate requires the full core +/- 3 perimeter to fit inside the
-    // detection image. cedar-detect rejects blobs whose perimeter would cross
-    // an edge; clamping the perimeter box to the image bounds instead allows
-    // noisy edge pixels to be mistaken for a uniform background and produces
-    // spurious detections. Reject if the unclamped perimeter would extend
-    // outside the image.
-    if core_left < 3
-        || core_top < 3
-        || core_left + core_width + 3 > detection_width
-        || core_top + core_height + 3 > detection_height
-    {
-        return None;
-    }
-
-    let pr_left = core_left - 3;
-    let pr_top = core_top - 3;
-    let pr_width = core_width + 6;
-    let pr_height = core_height + 6;
-
-    let core_mean = box_mean(
-        detection_image,
-        detection_width,
-        core_left,
-        core_top,
-        core_width,
-        core_height,
-    );
-    let neighbor_mean = box_mean_excluding_corners(
-        detection_image,
-        detection_width,
-        nb_left,
-        nb_top,
-        nb_width,
-        nb_height,
-    );
-    let margin_mean = box_mean(
-        detection_image,
-        detection_width,
-        mg_left,
-        mg_top,
-        mg_width,
-        mg_height,
-    );
-    let (perimeter_mean, perimeter_stddev, perimeter_min, perimeter_max) = box_stats_perimeter(
-        detection_image,
-        detection_width,
-        pr_left,
-        pr_top,
-        pr_width,
-        pr_height,
-    );
-
-    // Inner-core brightness (3x3 center of core) when core >= 3x3.
-    if core_width >= 3 && core_height >= 3 {
-        let inner_left = core_left + core_width / 2 - 1;
-        let inner_top = core_top + core_height / 2 - 1;
-        let outer_core_mean = box_mean(
-            detection_image,
-            detection_width,
-            core_left,
-            core_top,
-            core_width,
-            core_height,
-        );
-        let inner_core_mean = box_mean(
-            detection_image,
-            detection_width,
-            inner_left,
-            inner_top,
-            3,
-            3,
-        );
-        if inner_core_mean < outer_core_mean {
-            return None;
-        }
-    }
-
-    // Core >= neighbor mean (corners excluded).
-    if core_mean < neighbor_mean {
-        return None;
-    }
-
-    // Core > margin mean.
-    if core_mean <= margin_mean {
-        return None;
-    }
-
-    // Uniform perimeter.
-    if perimeter_max - perimeter_min > 3.0 * sigma * noise {
-        return None;
-    }
-
-    // Significance.
-    let effective_noise = noise.max(perimeter_stddev);
-    if core_mean - perimeter_mean < sigma * effective_noise {
-        return None;
-    }
-
-    // Map the detection core to the higher-res image and expand the measurement
-    // box to the upstream "margin" box (core + 2 px on every side) for
-    // centroiding and brightness measurement. This matches cedar-detect, which
-    // computes the centroid inside the margin rectangle.
-    let scale_to_higher = detection_binning / higher_binning;
-    let mut meas_left = core_left * scale_to_higher;
-    let mut meas_top = core_top * scale_to_higher;
-    let core_w_higher = core_width * scale_to_higher;
-    let core_h_higher = core_height * scale_to_higher;
-    let meas_width = (core_w_higher + 4).max(5);
-    let meas_height = (core_h_higher + 4).max(5);
-
-    // Center the expansion on the blob.
-    let extra_w = meas_width - core_w_higher;
-    meas_left = meas_left.saturating_sub(extra_w / 2);
-    let extra_h = meas_height - core_h_higher;
-    meas_top = meas_top.saturating_sub(extra_h / 2);
-
-    // Clamp to the higher-res image bounds.
-    if meas_left + meas_width > higher_width {
-        meas_left = higher_width.saturating_sub(meas_width);
-    }
-    if meas_top + meas_height > higher_height {
-        meas_top = higher_height.saturating_sub(meas_height);
-    }
-
-    // Centroid on the higher-res image, then scale back to input coordinates.
-    let star = measure_star(
-        higher_image,
-        higher_width,
-        meas_left,
-        meas_top,
-        meas_width,
-        meas_height,
-    )?;
-
-    let scale = input_binning as f64 / higher_binning as f64;
-    Some(Star::new(
-        star.x * scale,
-        star.y * scale,
-        star.peak_value,
-        star.brightness * scale * scale,
-        star.num_saturated,
-    ))
-}
-
-fn box_mean(
-    image: &[u8],
-    width: usize,
-    left: usize,
-    top: usize,
-    box_width: usize,
-    box_height: usize,
-) -> f64 {
-    let mut sum = 0u64;
-    for y in top..top + box_height {
-        let row_offset = y * width;
-        for x in left..left + box_width {
-            sum += u64::from(image[row_offset + x]);
-        }
-    }
-    sum as f64 / (box_width * box_height) as f64
-}
-
-fn box_mean_excluding_corners(
-    image: &[u8],
-    width: usize,
-    left: usize,
-    top: usize,
-    box_width: usize,
-    box_height: usize,
-) -> f64 {
-    let mut sum = 0u64;
-    let mut count = 0usize;
-    for y in top..top + box_height {
-        let row_offset = y * width;
-        for x in left..left + box_width {
-            let is_corner =
-                (y == top || y == top + box_height - 1) && (x == left || x == left + box_width - 1);
-            if is_corner {
-                continue;
-            }
-            sum += u64::from(image[row_offset + x]);
-            count += 1;
-        }
-    }
-    if count == 0 {
-        return 0.0;
-    }
-    sum as f64 / count as f64
-}
-
-fn box_stats_perimeter(
-    image: &[u8],
-    width: usize,
-    left: usize,
-    top: usize,
-    box_width: usize,
-    box_height: usize,
-) -> (f64, f64, f64, f64) {
-    let mut sum = 0u64;
-    let mut count = 0usize;
-    let mut min = f64::INFINITY;
-    let mut max = f64::NEG_INFINITY;
-
-    for y in top..top + box_height {
-        let row_offset = y * width;
-        for x in left..left + box_width {
-            let on_perimeter =
-                y == top || y == top + box_height - 1 || x == left || x == left + box_width - 1;
-            if !on_perimeter {
-                continue;
-            }
-            let v = f64::from(image[row_offset + x]);
-            sum += v as u64;
-            count += 1;
-            if v < min {
-                min = v;
-            }
-            if v > max {
-                max = v;
-            }
-        }
-    }
-
-    if count == 0 {
-        return (0.0, 0.0, 0.0, 0.0);
-    }
-
-    let mean = sum as f64 / count as f64;
-    let variance: f64 = {
-        let mut acc = 0.0;
-        for y in top..top + box_height {
-            let row_offset = y * width;
-            for x in left..left + box_width {
-                let on_perimeter =
-                    y == top || y == top + box_height - 1 || x == left || x == left + box_width - 1;
-                if !on_perimeter {
-                    continue;
-                }
-                let d = f64::from(image[row_offset + x]) - mean;
-                acc += d * d;
-            }
-        }
-        acc / count as f64
-    };
-    (mean, variance.sqrt(), min, max)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn make_image(width: usize, height: usize, fill: u8) -> Vec<u8> {
-        vec![fill; width * height]
+    #[test]
+    fn gate_star_1d_rejects_weak_center() {
+        // Background ~10, center 12: not significant.
+        let gate = [10, 10, 10, 12, 10, 10, 10];
+        assert!(!gate_star_1d(&gate, 10, 15));
     }
 
     #[test]
-    fn detect_single_star() {
-        let width = 200;
-        let height = 200;
-        let mut img = make_image(width, height, 20);
-        // Smooth peaked spot centered near (100,100). Use a larger image so
-        // max_size (width/100 = 2) accommodates the blob.
-        let cx = 100.0;
-        let cy = 100.0;
-        for y in 80..120 {
-            for x in 80..120 {
-                let dx = x as f64 - cx;
-                let dy = y as f64 - cy;
-                let r2 = dx * dx + dy * dy;
-                let v = 220.0 * (-r2 / 2.0).exp();
-                let v = (v as u8).max(20);
-                img[y * width + x] = v;
-            }
-        }
-        let stars = detect_stars(&img, width, height, 8.0, 1, false, false);
-        assert!(!stars.is_empty(), "expected at least one star");
-        let s = &stars[0];
-        assert!((s.x - 100.5).abs() < 1.0, "x = {}", s.x);
-        assert!((s.y - 100.5).abs() < 1.0, "y = {}", s.y);
-        assert!(s.brightness > 0.0);
+    fn gate_star_1d_accepts_bright_peak() {
+        // Strong center with uniform background.
+        let gate = [10, 10, 20, 100, 20, 10, 10];
+        assert!(gate_star_1d(&gate, 10, 15));
     }
 
     #[test]
-    fn brightest_first_ordering() {
-        let mut img = make_image(60, 20, 20);
-        // Two peaked stars, left one brighter. Flat-topped blocks are rejected by
-        // the upstream 1-D gate (margin must be strictly darker than center), so
-        // we use a realistic peaked profile. The brighter star has a larger footprint
-        // so its background-subtracted brightness is strictly greater.
-        fn draw_peaked(img: &mut [u8], width: usize, cx: usize, cy: usize, peak: u8, radius: i32) {
-            for dy in -radius..=radius {
-                for dx in -radius..=radius {
-                    let x = (cx as i32 + dx) as usize;
-                    let y = (cy as i32 + dy) as usize;
-                    let d = dx.abs().max(dy.abs());
-                    let step = peak / (radius as u8 + 1);
-                    let v = peak.saturating_sub(d as u8 * step).max(20);
-                    img[y * width + x] = v;
-                }
-            }
-        }
-        draw_peaked(&mut img, 60, 12, 10, 200, 2);
-        draw_peaked(&mut img, 60, 42, 10, 120, 1);
-        let stars = detect_stars(&img, 60, 20, 8.0, 1, false, false);
-        assert_eq!(stars.len(), 2);
-        assert!(stars[0].brightness > stars[1].brightness);
+    fn classify_pixel_detects_hot() {
+        // Isolated bright pixel with dark neighbors.
+        let gate = [10, 10, 10, 100, 10, 10, 10];
+        assert_eq!(classify_pixel(&gate, 10), PixelClass::Hot);
     }
 
     #[test]
-    fn hot_pixel_rejected() {
-        let mut img = make_image(40, 40, 20);
-        // Single isolated bright pixel.
-        img[20 * 40 + 20] = 250;
-        let with_hot = detect_stars(&img, 40, 40, 8.0, 1, false, true);
-        let without_hot = detect_stars(&img, 40, 40, 8.0, 1, false, false);
-        assert!(with_hot.len() < without_hot.len() || with_hot.is_empty());
-    }
-
-    #[test]
-    fn binning_four_reports_input_coordinates() {
-        let mut img = make_image(64, 64, 20);
-        // Bright 4x4 spot centered around (32,32).
-        for y in 30..=34 {
-            for x in 30..=34 {
-                img[y * 64 + x] = 200;
-            }
-        }
-        let stars = detect_stars(&img, 64, 64, 8.0, 4, false, false);
-        assert!(!stars.is_empty());
-        let s = &stars[0];
-        assert!(s.x > 20.0 && s.x < 45.0, "x = {}", s.x);
-        assert!(s.y > 20.0 && s.y < 45.0, "y = {}", s.y);
+    fn classify_pixel_detects_bright() {
+        // Star-like: neighbors share flux.
+        let gate = [10, 10, 60, 100, 60, 10, 10];
+        assert_eq!(classify_pixel(&gate, 10), PixelClass::Bright);
     }
 }
