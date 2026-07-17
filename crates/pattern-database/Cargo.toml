@@ -1,0 +1,13 @@
+[package]
+name = "pattern-database"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Read-side sky index: on-disk database format, deserialization, and candidate lookup."
+
+[dependencies]
+math-core = { version = "0.1.0", path = "../math-core" }
+
+[dev-dependencies]
