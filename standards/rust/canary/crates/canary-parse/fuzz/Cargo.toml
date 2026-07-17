@@ -1,0 +1,25 @@
+# Empty [workspace] table detaches this crate from the parent canary workspace,
+# so `cargo fuzz` can build it standalone (the standard cargo-fuzz layout).
+[workspace]
+
+[package]
+name = "canary-parse-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.canary-parse]
+path = ".."
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+test = false
+doc = false
+bench = false
