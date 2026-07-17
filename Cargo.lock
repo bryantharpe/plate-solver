@@ -769,6 +769,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "plate-solver"
+version = "0.1.0"
+dependencies = [
+ "database-generation",
+ "math-core",
+ "pattern-database",
+ "star-detection",
+]
+
+[[package]]
 name = "png"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
