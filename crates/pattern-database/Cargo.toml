@@ -14,5 +14,11 @@ serde = { version = "1.0", features = ["derive"] }
 npyz = "0.6.0"
 memmap2 = "0.9.0"
 
+# Declared for the on-disk loader (npz decode + mmap) that this crate still
+# stubs (load.rs). cargo-machete flags them as unused until the loader is wired;
+# they are spec-required deps, not accidental. Kept, not removed.
+[package.metadata.cargo-machete]
+ignored = ["npyz", "memmap2"]
+
 [dev-dependencies]
 tempfile = "3.10"

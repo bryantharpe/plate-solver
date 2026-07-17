@@ -19,10 +19,7 @@ pub struct StarKdTree {
 impl StarKdTree {
     /// Build a KD-tree from star unit vectors.
     pub fn new(vectors: &[UnitVector]) -> Self {
-        let points: Vec<_> = vectors
-            .iter()
-            .map(|v| Point3::new(v.x, v.y, v.z))
-            .collect();
+        let points: Vec<_> = vectors.iter().map(|v| Point3::new(v.x, v.y, v.z)).collect();
         Self { points }
     }
 
@@ -30,11 +27,7 @@ impl StarKdTree {
     ///
     /// Uses the chord radius . Results are returned
     /// brightest-first by sorting on the original index order.
-    pub fn query_ball_point(
-        &self,
-        center: UnitVector,
-        radius: f64,
-    ) -> Vec<usize> {
+    pub fn query_ball_point(&self, center: UnitVector, radius: f64) -> Vec<usize> {
         let center = Point3::new(center.x, center.y, center.z);
         let max_chord = chord_from_angle(radius);
         let max_chord2 = max_chord * max_chord;
@@ -60,10 +53,7 @@ impl StarKdTree {
     }
 
     /// Return the index of the nearest star to .
-    pub fn query_nearest(
-        &self,
-        center: UnitVector,
-    ) -> Option<usize> {
+    pub fn query_nearest(&self, center: UnitVector) -> Option<usize> {
         let center = Point3::new(center.x, center.y, center.z);
         self.points
             .iter()

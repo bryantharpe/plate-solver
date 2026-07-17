@@ -41,7 +41,10 @@ impl PatternDatabase {
     /// Compute the 64-bit key hash and largest edge for an image pattern.
     fn image_key_hash(&self, vectors: &[UnitVector; PATTERN_SIZE]) -> (u64, f64) {
         let (key, largest) = pattern_key(vectors, self.properties.pattern_bins as u32);
-        (pattern_key_hash(&key, self.properties.pattern_bins as u32), largest)
+        (
+            pattern_key_hash(&key, self.properties.pattern_bins as u32),
+            largest,
+        )
     }
 
     /// Look up candidate patterns for an image pattern.
@@ -60,8 +63,12 @@ impl PatternDatabase {
 
         let table = &self.pattern_catalog;
         let is_empty = |row: &[usize; PATTERN_SIZE]| row[0] == usize::MAX;
-        let occupied =
-            get_table_indices_from_hash(hash_index, table, self.properties.linear_probe(), is_empty);
+        let occupied = get_table_indices_from_hash(
+            hash_index,
+            table,
+            self.properties.linear_probe(),
+            is_empty,
+        );
 
         let mut candidates = Vec::new();
         for table_index in occupied {
@@ -82,8 +89,10 @@ impl PatternDatabase {
             }
 
             let star_indices = self.pattern_catalog[table_index];
-            let vectors: [UnitVector; PATTERN_SIZE] =
-                std::array::from_fn(|k| self.star_vector(crate::format::StarId(star_indices[k])).unwrap());
+            let vectors: [UnitVector; PATTERN_SIZE] = std::array::from_fn(|k| {
+                self.star_vector(crate::format::StarId(star_indices[k]))
+                    .unwrap()
+            });
 
             let (_key, catalog_largest) =
                 pattern_key(&vectors, self.properties.pattern_bins as u32);
