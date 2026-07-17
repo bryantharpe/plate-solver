@@ -7,6 +7,7 @@
 
 pub mod binning;
 pub mod centroid;
+pub mod detect;
 pub mod noise;
 pub mod star;
 
