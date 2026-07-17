@@ -11,5 +11,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/bryantharpe/plate-solver"
 
 [workspace.dependencies]
+database-generation = { path = "crates/database-generation" }
 math-core = { path = "crates/math-core" }
+pattern-database = { path = "crates/pattern-database" }
 star-detection = { path = "crates/star-detection" }
