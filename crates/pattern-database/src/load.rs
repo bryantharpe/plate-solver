@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::io;
 use std::path::Path;
 
-use npyz::{DType, Deserialize, DTypeError, TypeRead};
+use npyz::{DType, DTypeError, Deserialize, TypeRead};
 
 use math_core::pattern::PATTERN_SIZE;
 
@@ -179,12 +179,14 @@ fn decode_database<R: io::Read + io::Seek>(
         .map(|item| decode_uint(&item.0, ids_ty.little))
         .collect();
     let star_catalog_ids: Vec<CatalogId> = match (ids_shape.as_slice(), ids_ty.size) {
-        ([n], 2) if *n as usize == num_stars => {
-            ids_flat.into_iter().map(|v| CatalogId::Bsc(v as u16)).collect()
-        }
-        ([n], 4) if *n as usize == num_stars => {
-            ids_flat.into_iter().map(|v| CatalogId::Hip(v as u32)).collect()
-        }
+        ([n], 2) if *n as usize == num_stars => ids_flat
+            .into_iter()
+            .map(|v| CatalogId::Bsc(v as u16))
+            .collect(),
+        ([n], 4) if *n as usize == num_stars => ids_flat
+            .into_iter()
+            .map(|v| CatalogId::Hip(v as u32))
+            .collect(),
         ([n, 3], 2) if *n as usize == num_stars => ids_flat
             .chunks_exact(3)
             .map(|c| CatalogId::Tyc(c[0] as u16, c[1] as u16, c[2] as u16))
@@ -239,7 +241,12 @@ fn decode_properties(
     let mut values: HashMap<&str, FieldValue> = HashMap::new();
     let mut offset = 0usize;
     for field in fields {
-        let size = field.dtype.num_bytes();
+        let size = field.dtype.num_bytes().ok_or_else(|| {
+            LoadError::Format(format!(
+                "props_packed: field '{}' has a variable-size dtype",
+                field.name
+            ))
+        })?;
         let bytes = record.get(offset..offset + size).ok_or_else(|| {
             LoadError::Format(format!(
                 "props_packed: record too short for field '{}'",
@@ -277,8 +284,7 @@ fn decode_properties(
     };
 
     let pattern_mode = str_field("pattern_mode").ok_or_else(|| missing("pattern_mode"))?;
-    let hash_table_type =
-        str_field("hash_table_type").ok_or_else(|| missing("hash_table_type"))?;
+    let hash_table_type = str_field("hash_table_type").ok_or_else(|| missing("hash_table_type"))?;
     let pattern_size = u16_field("pattern_size").ok_or_else(|| missing("pattern_size"))?;
     let pattern_bins = u16_field("pattern_bins").ok_or_else(|| missing("pattern_bins"))?;
     let pattern_max_error =
@@ -377,9 +383,10 @@ impl Deserialize for RawItem {
     type TypeReader = RawItemReader;
 
     fn reader(dtype: &DType) -> Result<Self::TypeReader, DTypeError> {
-        Ok(RawItemReader {
-            size: dtype.num_bytes(),
-        })
+        let size = dtype
+            .num_bytes()
+            .ok_or_else(|| DTypeError::custom("variable-size dtypes are not supported"))?;
+        Ok(RawItemReader { size })
     }
 }
 
