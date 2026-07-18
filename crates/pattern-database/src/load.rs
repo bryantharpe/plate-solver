@@ -357,6 +357,8 @@ fn read_raw<R: io::Read + io::Seek>(
         .by_name(name)?
         .ok_or_else(|| LoadError::MissingArray(name.to_string()))?;
     let dtype = npy.dtype();
+    // u64 to match npyz::NpyFile::shape()'s element type (the .npy header stores each
+    // dimension as a 64-bit count, independent of the array's own element dtype).
     let shape = npy.shape().to_vec();
     let items = npy.into_vec::<RawItem>()?;
     Ok((dtype, shape, items))
@@ -427,6 +429,8 @@ fn parse_type_str(dtype: &DType) -> Result<ScalarType, LoadError> {
     Ok(ScalarType { little, kind, size })
 }
 
+/// Widen a 1/2/4/8-byte unsigned integer to `u64`, zero-filling the unused high-order bytes
+/// of `buf` (safe for unsigned values; there is no sign bit to extend).
 fn decode_uint(bytes: &[u8], little: bool) -> u64 {
     let mut buf = [0u8; 8];
     if little {
@@ -472,7 +476,10 @@ fn decode_f16(bytes: &[u8], little: bool) -> f32 {
                 shift += 1;
             }
             m &= 0x3ff;
-            let exp32 = 127 - 15 - shift;
+            // A half-precision subnormal is 2^-14 * (mantissa / 1024); after normalizing the
+            // mantissa left by `shift` bits its true unbiased exponent is -14 - shift, so the
+            // f32 biased exponent is 127 + (-14 - shift) = 113 - shift.
+            let exp32 = 127 - 14 - shift;
             (sign << 16) | (exp32 << 23) | (m << 13)
         }
     } else if exponent == 0x1f {
@@ -503,6 +510,22 @@ mod tests {
         assert_eq!(decode_f16(&0x0000u16.to_le_bytes(), true), 0.0);
         assert!(decode_f16(&0x7C00u16.to_le_bytes(), true).is_infinite());
         assert_eq!(decode_f16(&0x3C00u16.to_be_bytes(), false), 1.0);
+    }
+
+    #[test]
+    fn f16_subnormals() {
+        // Smallest subnormal: mantissa 1 -> 2^-24.
+        assert_eq!(decode_f16(&0x0001u16.to_le_bytes(), true), 2.0f32.powi(-24));
+        // Largest subnormal: mantissa 0x3FF -> 1023 * 2^-24, one ULP below the smallest normal.
+        assert_eq!(
+            decode_f16(&0x03FFu16.to_le_bytes(), true),
+            1023.0 * 2.0f32.powi(-24)
+        );
+        // A mid-range subnormal that needs more than one normalizing shift.
+        assert_eq!(
+            decode_f16(&0x0200u16.to_le_bytes(), true),
+            512.0 * 2.0f32.powi(-24)
+        );
     }
 
     #[test]
