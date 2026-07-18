@@ -11,6 +11,6 @@ pub mod lookup;
 pub mod properties;
 
 pub use format::{CatalogId, PatternDatabase, StarId};
-pub use load::{load_from_path, LoadError};
+pub use load::{load_from_path, load_mmap, LoadError};
 pub use lookup::{Candidate, LookupQuery};
 pub use properties::DatabaseProperties;
