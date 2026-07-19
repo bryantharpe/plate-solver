@@ -9,5 +9,8 @@ description = "Offline star-catalog preprocessing for the plate-solver sky index
 
 [dependencies]
 math-core = { version = "0.1.0", path = "../math-core" }
+pattern-database = { version = "0.1.0", path = "../pattern-database" }
+zip = "0.6.6"
 
 [dev-dependencies]
+tempfile = "3.10"
