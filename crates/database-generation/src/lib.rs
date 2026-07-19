@@ -11,6 +11,7 @@ pub mod num_fields;
 pub mod pattern_catalog;
 pub mod patterns;
 pub mod proper_motion;
+pub mod serialize;
 pub mod thinning;
 
 pub use catalog::{parse_bsc5, parse_hip, parse_tyc, CatalogEntry, CatalogId, CatalogSource};
@@ -21,4 +22,5 @@ pub use lattice::fibonacci_sphere_lattice;
 pub use num_fields::num_fields_for_sky;
 pub use pattern_catalog::{build_pattern_catalog, PatternCatalog};
 pub use patterns::{enumerate_patterns, Pattern};
+pub use serialize::{serialize_to_path, SerializeError};
 pub use thinning::{separation_for_density, thin_by_density};

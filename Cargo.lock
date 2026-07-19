@@ -323,6 +323,9 @@ name = "database-generation"
 version = "0.1.0"
 dependencies = [
  "math-core",
+ "pattern-database",
+ "tempfile",
+ "zip",
 ]
 
 [[package]]
