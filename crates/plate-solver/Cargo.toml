@@ -1,0 +1,15 @@
+[package]
+name = "plate-solver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Lost-in-space plate solver: solve entry points, preparation, and image-pattern iteration."
+
+[dependencies]
+math-core = { version = "0.1.0", path = "../math-core" }
+pattern-database = { version = "0.1.0", path = "../pattern-database" }
+star-detection = { version = "0.1.0", path = "../star-detection" }
+
+[dev-dependencies]
