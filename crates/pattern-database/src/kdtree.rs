@@ -1,11 +1,13 @@
 //! KD-tree over the star catalog unit vectors.
 //!
-//! Uses nalgebra for the 3-d point cloud and builds a naive but correct KD-tree
-//! that supports nearest and radius (ball) queries. The tree is built once at
-//! load time and cached with the database.
+//! Builds a real KD-tree over the star unit vectors at load time and caches it
+//! with the loaded database. Radius queries use the chord metric
+//! `2·sin(radius/2)` and return indices in brightness order (i.e. the original
+//! index order, because `star_table` is sorted brightest-first).
 
+use kdtree::distance::squared_euclidean;
+use kdtree::KdTree;
 use math_core::{chord_from_angle, UnitVector};
-use nalgebra::Point3;
 
 /// KD-tree over star unit vectors.
 ///
@@ -13,57 +15,55 @@ use nalgebra::Point3;
 /// brightest-first by sorting indices by their original order.
 #[derive(Debug, Clone)]
 pub struct StarKdTree {
-    points: Vec<Point3<f64>>,
+    tree: KdTree<f64, usize, [f64; 3]>,
 }
 
 impl StarKdTree {
     /// Build a KD-tree from star unit vectors.
     pub fn new(vectors: &[UnitVector]) -> Self {
-        let points: Vec<_> = vectors.iter().map(|v| Point3::new(v.x, v.y, v.z)).collect();
-        Self { points }
+        // Use the crate's default bucket capacity (16). A bucket capacity of N
+        // would leave the tree as a single leaf and degenerate to a linear scan.
+        let mut tree = KdTree::new(3);
+        for (i, v) in vectors.iter().enumerate() {
+            // `add` only fails on dimension mismatch or zero capacity; neither
+            // can happen here, so the unwrap is safe.
+            tree.add([v.x, v.y, v.z], i).expect("point dimension is 3");
+        }
+        Self { tree }
     }
 
-    /// Return indices of all stars within  radians of .
+    /// Return indices of all stars within `radius` radians of `center`.
     ///
-    /// Uses the chord radius . Results are returned
+    /// Uses the chord radius `2·sin(radius/2)`. Results are returned
     /// brightest-first by sorting on the original index order.
     pub fn query_ball_point(&self, center: UnitVector, radius: f64) -> Vec<usize> {
-        let center = Point3::new(center.x, center.y, center.z);
         let max_chord = chord_from_angle(radius);
         let max_chord2 = max_chord * max_chord;
 
-        let mut found: Vec<usize> = self
-            .points
-            .iter()
-            .enumerate()
-            .filter_map(|(i, p)| {
-                let d2 = (p - center).norm_squared();
-                if d2 <= max_chord2 {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let found = self
+            .tree
+            .within_unsorted(&[center.x, center.y, center.z], max_chord2, &squared_euclidean)
+            .expect("center has dimension 3");
 
+        let mut indices: Vec<usize> = found.into_iter().map(|(_, &idx)| idx).collect();
         // Brightness order is the original index order because star_table is
         // sorted brightest-first.
-        found.sort();
-        found
+        indices.sort();
+        indices
     }
 
-    /// Return the index of the nearest star to .
+    /// Return the index of the nearest star to `center`.
     pub fn query_nearest(&self, center: UnitVector) -> Option<usize> {
-        let center = Point3::new(center.x, center.y, center.z);
-        self.points
-            .iter()
-            .enumerate()
-            .min_by(|(_, a), (_, b)| {
-                let da = (**a - center).norm_squared();
-                let db = (**b - center).norm_squared();
-                da.partial_cmp(&db).unwrap()
-            })
-            .map(|(i, _)| i)
+        self.tree
+            .nearest(&[center.x, center.y, center.z], 1, &squared_euclidean)
+            .expect("center has dimension 3")
+            .first()
+            .map(|(_, &idx)| idx)
+    }
+
+    /// Return the number of points stored in the tree.
+    pub fn size(&self) -> usize {
+        self.tree.size()
     }
 }
 
