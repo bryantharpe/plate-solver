@@ -372,6 +372,7 @@ jobs:
         id: stamp
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
@@ -379,6 +380,44 @@ jobs:
           PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
           set -uo pipefail
+
+          # THIS GATE GRADES A PULL REQUEST. On any other event there is no pull request
+          # in the payload to grade, and it must say so instead of failing.
+          #
+          # `on:` includes `push: branches: [main]`, and this job had no event guard. A push
+          # payload has no `pull_request` object, so PR_NUMBER/PR_BRANCH/PR_SHA arrived empty
+          # and PR_LABELS_JSON arrived as `[]` — no stamp, so the fail-closed path below fired
+          # and the run went red. Not on a finding: on the absence of a PR that was never
+          # going to be there. Every merge to main produced one guaranteed-red run (24 of them
+          # before this line existed, against 16 green), and each one mailed the operator.
+          #
+          # The cost was never the mail. A main that is red by construction cannot report a
+          # main that is red for cause, so the one signal this repo would most want to hear
+          # was buried under its own noise floor.
+          #
+          # THIS IS NOT THE BRANCH SCOPING FORBIDDEN BELOW, and the difference is the whole
+          # point. That escape hatch was `case "$branch" in polecat/*)` — it read a name the
+          # AUTHOR CHOOSES, on a real PR, and waved it through ungraded (PR #34). This reads
+          # the EVENT TYPE, which no author controls and which GitHub sets. A PR cannot arrive
+          # as a push. Nothing skips a grade it would otherwise have received: by the time a
+          # commit reaches main it has already been through this gate as a PR, where the stamp
+          # was required and branch protection would not merge without it.
+          #
+          # Deliberately an in-script exit and not a job-level `if:`. A job-level condition
+          # that is wrong in the other direction skips the gate ON PULL REQUESTS — silently,
+          # with a green check — which is precisely the ungraded-merge failure this whole job
+          # exists to prevent. Here the default path is still "run the gate and fail closed";
+          # only an explicit, positive match on a non-PR event exits early. Wrong in the worst
+          # case means red on a push again. Loud beats absent.
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "stamp=n/a ($EVENT_NAME is not a pull request)" >> "$GITHUB_OUTPUT"
+            echo "Event is '$EVENT_NAME', not 'pull_request' — there is no PR here to grade."
+            echo "Commits reach main only through a PR, where this gate ran and a positive"
+            echo "stamp was required before branch protection allowed the merge. This is not"
+            echo "a second grading opportunity being skipped; it is the same grade, already"
+            echo "taken. NOT APPLICABLE."
+            exit 0
+          fi
 
           pr="$PR_NUMBER"
           branch="$PR_BRANCH"
