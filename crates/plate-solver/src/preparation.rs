@@ -21,14 +21,16 @@ pub fn initial_fov(
     fov_estimate: Option<f64>,
     fov_max_error: f64,
 ) -> f64 {
-    let mid = (props.min_fov + props.max_fov) / 2.0;
+    let mid = ((props.min_fov as f64) + (props.max_fov as f64)) / 2.0;
     let base = fov_estimate.unwrap_or(mid);
-    let base = base.clamp(props.min_fov, props.max_fov);
-    (base - fov_max_error).max(props.min_fov)
+    let min_fov = props.min_fov as f64;
+    let max_fov = props.max_fov as f64;
+    let base = base.clamp(min_fov, max_fov);
+    (base - fov_max_error).max(min_fov)
 }
 
 /// Compute the working match threshold with the Bonferroni correction.
-pub fn bonferroni_threshold(match_threshold: f64, num_patterns: usize) -> f64 {
+pub fn bonferroni_threshold(match_threshold: f64, num_patterns: u32) -> f64 {
     if num_patterns == 0 {
         return match_threshold;
     }
@@ -94,10 +96,11 @@ pub fn centroid_vectors(
     height: f64,
     fov: f64,
 ) -> Vec<UnitVector> {
-    let camera = PinholeCamera::from_diagonal_fov(fov, width, height);
-    centroids
-        .iter()
-        .map(|&(x, y)| camera.pixel_to_unit_vector(x, y))
+    let camera = PinholeCamera::new(width, height, fov.to_radians());
+    camera
+        .unproject(centroids)
+        .into_iter()
+        .flatten()
         .collect()
 }
 
@@ -112,7 +115,7 @@ pub fn build_context(
     distortion: f64,
     solve_timeout_ms: u64,
 ) -> SolveContext {
-    let props = db.properties();
+    let props = db.properties.clone();
     let fov_initial = initial_fov(&props, fov_estimate, fov_max_error);
     SolveContext {
         db,
@@ -125,7 +128,7 @@ pub fn build_context(
         solve_timeout_ms,
         start_instant: Instant::now(),
         cancelled: Arc::new(AtomicBool::new(false)),
-        verification_stars_per_fov: props.verification_stars_per_fov,
+        verification_stars_per_fov: props.verification_stars_per_fov as usize,
     }
 }
 
@@ -139,7 +142,8 @@ pub fn prepare(
 ) -> Result<(Vec<UnitVector>, Vec<(f64, f64)>), Solution> {
     let limited = limit_centroids(centroids, ctx.verification_stars_per_fov);
     let undistorted = undistort(&limited, width, height, ctx.distortion);
-    let busted = cluster_bust(&undistorted, ctx.fov_initial, ctx.verification_stars_per_fov, width);
+    let busted = cluster_bust(
+        &undistorted, ctx.fov_initial, ctx.verification_stars_per_fov, width);
 
     if busted.len() < MIN_CENTROIDS {
         return Err(Solution {

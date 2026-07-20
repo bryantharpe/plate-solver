@@ -5,7 +5,7 @@ use crate::preparation::{build_context, prepare};
 use crate::status::{MatchResult, Solution, SolveContext, SolveStatus};
 use math_core::UnitVector;
 use pattern_database::PatternDatabase;
-use star_detection::{detect_stars, estimate_noise};
+use star_detection::{detect_stars, noise::estimate_noise};
 
 /// Parameters controlling star extraction.
 #[derive(Debug, Clone, Copy)]
@@ -109,7 +109,7 @@ pub fn solve_from_image(
 
     let mut solution = solve_from_centroids(
         &centroids,
-        (width, height),
+        (width as usize, height as usize),
         fov_estimate,
         fov_max_error,
         match_radius,
