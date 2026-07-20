@@ -13,8 +13,10 @@ use std::path::Path;
 use npyz::{DType, DTypeError, Deserialize, TypeRead};
 
 use math_core::pattern::PATTERN_SIZE;
+use math_core::UnitVector;
 
 use crate::format::{CatalogId, PatternDatabase};
+use crate::kdtree::StarKdTree;
 use crate::properties::DatabaseProperties;
 
 /// Error loading a pattern database from disk.
@@ -202,6 +204,8 @@ fn decode_database<R: io::Read + io::Seek>(
     let (props_dtype, _props_shape, props_items) = read_raw(archive, "props_packed")?;
     let properties = decode_properties(&props_dtype, &props_items, catalog_length)?;
 
+    let star_kdtree = build_star_kdtree(&star_table, num_stars);
+
     Ok(PatternDatabase {
         star_table,
         num_stars,
@@ -210,7 +214,23 @@ fn decode_database<R: io::Read + io::Seek>(
         pattern_key_hashes,
         star_catalog_ids,
         properties,
+        star_kdtree,
     })
+}
+
+/// Build a KD-tree from the `star_table` unit-vector columns.
+fn build_star_kdtree(star_table: &[f32], num_stars: usize) -> StarKdTree {
+    let vectors: Vec<UnitVector> = (0..num_stars)
+        .map(|i| {
+            let base = i * 6;
+            UnitVector {
+                x: star_table[base + 2] as f64,
+                y: star_table[base + 3] as f64,
+                z: star_table[base + 4] as f64,
+            }
+        })
+        .collect();
+    StarKdTree::new(&vectors)
 }
 
 /// Database properties record with legacy fallbacks applied.

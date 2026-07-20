@@ -4,6 +4,7 @@
 //! largest-edge table, 16-bit key hashes, and catalog IDs. The layout intentionally
 //! mirrors the .npz archive written by the upstream generators.
 
+use crate::kdtree::StarKdTree;
 use math_core::UnitVector;
 
 /// Source-catalog identifier for a star.
@@ -44,9 +45,18 @@ pub struct PatternDatabase {
     pub star_catalog_ids: Vec<CatalogId>,
     /// Database properties record.
     pub properties: crate::properties::DatabaseProperties,
+    /// KD-tree built over the star unit vectors at load time.
+    pub star_kdtree: StarKdTree,
 }
 
 impl PatternDatabase {
+    /// Return catalog star indices within `radius` radians of `boresight`, brightest-first.
+    ///
+    /// Uses the KD-tree with chord radius `2·sin(radius/2)`.
+    pub fn nearby_stars(&self, boresight: UnitVector, radius: f64) -> Vec<usize> {
+        self.star_kdtree.query_ball_point(boresight, radius)
+    }
+
     /// Return the unit vector for a star index.
     pub fn star_vector(&self, index: StarId) -> Option<UnitVector> {
         let i = index.0;
