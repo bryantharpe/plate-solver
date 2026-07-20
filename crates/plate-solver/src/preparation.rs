@@ -1,11 +1,11 @@
 //! Preparation stage: FOV initial, threshold, brightest-N limit, undistortion,
 //! cluster-busting, centroid vectors, and TOO_FEW detection.
 
-use crate::status::{SolveContext, SolveStatus, Solution};
-use math_core::{undistort_centroids, UnitVector, PinholeCamera};
-use pattern_database::{PatternDatabase, DatabaseProperties};
-use std::sync::Arc;
+use crate::status::{Solution, SolveContext, SolveStatus};
+use math_core::{undistort_centroids, PinholeCamera, UnitVector};
+use pattern_database::{DatabaseProperties, PatternDatabase};
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Instant;
 
 /// Minimum number of centroids required to attempt a solve.
@@ -14,19 +14,19 @@ pub const MIN_CENTROIDS: usize = 4;
 /// Compute the initial FOV estimate from the database FOV range and caller bounds.
 ///
 /// If the caller supplies a finite `fov_estimate`, it is clamped to the database
-/// `[min_fov, max_fov]` range and then widened by `fov_max_error` on each side.
-/// If no estimate is supplied, the midpoint of the database range is used.
+/// `[min_fov, max_fov]` range. If no estimate is supplied, the midpoint of the
+/// database range is used. The returned value is the single FOV used for
+/// unprojection and reported as `fov_used`.
 pub fn initial_fov(
     props: &DatabaseProperties,
     fov_estimate: Option<f64>,
-    fov_max_error: f64,
+    _fov_max_error: f64,
 ) -> f64 {
     let mid = ((props.min_fov as f64) + (props.max_fov as f64)) / 2.0;
     let base = fov_estimate.unwrap_or(mid);
     let min_fov = props.min_fov as f64;
     let max_fov = props.max_fov as f64;
-    let base = base.clamp(min_fov, max_fov);
-    (base - fov_max_error).max(min_fov)
+    base.clamp(min_fov, max_fov)
 }
 
 /// Compute the working match threshold with the Bonferroni correction.
@@ -97,14 +97,11 @@ pub fn centroid_vectors(
     fov: f64,
 ) -> Vec<UnitVector> {
     let camera = PinholeCamera::new(width, height, fov.to_radians());
-    camera
-        .unproject(centroids)
-        .into_iter()
-        .flatten()
-        .collect()
+    camera.unproject(centroids).into_iter().flatten().collect()
 }
 
 /// Build the solve context from inputs and the loaded pattern database.
+#[allow(clippy::too_many_arguments)]
 pub fn build_context(
     db: PatternDatabase,
     fov_estimate: Option<f64>,
@@ -134,23 +131,32 @@ pub fn build_context(
 
 /// Run the preparation stage and return either the prepared context/centroids or a solution
 /// already terminated with `TOO_FEW`.
+/// Prepared centroids and their unit vectors, or an early `TOO_FEW` solution.
+pub type PrepareResult = Result<(Vec<UnitVector>, Vec<(f64, f64)>), Box<Solution>>;
+
+/// Run the preparation stage and return either the prepared context/centroids or a solution
+/// already terminated with `TOO_FEW`.
 pub fn prepare(
     ctx: &SolveContext,
     centroids: &[(f64, f64)],
     width: f64,
     height: f64,
-) -> Result<(Vec<UnitVector>, Vec<(f64, f64)>), Solution> {
+) -> PrepareResult {
     let limited = limit_centroids(centroids, ctx.verification_stars_per_fov);
     let undistorted = undistort(&limited, width, height, ctx.distortion);
     let busted = cluster_bust(
-        &undistorted, ctx.fov_initial, ctx.verification_stars_per_fov, width);
+        &undistorted,
+        ctx.fov_initial,
+        ctx.verification_stars_per_fov,
+        width,
+    );
 
     if busted.len() < MIN_CENTROIDS {
-        return Err(Solution {
+        return Err(Box::new(Solution {
             status: Some(SolveStatus::TooFew),
             fov_used: Some(ctx.fov_initial),
             ..Solution::default()
-        });
+        }));
     }
 
     let vectors = centroid_vectors(&busted, width, height, ctx.fov_initial);

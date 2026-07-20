@@ -38,6 +38,7 @@ impl Default for DetectParams {
 /// This function owns the front of the solve loop: context construction,
 /// preparation, and breadth-first image-pattern iteration. Verification and
 /// refinement are delegated to downstream beads via the `candidates` module.
+#[allow(clippy::too_many_arguments)]
 pub fn solve_from_centroids(
     centroids: &[(f64, f64)],
     size: (usize, usize),
@@ -65,7 +66,7 @@ pub fn solve_from_centroids(
 
     let (vectors, _centroids) = match prepare(&ctx, centroids, width, height) {
         Ok(v) => v,
-        Err(solution) => return solution,
+        Err(solution) => return *solution,
     };
 
     iterate_patterns(&ctx, &vectors)
@@ -75,6 +76,7 @@ pub fn solve_from_centroids(
 ///
 /// Extracts centroids via `star_detection::detect_stars`, using the supplied
 /// `DetectParams`. Records the extraction time in the returned `Solution`.
+#[allow(clippy::too_many_arguments)]
 pub fn solve_from_image(
     image: &[u8],
     width: usize,
@@ -90,7 +92,9 @@ pub fn solve_from_image(
     detect_params: DetectParams,
 ) -> Solution {
     let sigma = detect_params.sigma;
-    let noise_estimate = detect_params.noise_estimate.unwrap_or_else(|| estimate_noise(image, width, height));
+    let noise_estimate = detect_params
+        .noise_estimate
+        .unwrap_or_else(|| estimate_noise(image, width, height));
     let binning = detect_params.binning;
     let normalize_rows = detect_params.normalize_rows;
     let detect_hot_pixels = detect_params.detect_hot_pixels;
@@ -109,7 +113,7 @@ pub fn solve_from_image(
 
     let mut solution = solve_from_centroids(
         &centroids,
-        (width as usize, height as usize),
+        (width, height),
         fov_estimate,
         fov_max_error,
         match_radius,
@@ -120,6 +124,8 @@ pub fn solve_from_image(
         db,
     );
 
+    // Stash the estimated noise in a field for now; downstream beads will replace
+    // this with the verified match probability once verification is implemented.
     solution.match_probability = Some(noise_estimate);
     solution
 }
@@ -145,7 +151,13 @@ fn iterate_patterns(ctx: &SolveContext, vectors: &[UnitVector]) -> Solution {
                 return stopped_solution(ctx);
             }
             for i1 in (i0 + 1)..n.min(i0 + radius + 1) {
+                if ctx.should_stop() {
+                    return stopped_solution(ctx);
+                }
                 for i2 in (i1 + 1)..n.min(i0 + radius + 1) {
+                    if ctx.should_stop() {
+                        return stopped_solution(ctx);
+                    }
                     for i3 in (i2 + 1)..n.min(i0 + radius + 1) {
                         if ctx.should_stop() {
                             return stopped_solution(ctx);

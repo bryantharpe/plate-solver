@@ -59,8 +59,7 @@ pub struct SolveContext {
 impl SolveContext {
     /// Returns true if the caller has requested cancellation.
     pub fn is_cancelled(&self) -> bool {
-        self.cancelled
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.cancelled.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Returns true if the timeout has elapsed.

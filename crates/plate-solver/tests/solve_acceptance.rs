@@ -5,7 +5,6 @@
 //!   - Preparation
 //!   - Image-pattern iteration
 
-use math_core::UnitVector;
 use pattern_database::{DatabaseProperties, PatternDatabase};
 use plate_solver::{
     preparation,
@@ -16,7 +15,12 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 /// Build a minimal in-memory database with the requested FOV range and pattern count.
-fn test_db(min_fov: f32, max_fov: f32, num_patterns: u32, verification_stars_per_fov: u16) -> PatternDatabase {
+fn test_db(
+    min_fov: f32,
+    max_fov: f32,
+    num_patterns: u32,
+    verification_stars_per_fov: u16,
+) -> PatternDatabase {
     PatternDatabase {
         star_table: Vec::new(),
         num_stars: 0,
@@ -64,7 +68,7 @@ fn brightest_first_requirement() {
 fn default_fov_from_db_range() {
     let db = test_db(10.0, 30.0, 100, 150);
     let sol = solve_from_centroids(
-        &vec![(10.0, 10.0), (20.0, 20.0), (30.0, 30.0), (40.0, 40.0)],
+        &[(10.0, 10.0), (20.0, 20.0), (30.0, 30.0), (40.0, 40.0)],
         (100, 100),
         None,
         0.0,
@@ -115,11 +119,24 @@ fn noise_estimated_from_image_never_constant() {
     }
     let db = test_db(10.0, 30.0, 100, 150);
 
-    let mut params = DetectParams::default();
-    params.noise_estimate = None;
+    let params = DetectParams {
+        noise_estimate: None,
+        ..Default::default()
+    };
 
     let sol_dark = solve_from_image(
-        &dark, 64, 64, None, 5.0, 0.01, 1e-5, 5000, 0.0, 0.002, db.clone(), params,
+        &dark,
+        64,
+        64,
+        None,
+        5.0,
+        0.01,
+        1e-5,
+        5000,
+        0.0,
+        0.002,
+        db.clone(),
+        params,
     );
     let sol_bright = solve_from_image(
         &bright, 64, 64, None, 5.0, 0.01, 1e-5, 5000, 0.0, 0.002, db, params,
@@ -230,7 +247,7 @@ fn cluster_busting_limits_pattern_centroids() {
 fn too_few_centroids() {
     let db = test_db(10.0, 30.0, 100, 150);
     let sol = solve_from_centroids(
-        &vec![(10.0, 10.0), (20.0, 20.0), (30.0, 30.0)],
+        &[(10.0, 10.0), (20.0, 20.0), (30.0, 30.0)],
         (100, 100),
         None,
         5.0,
@@ -267,6 +284,8 @@ fn timeout_bounds_the_search() {
 
 #[test]
 fn cancellation_honored() {
+    // Verify that a cancelled context reports CANCELLED through the public
+    // context helpers, and that a zero-timeout solve reports TIMEOUT.
     let db = test_db(10.0, 30.0, 100, 150);
     let cancelled = Arc::new(AtomicBool::new(true));
     let ctx = plate_solver::status::SolveContext {
@@ -283,21 +302,10 @@ fn cancellation_honored() {
         verification_stars_per_fov: 150,
     };
 
-    let _vectors: Vec<UnitVector> = (0..8)
-        .map(|i| {
-            let angle = i as f64 * 0.1;
-            UnitVector::from_radec(angle, angle * 0.1)
-        })
-        .collect();
-
-    // Directly exercise the internal iteration helper via the public solve path
-    // by using a context that is already cancelled. Since `solve_from_centroids`
-    // builds its own context, we verify cancellation behavior through the context
-    // helper and then through a solve with an instant timeout.
     assert!(ctx.is_cancelled());
 
     let sol = solve_from_centroids(
-        &vec![(10.0, 10.0), (20.0, 20.0), (30.0, 30.0), (40.0, 40.0)],
+        &[(10.0, 10.0), (20.0, 20.0), (30.0, 30.0), (40.0, 40.0)],
         (100, 100),
         None,
         5.0,

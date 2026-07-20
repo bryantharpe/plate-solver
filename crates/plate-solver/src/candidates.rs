@@ -9,10 +9,7 @@ use math_core::UnitVector;
 use pattern_database::Candidate;
 
 /// Generate a pattern key from four unit vectors and look up candidates.
-pub fn lookup_candidates(
-    _ctx: &SolveContext,
-    _vectors: [UnitVector; 4],
-) -> Vec<Candidate> {
+pub fn lookup_candidates(_ctx: &SolveContext, _vectors: [UnitVector; 4]) -> Vec<Candidate> {
     Vec::new()
 }
 
