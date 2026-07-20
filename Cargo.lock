@@ -1066,7 +1066,6 @@ dependencies = [
  "kdtree",
  "math-core",
  "memmap2",
- "nalgebra",
  "npyz",
  "serde",
  "tempfile",
