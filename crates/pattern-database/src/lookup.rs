@@ -60,7 +60,21 @@ impl PatternDatabase {
             self.properties.linear_probe(),
         );
         let key_hash16 = pattern_key_hash16(key_hash);
+        self.lookup_candidates_at_index(hash_index, key_hash16, image_largest_edge, query)
+    }
 
+    /// Look up candidate patterns from a specific hash-table index and 16-bit key filter.
+    ///
+    /// This is the inner lookup used by `lookup_candidates` and by the plate solver's
+    /// tolerance-band enumeration, which already knows the per-candidate-key hash
+    /// index and 16-bit filter.
+    pub fn lookup_candidates_at_index(
+        &self,
+        hash_index: usize,
+        key_hash16: u16,
+        image_largest_edge: f64,
+        query: &LookupQuery,
+    ) -> Vec<Candidate> {
         let table = &self.pattern_catalog;
         let is_empty = |row: &[usize; PATTERN_SIZE]| row[0] == usize::MAX;
         let occupied = get_table_indices_from_hash(
