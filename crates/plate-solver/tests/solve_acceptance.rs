@@ -5,7 +5,7 @@
 //!   - Preparation
 //!   - Image-pattern iteration
 
-use pattern_database::{DatabaseProperties, PatternDatabase};
+use pattern_database::{DatabaseProperties, PatternDatabase, StarKdTree};
 use plate_solver::{
     preparation,
     solve::{solve_from_centroids, solve_from_image, DetectParams},
@@ -35,6 +35,7 @@ fn test_db(
             verification_stars_per_fov,
             ..DatabaseProperties::default()
         },
+        star_kdtree: StarKdTree::new(&[]),
     }
 }
 
