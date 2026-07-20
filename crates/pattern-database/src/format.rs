@@ -4,8 +4,8 @@
 //! largest-edge table, 16-bit key hashes, and catalog IDs. The layout intentionally
 //! mirrors the .npz archive written by the upstream generators.
 
-use math_core::UnitVector;
 use crate::kdtree::StarKdTree;
+use math_core::UnitVector;
 
 /// Source-catalog identifier for a star.
 ///

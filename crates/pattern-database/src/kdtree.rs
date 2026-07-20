@@ -42,7 +42,11 @@ impl StarKdTree {
 
         let found = self
             .tree
-            .within_unsorted(&[center.x, center.y, center.z], max_chord2, &squared_euclidean)
+            .within_unsorted(
+                &[center.x, center.y, center.z],
+                max_chord2,
+                &squared_euclidean,
+            )
             .expect("center has dimension 3");
 
         let mut indices: Vec<usize> = found.into_iter().map(|(_, &idx)| idx).collect();

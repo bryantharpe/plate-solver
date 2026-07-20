@@ -80,10 +80,7 @@ fn nearby_stars_matches_brute_force_for_several_radii() {
         let radius = radius_deg.to_radians();
         let got = db.nearby_stars(boresight, radius);
         let expected = brute_force(&db, boresight, radius);
-        assert_eq!(
-            got, expected,
-            "mismatch at radius {radius_deg} deg"
-        );
+        assert_eq!(got, expected, "mismatch at radius {radius_deg} deg");
     }
 }
 
@@ -173,7 +170,9 @@ fn synthetic_database(n: usize) -> PatternDatabase {
         let ra = z.atan2(x);
         let dec = y.asin();
         let mag = (i as f64) * 0.01; // brightest-first by index order
-        star_table.extend([ra as f32, dec as f32, x as f32, y as f32, z as f32, mag as f32]);
+        star_table.extend([
+            ra as f32, dec as f32, x as f32, y as f32, z as f32, mag as f32,
+        ]);
         star_catalog_ids.push(CatalogId::Hip(i as u32 + 1));
     }
 
