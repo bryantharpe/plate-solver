@@ -12,6 +12,90 @@ use math_core::pattern::{
 use math_core::UnitVector;
 use pattern_database::{Candidate, LookupQuery};
 
+/// Reconstruct the four unit vectors that would produce a given quantized key.
+///
+/// The pattern-database lookup needs image unit vectors only for the largest-edge
+/// / FOV pre-filter and for the edge-ratio band test. Those tests depend on the
+/// *ratios* and the largest edge, not on absolute pointing, so any four vectors with
+/// the requested key and a plausible largest edge will do. We build them from a
+/// fixed canonical tetrahedron by scaling its ratios to match `key` and scaling the
+/// whole figure so the largest edge equals `largest_edge`.
+fn synthetic_vectors_for_key(
+    key: &[u32; KEY_LEN],
+    bins: u32,
+    largest_edge: f64,
+) -> [UnitVector; PATTERN_SIZE] {
+    // Canonical base pattern: star 0 on boresight, others spread in y/z.
+    let base = [
+        UnitVector {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        UnitVector {
+            x: 1.0,
+            y: 0.5,
+            z: 0.0,
+        },
+        UnitVector {
+            x: 1.0,
+            y: 0.0,
+            z: 0.5,
+        },
+        UnitVector {
+            x: 1.0,
+            y: 0.3,
+            z: 0.3,
+        },
+    ];
+    let normalized: Vec<UnitVector> = base
+        .iter()
+        .map(|v| v.normalize().expect("non-zero base vector"))
+        .collect();
+    let normalized: [UnitVector; PATTERN_SIZE] = normalized.try_into().expect("four base vectors");
+
+    let (base_key, _base_largest) = pattern_key(&normalized, bins);
+
+    // Scale the base pattern so its largest edge matches the measured one.
+    // For small angles, angular distance is approximately proportional to the
+    // transverse scale factor, so dividing by base_largest and multiplying by
+    // largest_edge gives the right ratios.
+    // Rebuild vectors with the scaled transverse components, then nudge the ratios
+    // to match the requested key by adjusting each non-boresight star independently.
+    // This is approximate but sufficient for the cheap filters.
+    let mut scaled = normalized;
+    for m in 1..PATTERN_SIZE {
+        let target_ratio = key[m - 1] as f64 / bins as f64;
+        let current_ratio = base_key[m - 1] as f64 / bins as f64;
+        let ratio_scale = if current_ratio > 0.0 {
+            target_ratio / current_ratio
+        } else {
+            1.0
+        };
+        let v = &mut scaled[m];
+        v.y *= ratio_scale;
+        v.z *= ratio_scale;
+        *v = v.normalize().expect("non-zero scaled vector");
+    }
+
+    // Final overall scale to hit the requested largest edge.
+    let (_, final_largest) = pattern_key(&scaled, bins);
+    let final_scale = if final_largest > 0.0 {
+        largest_edge / final_largest
+    } else {
+        1.0
+    };
+
+    scaled.map(|v| {
+        let s = UnitVector {
+            x: 1.0,
+            y: v.y * final_scale,
+            z: v.z * final_scale,
+        };
+        s.normalize().expect("non-zero synthetic vector")
+    })
+}
+
 /// Generate candidate catalog patterns from four image star unit vectors.
 ///
 /// Steps:
@@ -37,7 +121,7 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
     let ordered: [UnitVector; PATTERN_SIZE] = std::array::from_fn(|m| vectors[order[m]]);
 
     // Measured pattern key and largest edge.
-    let (key, _largest_edge) = pattern_key(&ordered, bins);
+    let (key, largest_edge) = pattern_key(&ordered, bins);
 
     // Tolerance band in ratio space.
     let mut ratio_min = [0.0; KEY_LEN];
@@ -54,13 +138,6 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
     // Query each candidate key, collecting unique candidates in probe order.
     let mut seen = std::collections::HashSet::new();
     let mut candidates = Vec::new();
-    let query = LookupQuery {
-        vectors: ordered,
-        fov_estimate: Some(ctx.fov_initial),
-        fov_max_error: Some(ctx.match_max_error),
-        ratio_min,
-        ratio_max,
-    };
 
     for candidate_key in keys {
         let key_hash = pattern_key_hash(&candidate_key, bins);
@@ -71,14 +148,21 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
         );
         let key_hash16 = pattern_key_hash16(key_hash);
 
-        // Quick pre-check: if no occupied slot in the probe chain has the same
-        // 16-bit hash, the database lookup will return nothing. This avoids
-        // building catalog vectors for dead keys.
-        if !chain_has_hash16(&ctx.db, hash_index, key_hash16) {
-            continue;
-        }
+        // The database lookup derives its hash from the query vectors, so we must
+        // supply vectors whose quantized key matches the candidate key. Build a
+        // synthetic pattern with the candidate ratios and the measured largest edge.
+        let candidate_vectors = synthetic_vectors_for_key(&candidate_key, bins, largest_edge);
+        let query = LookupQuery {
+            vectors: candidate_vectors,
+            fov_estimate: Some(ctx.fov_initial),
+            fov_max_error: Some(ctx.match_max_error),
+            ratio_min,
+            ratio_max,
+        };
 
-        let cands = ctx.db.lookup_candidates(&query);
+        let cands = ctx
+            .db
+            .lookup_candidates_at_index(hash_index, key_hash16, largest_edge, &query);
         for cand in cands {
             if seen.insert(cand.table_index) {
                 candidates.push(cand);
@@ -87,22 +171,6 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
     }
 
     candidates
-}
-
-fn chain_has_hash16(
-    db: &pattern_database::PatternDatabase,
-    hash_index: usize,
-    hash16: u16,
-) -> bool {
-    use math_core::pattern::{get_table_indices_from_hash, PATTERN_SIZE};
-    let is_empty = |row: &[usize; PATTERN_SIZE]| row[0] == usize::MAX;
-    let indices = get_table_indices_from_hash(
-        hash_index,
-        &db.pattern_catalog,
-        db.properties.linear_probe(),
-        is_empty,
-    );
-    indices.iter().any(|&i| db.pattern_key_hashes[i] == hash16)
 }
 
 /// Enumerate candidate quantized keys in nearest-first order.
