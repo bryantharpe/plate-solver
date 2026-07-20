@@ -6,8 +6,8 @@
 
 use crate::status::{MatchResult, SolveContext};
 use math_core::pattern::{
-    order_pattern_by_centroid_distance, pattern_key, pattern_key_hash, pattern_key_hash_index,
-    pattern_key_hash16, KEY_LEN, PATTERN_SIZE,
+    order_pattern_by_centroid_distance, pattern_key, pattern_key_hash, pattern_key_hash16,
+    pattern_key_hash_index, KEY_LEN, PATTERN_SIZE,
 };
 use math_core::UnitVector;
 use pattern_database::{Candidate, LookupQuery};
@@ -30,9 +30,7 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
     if bins == 0 || ctx.db.pattern_catalog.is_empty() {
         return Vec::new();
     }
-    let p_max_err = ctx
-        .match_max_error
-        .max(ctx.props.pattern_max_error as f64);
+    let p_max_err = ctx.match_max_error.max(ctx.props.pattern_max_error as f64);
 
     // Deterministic star ordering for correspondence.
     let order = order_pattern_by_centroid_distance(&vectors);
@@ -91,7 +89,11 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
     candidates
 }
 
-fn chain_has_hash16(db: &pattern_database::PatternDatabase, hash_index: usize, hash16: u16) -> bool {
+fn chain_has_hash16(
+    db: &pattern_database::PatternDatabase,
+    hash_index: usize,
+    hash16: u16,
+) -> bool {
     use math_core::pattern::{get_table_indices_from_hash, PATTERN_SIZE};
     let is_empty = |row: &[usize; PATTERN_SIZE]| row[0] == usize::MAX;
     let indices = get_table_indices_from_hash(
@@ -100,9 +102,7 @@ fn chain_has_hash16(db: &pattern_database::PatternDatabase, hash_index: usize, h
         db.properties.linear_probe(),
         is_empty,
     );
-    indices
-        .iter()
-        .any(|&i| db.pattern_key_hashes[i] == hash16)
+    indices.iter().any(|&i| db.pattern_key_hashes[i] == hash16)
 }
 
 /// Enumerate candidate quantized keys in nearest-first order.
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn nearest_first_ordering_by_squared_distance() {
-        let ctx = test_db(10.0, 30.0, 100, 150, 10, 0.001);
+        let _ctx = test_db(10.0, 30.0, 100, 150, 10, 0.001);
         let measured = [5u32; KEY_LEN];
         let keys = candidate_keys(&measured, 10, 0.002);
         // The first key must be the measured key itself (distance 0).
