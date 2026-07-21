@@ -240,7 +240,12 @@ fn run(cli: Cli) -> Result<(), Error> {
         min_fov: min_fov as f32,
         star_catalog: catalog_name,
         epoch_equinox: 2000,
-        epoch_proper_motion: epoch_proper_motion.unwrap_or(pm_origin) as f32,
+        // When propagation is disabled the positions are, by definition, still at the
+        // catalog's own origin epoch — so that is what the properties must report. This
+        // mirrors tetra3 (`tetra3.py`: "If pm propagation was disabled, set end date to
+        // origin"). A sentinel such as 0.0 would break reference parity and would
+        // describe the star positions less accurately, not more.
+        epoch_proper_motion: config.epoch_proper_motion.unwrap_or(pm_origin) as f32,
         verification_stars_per_fov: cli.verification_stars_per_fov as u16,
         star_max_magnitude: config.star_max_magnitude.unwrap_or(0.0) as f32,
         num_patterns: catalog.num_patterns as u32,
@@ -259,9 +264,9 @@ fn detect_catalog_source(path: &Path) -> Result<CatalogSource, Error> {
 
     if name.contains("bsc5") || name == "bsc" {
         Ok(CatalogSource::Bsc5)
-    } else if name.contains("tyc") || name.starts_with("tyc") {
+    } else if name.contains("tyc") {
         Ok(CatalogSource::Tyc)
-    } else if name.contains("hip") || name.starts_with("hip") {
+    } else if name.contains("hip") {
         Ok(CatalogSource::Hip)
     } else {
         // Fall back to content sniffing: BSC5 starts with a 28-byte binary header,
