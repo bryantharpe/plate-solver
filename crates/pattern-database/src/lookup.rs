@@ -118,8 +118,14 @@ impl PatternDatabase {
                     idx += 1;
                 }
             }
-            edges.sort_by(|a, b| a.partial_cmp(b).expect("edge angle must be comparable"));
-            assert!(
+            // `total_cmp` is deterministic on NaN and never panics; NaN edges will
+            // simply fail the ratio-band test below and be skipped in release.
+            edges.sort_by(|a, b| a.total_cmp(b));
+            // This is an internal consistency check: the largest edge recomputed from
+            // the catalog vectors should match the value stored at build time. Keep it
+            // as a debug-only assertion so a corrupt/drifted catalog cannot crash
+            // release callers.
+            debug_assert!(
                 (edges[5] - catalog_largest).abs() < 1e-12,
                 "largest edge mismatch"
             );
