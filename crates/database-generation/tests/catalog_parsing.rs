@@ -7,15 +7,16 @@ use std::io::Cursor;
 
 fn bsc5_header(starn: i32) -> Vec<u8> {
     let mut header = vec![0u8; 28];
-    header[4..8].copy_from_slice(&starn.to_le_bytes());
+    header[8..12].copy_from_slice(&starn.to_le_bytes());
     header
 }
 
-fn bsc5_entry(id: u32, ra: f64, dec: f64, mag_raw: i32, pm_ra: i32, pm_dec: i32) -> Vec<u8> {
+fn bsc5_entry(id: u32, ra: f64, dec: f64, mag_raw: i16, pm_ra: f32, pm_dec: f32) -> Vec<u8> {
     let mut buf = Vec::with_capacity(32);
-    buf.extend_from_slice(&id.to_le_bytes());
+    buf.extend_from_slice(&(id as f32).to_le_bytes());
     buf.extend_from_slice(&ra.to_le_bytes());
     buf.extend_from_slice(&dec.to_le_bytes());
+    buf.extend_from_slice(&0i16.to_le_bytes()); // spectral type, ignored
     buf.extend_from_slice(&mag_raw.to_le_bytes());
     buf.extend_from_slice(&pm_ra.to_le_bytes());
     buf.extend_from_slice(&pm_dec.to_le_bytes());
@@ -25,8 +26,8 @@ fn bsc5_entry(id: u32, ra: f64, dec: f64, mag_raw: i32, pm_ra: i32, pm_dec: i32)
 #[test]
 fn bsc5_equinox_from_negative_starn() {
     let mut data = bsc5_header(-2);
-    data.extend_from_slice(&bsc5_entry(1, 0.1, 0.2, 250, 0, 0));
-    data.extend_from_slice(&bsc5_entry(2, 0.3, 0.4, 300, 0, 0));
+    data.extend_from_slice(&bsc5_entry(1, 0.1, 0.2, 250, 0.0, 0.0));
+    data.extend_from_slice(&bsc5_entry(2, 0.3, 0.4, 300, 0.0, 0.0));
 
     let entries = parse_bsc5(Cursor::new(&data)).unwrap();
     assert_eq!(entries.len(), 2);
@@ -39,7 +40,7 @@ fn bsc5_equinox_from_negative_starn() {
 #[test]
 fn bsc5_equinox_from_positive_starn() {
     let mut data = bsc5_header(1);
-    data.extend_from_slice(&bsc5_entry(10, 1.0, 0.5, 100, 0, 0));
+    data.extend_from_slice(&bsc5_entry(10, 1.0, 0.5, 100, 0.0, 0.0));
 
     let entries = parse_bsc5(Cursor::new(&data)).unwrap();
     assert_eq!(entries.len(), 1);

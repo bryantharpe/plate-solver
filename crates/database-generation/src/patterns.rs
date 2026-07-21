@@ -99,7 +99,12 @@ pub fn enumerate_patterns(
         }
     }
 
-    global_patterns.into_iter().collect()
+    let mut patterns: Vec<Pattern> = global_patterns.into_iter().collect();
+    // Deterministic ordering: sort by the sorted catalog indices. This removes
+    // the process-dependent iteration order of the HashSet so repeated runs with
+    // identical inputs produce byte-identical pattern catalogs.
+    patterns.sort();
+    patterns
 }
 
 /// Breadth-first combination generator.

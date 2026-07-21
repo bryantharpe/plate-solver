@@ -22,5 +22,6 @@ pub use lattice::fibonacci_sphere_lattice;
 pub use num_fields::num_fields_for_sky;
 pub use pattern_catalog::{build_pattern_catalog, PatternCatalog};
 pub use patterns::{enumerate_patterns, Pattern};
+pub use proper_motion::{propagate, HIP_TYC_PM_ORIGIN};
 pub use serialize::{serialize_to_path, SerializeError};
 pub use thinning::{separation_for_density, thin_by_density};
