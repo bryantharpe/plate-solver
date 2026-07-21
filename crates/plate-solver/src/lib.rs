@@ -24,15 +24,7 @@ pub mod refine {
     }
 }
 
-pub mod verify {
-    //! Verification — attitude, projection/match, false-alarm acceptance (owned by a downstream bead).
-    use crate::status::{MatchResult, SolveContext};
-
-    /// Placeholder for the verification step.
-    pub fn verify_candidate(_ctx: &SolveContext, _pattern_indices: [usize; 4]) -> MatchResult {
-        MatchResult::Rejected
-    }
-}
+pub mod verify;
 
 pub use solve::{solve_from_centroids, solve_from_image, DetectParams};
 pub use status::{Solution, SolveStatus};

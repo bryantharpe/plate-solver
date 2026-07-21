@@ -223,14 +223,18 @@ fn squared_key_distance(a: &[u32; KEY_LEN], b: &[u32; KEY_LEN]) -> u64 {
 
 /// Verify a single candidate against the current context.
 ///
-/// Verification is owned by a downstream bead; this stub always rejects so that
-/// candidate generation can be tested independently.
+/// Delegates to the `verify` module, which owns the authoritative verification
+/// pipeline: attitude solving, projection/match, and false-alarm acceptance.
 pub fn verify_candidate(
-    _ctx: &SolveContext,
-    _candidate: &Candidate,
-    _pattern_indices: [usize; 4],
+    ctx: &SolveContext,
+    candidate: &Candidate,
+    pattern_indices: [usize; 4],
+    vectors: &[UnitVector],
+    centroids: &[(f64, f64)],
+    width: f64,
+    height: f64,
 ) -> MatchResult {
-    MatchResult::Rejected
+    crate::verify::verify_candidate(ctx, candidate, pattern_indices, vectors, centroids, width, height)
 }
 
 #[cfg(test)]

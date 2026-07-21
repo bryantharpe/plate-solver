@@ -64,12 +64,12 @@ pub fn solve_from_centroids(
 
     let (width, height) = (size.0 as f64, size.1 as f64);
 
-    let (vectors, _centroids) = match prepare(&ctx, centroids, width, height) {
+    let (vectors, prepared_centroids) = match prepare(&ctx, centroids, width, height) {
         Ok(v) => v,
         Err(solution) => return *solution,
     };
 
-    iterate_patterns(&ctx, &vectors)
+    iterate_patterns(&ctx, &vectors, &prepared_centroids, width, height)
 }
 
 /// Solve a lost-in-space plate from a raw grayscale image.
@@ -134,7 +134,13 @@ pub fn solve_from_image(
 ///
 /// For each combination, generate a pattern key, look up candidates, and verify.
 /// Returns immediately on the first accepted candidate, timeout, or cancellation.
-fn iterate_patterns(ctx: &SolveContext, vectors: &[UnitVector]) -> Solution {
+fn iterate_patterns(
+    ctx: &SolveContext,
+    vectors: &[UnitVector],
+    centroids: &[(f64, f64)],
+    width: f64,
+    height: f64,
+) -> Solution {
     let n = vectors.len();
     if n < 4 {
         return Solution {
@@ -165,8 +171,15 @@ fn iterate_patterns(ctx: &SolveContext, vectors: &[UnitVector]) -> Solution {
                         let pattern = [vectors[i0], vectors[i1], vectors[i2], vectors[i3]];
                         let cands = candidates::lookup_candidates(ctx, pattern);
                         for candidate in cands {
-                            if candidates::verify_candidate(ctx, &candidate, [i0, i1, i2, i3])
-                                == MatchResult::Accepted
+                            if candidates::verify_candidate(
+                                ctx,
+                                &candidate,
+                                [i0, i1, i2, i3],
+                                vectors,
+                                centroids,
+                                width,
+                                height,
+                            ) == MatchResult::Accepted
                             {
                                 return Solution {
                                     status: Some(SolveStatus::MatchFound),
