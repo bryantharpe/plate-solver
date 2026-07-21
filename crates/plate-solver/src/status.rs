@@ -27,6 +27,28 @@ pub enum MatchResult {
     Rejected,
 }
 
+/// Outcome of verifying a single candidate, including the matched star pairs
+/// needed by the refinement stage.
+#[derive(Debug, Clone, Default)]
+pub struct VerificationOutcome {
+    /// Whether the candidate was accepted by the false-alarm test.
+    pub accepted: bool,
+    /// Coarse rotation matrix from the initial 4-star pattern solve.
+    pub rotation: Option<math_core::attitude::RotationMatrix>,
+    /// Matched image centroids in pixel coordinates.
+    pub matched_centroids: Vec<(f64, f64)>,
+    /// Matched image star unit vectors in the camera frame.
+    pub matched_image_vectors: Vec<UnitVector>,
+    /// Matched catalog star unit vectors in the celestial frame.
+    pub matched_stars: Vec<UnitVector>,
+    /// Catalog star indices for each matched pair.
+    pub matched_catalog_ids: Vec<usize>,
+    /// False-alarm probability reported by the binomial test.
+    pub match_probability: Option<f64>,
+    /// Coarse horizontal FOV used during verification, in radians.
+    pub coarse_fov: f64,
+}
+
 /// A solved (or failed) solution.
 #[derive(Debug, Clone, Default)]
 pub struct Solution {
@@ -38,6 +60,20 @@ pub struct Solution {
     pub match_probability: Option<f64>,
     pub fov_used: Option<f64>,
     pub pattern_candidates: Vec<Candidate>,
+    /// Right ascension of the boresight in radians.
+    pub ra: Option<f64>,
+    /// Declination of the boresight in radians.
+    pub dec: Option<f64>,
+    /// Roll angle around the boresight in radians.
+    pub roll: Option<f64>,
+    /// Root-mean-square residual in arcseconds.
+    pub rmse: Option<f64>,
+    /// 90th-percentile residual in arcseconds.
+    pub p90e: Option<f64>,
+    /// Maximum residual in arcseconds.
+    pub maxe: Option<f64>,
+    /// Refined radial distortion coefficient, if estimated.
+    pub distortion: Option<f64>,
 }
 
 /// Context carried through the solve pipeline.

@@ -16,7 +16,7 @@
 //! Out of scope (owned by the refinement bead): re-fit over all matches, RA/Dec/Roll
 //! extraction, FOV/distortion refinement, residuals, and solution assembly.
 
-use crate::status::{MatchResult, SolveContext};
+use crate::status::{MatchResult, SolveContext, VerificationOutcome};
 use math_core::{
     attitude::solve_attitude,
     binomial::false_alarm_test,
@@ -40,6 +40,24 @@ pub fn verify_candidate(
     width: f64,
     height: f64,
 ) -> MatchResult {
+    match verify_candidate_with_outcome(ctx, candidate, pattern_indices, image_vectors, centroids, width, height) {
+        Some(outcome) if outcome.accepted => MatchResult::Accepted,
+        _ => MatchResult::Rejected,
+    }
+}
+
+/// Verify a single candidate and return the full outcome for refinement.
+///
+/// Returns `None` if the candidate is rejected before the projection/match stage.
+pub fn verify_candidate_with_outcome(
+    ctx: &SolveContext,
+    candidate: &Candidate,
+    pattern_indices: [usize; 4],
+    image_vectors: &[UnitVector],
+    centroids: &[(f64, f64)],
+    width: f64,
+    height: f64,
+) -> Option<VerificationOutcome> {
     // 1. Attitude: pair image/catalog stars by centroid-distance order.
     let (image_pattern, catalog_pattern) =
         ordered_pattern_pair(image_vectors, pattern_indices, candidate, &ctx.db);
@@ -58,7 +76,7 @@ pub fn verify_candidate(
     // 3. Solve SVD attitude. Reject reflections.
     let rotation = match solve_attitude(&image_pattern, &catalog_pattern) {
         Some(r) => r,
-        None => return MatchResult::Rejected,
+        None => return None,
     };
 
     // 4. Gather nearby catalog stars within diagonal FOV of the boresight.
@@ -91,13 +109,17 @@ pub fn verify_candidate(
 
     // 7. Match projected catalog stars to image centroids uniquely within match_radius·width.
     let match_radius_px = ctx.match_radius * width;
-    let matches = match_projected_to_centroids(
-        &projected,
-        &in_frame,
-        max_catalog_stars,
-        centroids,
-        match_radius_px,
-    );
+    let (matches, matched_centroids, matched_image_vectors, matched_stars, matched_catalog_ids) =
+        match_projected_to_centroids(
+            &projected,
+            &in_frame,
+            &nearby,
+            &ctx.db,
+            max_catalog_stars,
+            centroids,
+            image_vectors,
+            match_radius_px,
+        );
 
     // 8. Binomial false-alarm acceptance.
     let n = centroids.len();
@@ -113,9 +135,18 @@ pub fn verify_candidate(
     );
 
     if result.accepted {
-        MatchResult::Accepted
+        Some(VerificationOutcome {
+            accepted: true,
+            rotation: Some(rotation),
+            matched_centroids,
+            matched_image_vectors,
+            matched_stars,
+            matched_catalog_ids,
+            match_probability: Some(result.prob),
+            coarse_fov: fov,
+        })
     } else {
-        MatchResult::Rejected
+        None
     }
 }
 
@@ -165,20 +196,35 @@ fn largest_pixel_edge(centroids: &[(f64, f64)]) -> f64 {
 
 /// Match projected catalog stars to image centroids uniquely within a pixel radius.
 ///
-/// Returns the number of matched pairs. Each centroid and each catalog star may
+/// Returns the number of matched pairs plus the matched centroid, image vector,
+/// catalog vector, and catalog-id lists. Each centroid and each catalog star may
 /// participate in at most one match. Greedy nearest-first matching is used: for each
 /// projected catalog star (in brightness order), find the closest unmatched centroid
 /// within `radius_px`; if found, record the match.
 fn match_projected_to_centroids(
     projected: &[(f64, f64)],
     in_frame: &[usize],
+    nearby: &[usize],
+    db: &pattern_database::PatternDatabase,
     max_catalog_stars: usize,
     centroids: &[(f64, f64)],
+    image_vectors: &[UnitVector],
     radius_px: f64,
-) -> usize {
+) -> (
+    usize,
+    Vec<(f64, f64)>,
+    Vec<UnitVector>,
+    Vec<UnitVector>,
+    Vec<usize>,
+) {
     let radius2 = radius_px * radius_px;
     let mut centroid_matched = vec![false; centroids.len()];
     let mut match_count = 0;
+
+    let mut matched_centroids = Vec::new();
+    let mut matched_image_vectors = Vec::new();
+    let mut matched_stars = Vec::new();
+    let mut matched_catalog_ids = Vec::new();
 
     for &idx in in_frame.iter().take(max_catalog_stars) {
         let (py, px) = projected[idx];
@@ -201,8 +247,21 @@ fn match_projected_to_centroids(
         if let Some(c_idx) = best_centroid {
             centroid_matched[c_idx] = true;
             match_count += 1;
+            matched_centroids.push(centroids[c_idx]);
+            matched_image_vectors.push(image_vectors[c_idx]);
+            matched_stars.push(
+                db.star_vector(pattern_database::StarId(nearby[idx]))
+                    .expect("matched catalog star index valid"),
+            );
+            matched_catalog_ids.push(nearby[idx]);
         }
     }
 
-    match_count
+    (
+        match_count,
+        matched_centroids,
+        matched_image_vectors,
+        matched_stars,
+        matched_catalog_ids,
+    )
 }
