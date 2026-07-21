@@ -80,8 +80,14 @@ pub fn serialize_to_path(
 
     let file = std::fs::File::create(path)?;
     let mut zip = zip::ZipWriter::new(io::BufWriter::new(file));
-    let options =
-        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    // Pin the ZIP last-modified time so repeated runs with identical inputs produce
+    // byte-identical archives. The default `FileOptions` uses the current UTC time
+    // when the `time` feature is enabled, which would break reproducible builds.
+    let fixed_mtime = zip::DateTime::from_date_and_time(2000, 1, 1, 0, 0, 0)
+        .expect("fixed mtime is a valid date");
+    let options = zip::write::FileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored)
+        .last_modified_time(fixed_mtime);
 
     let star_table = build_star_table(entries);
     write_npy_array(

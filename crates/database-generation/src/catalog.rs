@@ -54,22 +54,23 @@ impl CatalogEntry {
 
 /// Parse a BSC5 binary catalog.
 ///
-/// Header: first 28 bytes are the Yale header. `STARN` is a signed 32-bit
-/// integer at offset 4 (little-endian per the BSC5 convention used here).
-/// Negative entry count => J2000 equinox, otherwise B1950.
-/// Each entry is 32 bytes:
+/// Header: first 28 bytes are the Yale header. `STARN` is the third signed
+/// 32-bit integer (offset 8, little-endian). Negative entry count => J2000
+/// equinox, otherwise B1950. Each entry is 32 bytes:
 ///   - bytes 0-3:   catalog number (f32, but stored as integer)
 ///   - bytes 4-11:  RA  (f64, radians)
 ///   - bytes 12-19: Dec (f64, radians)
-///   - bytes 20-23: magnitude (i32, hundredths)
-///   - bytes 24-31: proper motion RA/Dec (i32, milliarcsec/year, each)
+///   - bytes 20-21: spectral type (i16, ignored)
+///   - bytes 22-23: magnitude (i16, hundredths)
+///   - bytes 24-27: proper motion RA (f32, radians/year)
+///   - bytes 28-31: proper motion Dec (f32, radians/year)
 ///
-/// The reference implementation uses this compact layout for testing.
+/// This matches the layout used by the upstream `tetra3` reference.
 pub fn parse_bsc5<R: Read>(mut reader: R) -> io::Result<Vec<CatalogEntry>> {
     let mut header = [0u8; 28];
     reader.read_exact(&mut header)?;
 
-    let starn = i32::from_le_bytes([header[4], header[5], header[6], header[7]]);
+    let starn = i32::from_le_bytes([header[8], header[9], header[10], header[11]]);
     let _equinox_is_j2000 = starn < 0;
     let count = starn.unsigned_abs() as usize;
 
@@ -78,19 +79,19 @@ pub fn parse_bsc5<R: Read>(mut reader: R) -> io::Result<Vec<CatalogEntry>> {
         let mut buf = [0u8; 32];
         reader.read_exact(&mut buf)?;
 
-        let id = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
+        let id = f32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]) as u32;
         let ra = f64::from_le_bytes(buf[4..12].try_into().unwrap());
         let dec = f64::from_le_bytes(buf[12..20].try_into().unwrap());
-        let mag_raw = i32::from_le_bytes([buf[20], buf[21], buf[22], buf[23]]);
-        let mag = mag_raw as f64 / 100.0;
-        let pm_ra = i32::from_le_bytes([buf[24], buf[25], buf[26], buf[27]]) as f64;
-        let pm_dec = i32::from_le_bytes([buf[28], buf[29], buf[30], buf[31]]) as f64;
+        let mag_raw = i16::from_le_bytes([buf[22], buf[23]]);
+        let mag = f64::from(mag_raw) / 100.0;
+        let pm_ra = f32::from_le_bytes([buf[24], buf[25], buf[26], buf[27]]);
+        let pm_dec = f32::from_le_bytes([buf[28], buf[29], buf[30], buf[31]]);
 
         let mut entry = CatalogEntry::new(ra, dec, mag, CatalogId::Bsc(id));
-        // BSC5 proper motions are stored directly in mas/year.
+        // BSC5 proper motions are stored in radians/year.
         if pm_ra != 0.0 || pm_dec != 0.0 {
-            entry.pm_ra = Some(pm_ra);
-            entry.pm_dec = Some(pm_dec);
+            entry.pm_ra = Some(f64::from(pm_ra));
+            entry.pm_dec = Some(f64::from(pm_dec));
         }
         entries.push(entry);
     }
