@@ -45,11 +45,15 @@ pub fn verify_candidate(
         ordered_pattern_pair(image_vectors, pattern_indices, candidate, &ctx.db);
 
     // 2. Coarse FOV from largest-edge ratio (or focal length when no estimate).
-    let pattern_centroids: [(f64, f64); 4] =
-        std::array::from_fn(|m| centroids[pattern_indices[m]]);
+    let pattern_centroids: [(f64, f64); 4] = std::array::from_fn(|m| centroids[pattern_indices[m]]);
     let image_largest_edge = largest_pixel_edge(&pattern_centroids);
     let catalog_largest_edge = candidate.edges[5]; // largest of the six sorted edges
-    let fov = estimate_fov(Some(ctx.fov_initial), image_largest_edge, catalog_largest_edge, width);
+    let fov = estimate_fov(
+        Some(ctx.fov_initial),
+        image_largest_edge,
+        catalog_largest_edge,
+        width,
+    );
 
     // 3. Solve SVD attitude. Reject reflections.
     let rotation = match solve_attitude(&image_pattern, &catalog_pattern) {
@@ -70,7 +74,11 @@ pub fn verify_candidate(
     let camera = PinholeCamera::new(width, height, fov);
     let catalog_vectors: Vec<UnitVector> = nearby
         .iter()
-        .map(|&idx| ctx.db.star_vector(pattern_database::StarId(idx)).expect("valid star index"))
+        .map(|&idx| {
+            ctx.db
+                .star_vector(pattern_database::StarId(idx))
+                .expect("valid star index")
+        })
         .collect();
     let derotated: Vec<UnitVector> = catalog_vectors
         .iter()
@@ -122,8 +130,7 @@ fn ordered_pattern_pair(
     db: &pattern_database::PatternDatabase,
 ) -> (Vec<UnitVector>, Vec<UnitVector>) {
     // Image pattern vectors are referenced by the caller-supplied indices.
-    let image_pattern: [UnitVector; 4] =
-        std::array::from_fn(|m| image_vectors[pattern_indices[m]]);
+    let image_pattern: [UnitVector; 4] = std::array::from_fn(|m| image_vectors[pattern_indices[m]]);
     let image_order = order_pattern_by_centroid_distance(&image_pattern);
 
     // Catalog pattern vectors from the candidate star indices.
@@ -133,8 +140,7 @@ fn ordered_pattern_pair(
     });
     let catalog_order = order_pattern_by_centroid_distance(&catalog_pattern);
 
-    let image_ordered: Vec<UnitVector> =
-        (0..4).map(|m| image_pattern[image_order[m]]).collect();
+    let image_ordered: Vec<UnitVector> = (0..4).map(|m| image_pattern[image_order[m]]).collect();
     let catalog_ordered: Vec<UnitVector> =
         (0..4).map(|m| catalog_pattern[catalog_order[m]]).collect();
 

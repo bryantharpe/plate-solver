@@ -234,7 +234,15 @@ pub fn verify_candidate(
     width: f64,
     height: f64,
 ) -> MatchResult {
-    crate::verify::verify_candidate(ctx, candidate, pattern_indices, vectors, centroids, width, height)
+    crate::verify::verify_candidate(
+        ctx,
+        candidate,
+        pattern_indices,
+        vectors,
+        centroids,
+        width,
+        height,
+    )
 }
 
 #[cfg(test)]
