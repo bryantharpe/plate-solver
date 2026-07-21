@@ -33,19 +33,17 @@ pub fn refine_solution(
     }
 
     // 1. Re-fit attitude over all matched pairs.
-    let (_rotation, ra, dec, roll) = match fit_attitude(
-        &outcome.matched_image_vectors,
-        &outcome.matched_stars,
-    ) {
-        Some(r) => r,
-        None => {
-            return Solution {
-                status: Some(SolveStatus::NoMatch),
-                fov_used: Some(ctx.fov_initial),
-                ..Solution::default()
+    let (_rotation, ra, dec, roll) =
+        match fit_attitude(&outcome.matched_image_vectors, &outcome.matched_stars) {
+            Some(r) => r,
+            None => {
+                return Solution {
+                    status: Some(SolveStatus::NoMatch),
+                    fov_used: Some(ctx.fov_initial),
+                    ..Solution::default()
+                }
             }
-        }
-    };
+        };
 
     // 2. Refine FOV and optionally distortion.
     let estimate_distortion = ctx.distortion != 0.0;
@@ -59,10 +57,7 @@ pub fn refine_solution(
     );
 
     // 3. Residuals in arcseconds.
-    let stats = residual_stats(
-        &outcome.matched_image_vectors,
-        &outcome.matched_stars,
-    );
+    let stats = residual_stats(&outcome.matched_image_vectors, &outcome.matched_stars);
 
     // 4. Assemble solution.
     Solution {
@@ -104,7 +99,8 @@ fn refine_camera(
     estimate_distortion: bool,
 ) -> (PinholeCamera, Option<f64>) {
     if estimate_distortion {
-        let (refined_fov, k) = refine_fov_with_distortion(fov, width, height, image_vectors, catalog_vectors);
+        let (refined_fov, k) =
+            refine_fov_with_distortion(fov, width, height, image_vectors, catalog_vectors);
         (PinholeCamera::new(width, height, refined_fov), Some(k))
     } else {
         let refined_fov = refine_fov(fov, width, height, image_vectors, catalog_vectors, None).0;

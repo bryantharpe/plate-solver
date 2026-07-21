@@ -182,7 +182,9 @@ fn iterate_patterns(
                                 height,
                             ) {
                                 if outcome.accepted {
-                                    return refine_solution(ctx, &candidate, &outcome, width, height);
+                                    return refine_solution(
+                                        ctx, &candidate, &outcome, width, height,
+                                    );
                                 }
                             }
                         }

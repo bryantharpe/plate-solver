@@ -40,7 +40,15 @@ pub fn verify_candidate(
     width: f64,
     height: f64,
 ) -> MatchResult {
-    match verify_candidate_with_outcome(ctx, candidate, pattern_indices, image_vectors, centroids, width, height) {
+    match verify_candidate_with_outcome(
+        ctx,
+        candidate,
+        pattern_indices,
+        image_vectors,
+        centroids,
+        width,
+        height,
+    ) {
         Some(outcome) if outcome.accepted => MatchResult::Accepted,
         _ => MatchResult::Rejected,
     }
@@ -74,10 +82,7 @@ pub fn verify_candidate_with_outcome(
     );
 
     // 3. Solve SVD attitude. Reject reflections.
-    let rotation = match solve_attitude(&image_pattern, &catalog_pattern) {
-        Some(r) => r,
-        None => return None,
-    };
+    let rotation = solve_attitude(&image_pattern, &catalog_pattern)?;
 
     // 4. Gather nearby catalog stars within diagonal FOV of the boresight.
     let boresight = UnitVector {
@@ -201,6 +206,8 @@ fn largest_pixel_edge(centroids: &[(f64, f64)]) -> f64 {
 /// participate in at most one match. Greedy nearest-first matching is used: for each
 /// projected catalog star (in brightness order), find the closest unmatched centroid
 /// within `radius_px`; if found, record the match.
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 fn match_projected_to_centroids(
     projected: &[(f64, f64)],
     in_frame: &[usize],
