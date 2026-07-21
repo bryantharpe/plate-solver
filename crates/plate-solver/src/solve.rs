@@ -2,7 +2,8 @@
 
 use crate::candidates;
 use crate::preparation::{build_context, prepare};
-use crate::status::{MatchResult, Solution, SolveContext, SolveStatus};
+use crate::refine::refine_solution;
+use crate::status::{Solution, SolveContext, SolveStatus};
 use math_core::UnitVector;
 use pattern_database::PatternDatabase;
 use star_detection::{detect_stars, noise::estimate_noise};
@@ -171,7 +172,7 @@ fn iterate_patterns(
                         let pattern = [vectors[i0], vectors[i1], vectors[i2], vectors[i3]];
                         let cands = candidates::lookup_candidates(ctx, pattern);
                         for candidate in cands {
-                            if candidates::verify_candidate(
+                            if let Some(outcome) = crate::verify::verify_candidate_with_outcome(
                                 ctx,
                                 &candidate,
                                 [i0, i1, i2, i3],
@@ -179,14 +180,12 @@ fn iterate_patterns(
                                 centroids,
                                 width,
                                 height,
-                            ) == MatchResult::Accepted
-                            {
-                                return Solution {
-                                    status: Some(SolveStatus::MatchFound),
-                                    fov_used: Some(ctx.fov_initial),
-                                    pattern_candidates: vec![candidate],
-                                    ..Solution::default()
-                                };
+                            ) {
+                                if outcome.accepted {
+                                    return refine_solution(
+                                        ctx, &candidate, &outcome, width, height,
+                                    );
+                                }
                             }
                         }
                     }
