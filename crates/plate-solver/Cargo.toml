@@ -13,3 +13,5 @@ pattern-database = { version = "0.1.0", path = "../pattern-database" }
 star-detection = { version = "0.1.0", path = "../star-detection" }
 
 [dev-dependencies]
+image = "0.25.10"
+tiff = "0.11.3"
