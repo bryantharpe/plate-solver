@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+package plate_solver;
+
+service PlateSolver {
+  rpc ExtractCentroids(CentroidsRequest) returns (CentroidsResult);
+  rpc SolveFromCentroids(SolveFromCentroidsRequest) returns (Solution);
+  rpc SolveFromImage(SolveFromImageRequest) returns (Solution);
+  rpc GetInfo(InfoRequest) returns (ServerInfo);
+}
+
+message Image {
+  int32 width = 1;
+  int32 height = 2;
+  bytes image_data = 3;
+  optional string shmem_name = 4;
+  bool reopen_shmem = 5;
+}
+
+message ImageCoord {
+  double x = 1;
+  double y = 2;
+}
+
+message StarCentroid {
+  ImageCoord centroid_position = 1;
+  double brightness = 4;
+  int32 num_saturated = 6;
+}
+
+message Rectangle {
+  int32 origin_x = 1;
+  int32 origin_y = 2;
+  int32 width = 3;
+  int32 height = 4;
+}
+
+message CentroidsRequest {
+  Image input_image = 1;
+  double sigma = 2;
+  optional int32 binning = 8;
+  bool return_binned = 4;
+  bool use_binned_for_star_candidates = 5;
+  bool detect_hot_pixels = 6;
+  bool normalize_rows = 9;
+  optional Rectangle estimate_background_region = 7;
+}
+
+message CentroidsResult {
+  double noise_estimate = 1;
+  optional double background_estimate = 7;
+  int32 hot_pixel_count = 2;
+  int32 peak_star_pixel = 6;
+  repeated StarCentroid star_candidates = 3;
+  optional Image binned_image = 4;
+  google.protobuf.Duration algorithm_time = 5;
+}
+
+message SolveParams {
+  optional double fov_estimate = 1;
+  optional double fov_max_error = 2;
+  optional double match_radius = 3;
+  optional double match_threshold = 4;
+  optional int32 solve_timeout_ms = 5;
+  optional double distortion = 6;
+  bool return_matches = 7;
+  bool return_catalog = 8;
+}
+
+message SolveFromCentroidsRequest {
+  repeated ImageCoord centroids = 1;
+  int32 width = 2;
+  int32 height = 3;
+  SolveParams params = 4;
+}
+
+message SolveFromImageRequest {
+  CentroidsRequest extract = 1;
+  SolveParams params = 2;
+}
+
+enum SolveStatus {
+  // proto3 requires a zero value and uses it for absent/default messages.
+  // Reserving it for "unspecified" keeps a default-constructed Solution from
+  // claiming a match was found.
+  SOLVE_STATUS_UNSPECIFIED = 0;
+  MATCH_FOUND = 1;
+  NO_MATCH = 2;
+  TIMEOUT = 3;
+  CANCELLED = 4;
+  TOO_FEW = 5;
+}
+
+message MatchedStar {
+  ImageCoord centroid = 1;
+  // Degrees.
+  double ra = 2;
+  double dec = 3;
+  // Apparent magnitude from the database star table. Unset if the database
+  // carries no entry for this star.
+  optional double mag = 4;
+  // Source-catalog identifier, NOT the database's internal star index.
+  // BSC and Hipparcos are a single number and populate `cat_id`; Tycho is a
+  // (TYC1, TYC2, TYC3) triple that does not fit one integer, so `cat_id_str`
+  // carries the canonical rendering for every catalog and is the field to
+  // prefer when the catalog is unknown.
+  optional int64 cat_id = 5;
+  optional string cat_id_str = 6;
+}
+
+message Solution {
+  SolveStatus status = 1;
+  // Attitude and quality fields are `optional` so that a failed or timed-out
+  // solve leaves them genuinely unset. A plain proto3 double cannot express
+  // this: 0.0 is a legitimate value for ra/dec/roll, so defaulting to it would
+  // make a failure indistinguishable from a real solve on the celestial origin.
+  // Degrees.
+  optional double ra = 2;
+  optional double dec = 3;
+  optional double roll = 4;
+  optional double fov = 5;
+  optional double distortion = 6;
+  // Arcseconds.
+  optional double rmse = 7;
+  optional double p90e = 8;
+  optional double maxe = 9;
+  int32 matches = 10;
+  optional double prob = 11;
+  // Milliseconds. Always measured, so these stay non-optional.
+  double t_extract_ms = 12;
+  double t_solve_ms = 13;
+  repeated MatchedStar matched = 14;
+}
+
+message InfoRequest {}
+
+message ServerInfo {
+  string version = 1;
+  string star_catalog = 2;
+  double min_fov = 3;
+  double max_fov = 4;
+  int64 num_patterns = 5;
+  double epoch_equinox = 6;
+  double epoch_proper_motion = 7;
+}
