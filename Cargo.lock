@@ -772,18 +772,13 @@ dependencies = [
  "pattern-database",
  "plate-solver",
  "prost",
- "prost-build",
  "prost-types",
- "rand",
  "star-detection",
  "tokio",
  "tokio-stream",
- "tokio-test",
  "tonic",
- "tonic-build",
  "tonic-prost",
  "tonic-prost-build",
- "tonic-web",
  "tower",
 ]
 
@@ -2237,17 +2232,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-test"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f6d24790a10a7af737693a3e8f1d03faef7e6ca0cc99aae5066f533766de545"
-dependencies = [
- "futures-core",
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
 name = "tokio-util"
 version = "0.7.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2327,24 +2311,6 @@ dependencies = [
  "syn 2.0.119",
  "tempfile",
  "tonic-build",
-]
-
-[[package]]
-name = "tonic-web"
-version = "0.14.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5e6a1b6319ca4b61a4c0f0c94d439c8f3ed344cca56fe0df40e1fe4be11380b"
-dependencies = [
- "base64",
- "bytes",
- "http",
- "http-body",
- "pin-project",
- "tokio-stream",
- "tonic",
- "tower-layer",
- "tower-service",
- "tracing",
 ]
 
 [[package]]

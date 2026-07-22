@@ -9,7 +9,3 @@ edition = "2021"
 rust-version = "1.96"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bryantharpe/plate-solver"
-
-[workspace.dependencies]
-math-core = { path = "crates/math-core" }
-star-detection = { path = "crates/star-detection" }

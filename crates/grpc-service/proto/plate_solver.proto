@@ -82,11 +82,15 @@ message SolveFromImageRequest {
 }
 
 enum SolveStatus {
-  MATCH_FOUND = 0;
-  NO_MATCH = 1;
-  TIMEOUT = 2;
-  CANCELLED = 3;
-  TOO_FEW = 4;
+  // proto3 requires a zero value and uses it for absent/default messages.
+  // Reserving it for "unspecified" keeps a default-constructed Solution from
+  // claiming a match was found.
+  SOLVE_STATUS_UNSPECIFIED = 0;
+  MATCH_FOUND = 1;
+  NO_MATCH = 2;
+  TIMEOUT = 3;
+  CANCELLED = 4;
+  TOO_FEW = 5;
 }
 
 message MatchedStar {
@@ -99,16 +103,23 @@ message MatchedStar {
 
 message Solution {
   SolveStatus status = 1;
-  double ra = 2;
-  double dec = 3;
-  double roll = 4;
-  double fov = 5;
-  double distortion = 6;
-  double rmse = 7;
-  double p90e = 8;
-  double maxe = 9;
+  // Attitude and quality fields are `optional` so that a failed or timed-out
+  // solve leaves them genuinely unset. A plain proto3 double cannot express
+  // this: 0.0 is a legitimate value for ra/dec/roll, so defaulting to it would
+  // make a failure indistinguishable from a real solve on the celestial origin.
+  // Degrees.
+  optional double ra = 2;
+  optional double dec = 3;
+  optional double roll = 4;
+  optional double fov = 5;
+  optional double distortion = 6;
+  // Arcseconds.
+  optional double rmse = 7;
+  optional double p90e = 8;
+  optional double maxe = 9;
   int32 matches = 10;
-  double prob = 11;
+  optional double prob = 11;
+  // Milliseconds. Always measured, so these stay non-optional.
   double t_extract_ms = 12;
   double t_solve_ms = 13;
   repeated MatchedStar matched = 14;

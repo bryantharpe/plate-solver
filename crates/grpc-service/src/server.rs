@@ -83,12 +83,9 @@ impl PlateSolver for PlateSolverServer {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let binned_image = if params.return_binned {
-            // ps-grpc-02 owns binned-image return.
-            None
-        } else {
-            None
-        };
+        // ps-grpc-02 owns returning the binned image; the field stays unset here
+        // regardless of `return_binned`.
+        let binned_image = None;
 
         Ok(Response::new(CentroidsResult {
             noise_estimate,
@@ -115,6 +112,7 @@ impl PlateSolver for PlateSolverServer {
         let (fov_estimate, fov_max_error, match_radius, match_threshold, solve_timeout, distortion) =
             decode_solve_params(&req.params);
 
+        let solve_start = std::time::Instant::now();
         let core_solution = solve_from_centroids(
             &centroids,
             (width, height),
@@ -127,6 +125,7 @@ impl PlateSolver for PlateSolverServer {
             0.002,
             (*self.db).clone(),
         );
+        let t_solve_ms = elapsed_ms(solve_start);
 
         Ok(Response::new(to_proto_solution(
             core_solution,
@@ -134,6 +133,9 @@ impl PlateSolver for PlateSolverServer {
                 .as_ref()
                 .map(|p| p.return_matches)
                 .unwrap_or(false),
+            // No extraction happens on this path: the caller supplied centroids.
+            0.0,
+            t_solve_ms,
         )))
     }
 
@@ -151,6 +153,7 @@ impl PlateSolver for PlateSolverServer {
         let (fov_estimate, fov_max_error, match_radius, match_threshold, solve_timeout, distortion) =
             decode_solve_params(&req.params);
 
+        let solve_start = std::time::Instant::now();
         let core_solution = solve_from_image(
             &image,
             width,
@@ -165,6 +168,7 @@ impl PlateSolver for PlateSolverServer {
             (*self.db).clone(),
             detect,
         );
+        let total_ms = elapsed_ms(solve_start);
 
         Ok(Response::new(to_proto_solution(
             core_solution,
@@ -172,6 +176,13 @@ impl PlateSolver for PlateSolverServer {
                 .as_ref()
                 .map(|p| p.return_matches)
                 .unwrap_or(false),
+            // `plate_solver::solve_from_image` fuses detection and solving into a
+            // single call, so the two cannot be timed apart without duplicating
+            // detection. Report the measured total under `t_solve_ms` rather than
+            // inventing a split. ps-grpc-02 owns this RPC's detection path and can
+            // report a true `t_extract_ms` once it drives detection itself.
+            0.0,
+            total_ms,
         )))
     }
 
@@ -220,6 +231,11 @@ fn read_image(image: &Option<Image>) -> Result<(Vec<u8>, usize, usize), Status> 
     }
 
     Ok((img.image_data.clone(), width, height))
+}
+
+/// Elapsed wall-clock time since `start`, in fractional milliseconds.
+fn elapsed_ms(start: std::time::Instant) -> f64 {
+    start.elapsed().as_secs_f64() * 1_000.0
 }
 
 /// Decode `SolveParams` into the positional arguments expected by the solver.
@@ -279,7 +295,12 @@ fn extract_params(req: &CentroidsRequest) -> Result<DetectParams, Status> {
 ///
 /// When `return_matches` is true, matched-star data is populated from the core
 /// solution's matched pairs.
-fn to_proto_solution(sol: plate_solver::status::Solution, return_matches: bool) -> Solution {
+fn to_proto_solution(
+    sol: plate_solver::status::Solution,
+    return_matches: bool,
+    t_extract_ms: f64,
+    t_solve_ms: f64,
+) -> Solution {
     let status = match sol.status {
         Some(CoreStatus::MatchFound) => SolveStatus::MatchFound,
         Some(CoreStatus::NoMatch) => SolveStatus::NoMatch,
@@ -289,17 +310,21 @@ fn to_proto_solution(sol: plate_solver::status::Solution, return_matches: bool) 
         None => SolveStatus::NoMatch,
     };
 
-    let rad_to_deg = 180.0 / std::f64::consts::PI;
-    // `fov_used` is stored in degrees on failure/timeout paths (it is copied
-    // from `ctx.fov_initial`, which `preparation::initial_fov` returns in
-    // degrees), but in radians on the success path (from `PinholeCamera.fov`).
-    // Convert to degrees accordingly.
+    // `fov_used` carries two different units depending on which path produced
+    // the solution: the success path in `refine` copies `PinholeCamera.fov`
+    // (radians), while every failure path copies `ctx.fov_initial`, which
+    // `preparation::initial_fov` derives from the database FOV bounds (degrees).
+    //
+    // Discriminate on `camera`, which is set by exactly the one site that writes
+    // radians. Do NOT discriminate on magnitude ("above pi must be degrees"): a
+    // radian FOV never exceeds pi, so that test silently misclassifies the
+    // failure path of any database narrower than 3.14 degrees, double-converting
+    // 2.5 degrees into 143.2.
     let fov_deg = sol.fov_used.map(|f| {
-        if f > std::f64::consts::PI {
-            // Already in degrees on non-success paths.
-            f
-        } else {
+        if sol.camera.is_some() {
             f.to_degrees()
+        } else {
+            f
         }
     });
 
@@ -328,18 +353,121 @@ fn to_proto_solution(sol: plate_solver::status::Solution, return_matches: bool) 
 
     Solution {
         status: status as i32,
-        ra: sol.ra.unwrap_or(0.0) * rad_to_deg,
-        dec: sol.dec.unwrap_or(0.0) * rad_to_deg,
-        roll: sol.roll.unwrap_or(0.0) * rad_to_deg,
-        fov: fov_deg.unwrap_or(0.0),
-        distortion: sol.distortion.unwrap_or(0.0),
-        rmse: sol.rmse.unwrap_or(0.0),
-        p90e: sol.p90e.unwrap_or(0.0),
-        maxe: sol.maxe.unwrap_or(0.0),
+        // Core attitude is in radians; the wire contract is degrees. Absent
+        // values stay absent rather than collapsing to 0.0.
+        ra: sol.ra.map(f64::to_degrees),
+        dec: sol.dec.map(f64::to_degrees),
+        roll: sol.roll.map(f64::to_degrees),
+        fov: fov_deg,
+        distortion: sol.distortion,
+        // Already arcseconds in the core solution.
+        rmse: sol.rmse,
+        p90e: sol.p90e,
+        maxe: sol.maxe,
         matches: sol.matched_centroids.len() as i32,
-        prob: sol.match_probability.unwrap_or(0.0),
-        t_extract_ms: 0.0,
-        t_solve_ms: 0.0,
+        prob: sol.match_probability,
+        t_extract_ms,
+        t_solve_ms,
         matched,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use math_core::PinholeCamera;
+    use plate_solver::status::Solution as CoreSolution;
+
+    /// Spec: "WHEN a solve succeeds THEN the Solution has status = MATCH_FOUND
+    /// with ra, dec, roll, fov populated."
+    ///
+    /// Also pins the FOV unit conversion: on the success path the core stores
+    /// `PinholeCamera.fov` in radians and the wire contract is degrees.
+    #[test]
+    fn success_populates_attitude_in_degrees() {
+        let fov_rad = 20.0f64.to_radians();
+        let sol = CoreSolution {
+            status: Some(CoreStatus::MatchFound),
+            camera: Some(PinholeCamera::new(1024.0, 768.0, fov_rad)),
+            fov_used: Some(fov_rad),
+            ra: Some(1.0),
+            dec: Some(0.5),
+            roll: Some(-0.25),
+            ..CoreSolution::default()
+        };
+
+        let out = to_proto_solution(sol, false, 0.0, 0.0);
+
+        assert_eq!(out.status, SolveStatus::MatchFound as i32);
+        assert!((out.ra.unwrap() - 1.0f64.to_degrees()).abs() < 1e-9);
+        assert!((out.dec.unwrap() - 0.5f64.to_degrees()).abs() < 1e-9);
+        assert!((out.roll.unwrap() - (-0.25f64).to_degrees()).abs() < 1e-9);
+        assert!(
+            (out.fov.unwrap() - 20.0).abs() < 1e-9,
+            "fov must be degrees"
+        );
+    }
+
+    /// Regression guard for the units bug.
+    ///
+    /// A narrow-field database (say 2.5 deg) that fails to solve reports
+    /// `fov_used = 2.5` in DEGREES. Deciding units by magnitude — "values above
+    /// pi must already be degrees" — misreads 2.5 as radians and reports 143.2
+    /// deg. Discriminating on `camera`, which is set only where radians are
+    /// written, gets it right. This is the failure path, not the success path:
+    /// a radian FOV never exceeds pi, so the magnitude guess only ever misfires
+    /// here.
+    #[test]
+    fn narrow_field_failure_fov_not_mistaken_for_radians() {
+        let sol = CoreSolution {
+            status: Some(CoreStatus::NoMatch),
+            camera: None,
+            fov_used: Some(2.5), // degrees, from a narrow-field database
+            ..CoreSolution::default()
+        };
+
+        let out = to_proto_solution(sol, false, 0.0, 0.0);
+
+        assert!(
+            (out.fov.unwrap() - 2.5).abs() < 1e-9,
+            "narrow-field FOV must stay 2.5 deg, got {:?}",
+            out.fov
+        );
+    }
+
+    /// Spec: "WHEN a solve fails or times out THEN the Solution carries the
+    /// corresponding status and unset attitude fields."
+    ///
+    /// On failure paths the core copies `ctx.fov_initial`, which is already in
+    /// degrees and must not be converted again.
+    #[test]
+    fn failure_leaves_attitude_unset_and_fov_in_degrees() {
+        for status in [CoreStatus::NoMatch, CoreStatus::Timeout, CoreStatus::TooFew] {
+            let sol = CoreSolution {
+                status: Some(status),
+                camera: None,
+                fov_used: Some(20.0), // degrees, straight from the database bounds
+                ..CoreSolution::default()
+            };
+
+            let out = to_proto_solution(sol, false, 0.0, 0.0);
+
+            assert_ne!(out.status, SolveStatus::MatchFound as i32);
+            assert!(out.ra.is_none(), "ra must be unset on failure");
+            assert!(out.dec.is_none(), "dec must be unset on failure");
+            assert!(out.roll.is_none(), "roll must be unset on failure");
+            assert!(
+                (out.fov.unwrap() - 20.0).abs() < 1e-9,
+                "fov already degrees"
+            );
+        }
+    }
+
+    /// proto3 uses the zero enum value for absent messages, so it must not mean
+    /// MATCH_FOUND: a default-constructed Solution would otherwise claim success.
+    #[test]
+    fn default_status_is_not_match_found() {
+        assert_eq!(SolveStatus::default(), SolveStatus::Unspecified);
+        assert_ne!(SolveStatus::MatchFound as i32, 0);
     }
 }

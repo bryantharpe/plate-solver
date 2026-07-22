@@ -379,9 +379,14 @@ async fn solve_params_forwarded_to_solver() {
     assert_eq!(solution.status, SolveStatus::Timeout as i32);
     // fov_estimate is clamped to the database range [10, 30] and returned in degrees.
     assert!(
-        (solution.fov - 20.0).abs() < 1e-6,
+        (solution.fov.expect("fov should be reported") - 20.0).abs() < 1e-6,
         "fov_estimate should be forwarded"
     );
+    // A timed-out solve produces no attitude, and the wire must say so rather
+    // than defaulting to 0.0 — which is a legitimate ra/dec.
+    assert!(solution.ra.is_none());
+    assert!(solution.dec.is_none());
+    assert!(solution.roll.is_none());
 }
 
 #[tokio::test]
