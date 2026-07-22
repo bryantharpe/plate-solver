@@ -1,0 +1,34 @@
+[package]
+name = "grpc-service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "gRPC service surface for the plate solver: PlateSolver RPCs, proto codegen, and solver wiring."
+
+[dependencies]
+math-core = { version = "0.1.0", path = "../math-core" }
+pattern-database = { version = "0.1.0", path = "../pattern-database" }
+plate-solver = { version = "0.1.0", path = "../plate-solver" }
+star-detection = { version = "0.1.0", path = "../star-detection" }
+
+prost = "0.14.4"
+prost-types = "0.14.4"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
+tonic = "0.14.6"
+tonic-web = "0.14.6"
+tower = "0.5.2"
+tonic-prost = "0.14.6"
+tokio-stream = "0.1.18"
+hyper-util = "0.1.20"
+
+[build-dependencies]
+tonic-build = "0.14.6"
+tonic-prost-build = "0.14.6"
+
+[dev-dependencies]
+prost-build = "0.14.4"
+rand = "0.9.5"
+tokio-test = "0.4.4"
+tonic-build = "0.14.6"
