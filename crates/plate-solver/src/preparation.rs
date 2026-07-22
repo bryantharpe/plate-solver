@@ -111,6 +111,7 @@ pub fn build_context(
     match_max_error: f64,
     distortion: f64,
     solve_timeout_ms: u64,
+    pattern_checking_stars: usize,
 ) -> SolveContext {
     let props = db.properties.clone();
     let fov_initial = initial_fov(&props, fov_estimate, fov_max_error);
@@ -126,6 +127,7 @@ pub fn build_context(
         start_instant: Instant::now(),
         cancelled: Arc::new(AtomicBool::new(false)),
         verification_stars_per_fov: props.verification_stars_per_fov as usize,
+        pattern_checking_stars,
     }
 }
 

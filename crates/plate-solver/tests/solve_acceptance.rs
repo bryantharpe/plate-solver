@@ -60,6 +60,7 @@ fn brightest_first_requirement() {
         0.0,
         0.002,
         db,
+        8,
     );
     // With no real candidates the loop exhausts and returns NO_MATCH, not TOO_FEW.
     assert_eq!(sol.status, Some(SolveStatus::NoMatch));
@@ -79,6 +80,7 @@ fn default_fov_from_db_range() {
         0.0,
         0.002,
         db,
+        8,
     );
     // Midpoint of [10, 30] is 20 degrees.
     assert_eq!(sol.fov_used, Some(20.0));
@@ -100,6 +102,7 @@ fn explicit_detection_parameters_honored() {
     };
     let sol = solve_from_image(
         &image, 64, 64, None, 5.0, 0.01, 1e-5, 5000, 0.0, 0.002, db, params,
+        8,
     );
     // No stars found means TOO_FEW, proving the detection path was exercised with the params.
     assert_eq!(sol.status, Some(SolveStatus::TooFew));
@@ -138,9 +141,11 @@ fn noise_estimated_from_image_never_constant() {
         0.002,
         db.clone(),
         params,
+        8,
     );
     let sol_bright = solve_from_image(
         &bright, 64, 64, None, 5.0, 0.01, 1e-5, 5000, 0.0, 0.002, db, params,
+        8,
     );
 
     let noise_dark = sol_dark.match_probability.unwrap();
@@ -177,6 +182,7 @@ fn detection_parameters_do_not_perturb_solve_math() {
         0.0,
         0.002,
         db.clone(),
+        8,
     );
 
     // Build a synthetic image containing exactly those centroids as bright peaks.
@@ -199,6 +205,7 @@ fn detection_parameters_do_not_perturb_solve_math() {
     };
     let sol_image = solve_from_image(
         &image, 100, 100, None, 5.0, 0.01, 1e-5, 5000, 0.0, 0.002, db, params,
+        8,
     );
 
     // Both should reach the same terminal status (NO_MATCH with no real candidates).
@@ -258,6 +265,7 @@ fn too_few_centroids() {
         0.0,
         0.002,
         db,
+        8,
     );
     assert_eq!(sol.status, Some(SolveStatus::TooFew));
 }
@@ -279,6 +287,7 @@ fn timeout_bounds_the_search() {
         0.0,
         0.002,
         db,
+        8,
     );
     assert_eq!(sol.status, Some(SolveStatus::Timeout));
 }
@@ -301,6 +310,7 @@ fn cancellation_honored() {
         start_instant: std::time::Instant::now(),
         cancelled: cancelled.clone(),
         verification_stars_per_fov: 150,
+        pattern_checking_stars: 8,
     };
 
     assert!(ctx.is_cancelled());
@@ -316,6 +326,7 @@ fn cancellation_honored() {
         0.0,
         0.002,
         ctx.db,
+        8,
     );
     assert_eq!(sol.status, Some(SolveStatus::Timeout));
 }

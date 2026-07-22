@@ -105,7 +105,7 @@ fn solve_reference_image(
     let (image, width, height) = load_tiff_u8(&img_path);
 
     let params = DetectParams {
-        sigma: 8.0,
+        sigma: 2.0,
         noise_estimate: None,
         binning: 1,
         normalize_rows: false,
@@ -119,14 +119,15 @@ fn solve_reference_image(
         width,
         height,
         Some(reference.fov_deg),
-        1.0,
+        1.45,
         0.01,
         1e-5,
-        60_000,
+        5_000,
         0.0,
         0.002,
         db.clone(),
         params,
+        8,
     );
     (sol, db)
 }

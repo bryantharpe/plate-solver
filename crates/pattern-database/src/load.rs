@@ -132,41 +132,33 @@ fn decode_database<R: io::Read + io::Seek>(
         }
     }
 
-    let (edge_dtype, edge_shape, edge_items) = read_raw(archive, "pattern_largest_edge")?;
-    let edge_ty = parse_type_str(&edge_dtype)?;
-    if edge_ty.kind != 'f' || edge_ty.size != 2 {
-        return Err(LoadError::Format(format!(
-            "pattern_largest_edge: expected f2 (float16) elements, got {}",
-            edge_dtype.descr()
-        )));
-    }
-    if edge_shape != [catalog_length as u64] {
-        return Err(LoadError::Format(format!(
-            "pattern_largest_edge: expected shape ({catalog_length}), got {edge_shape:?}"
-        )));
-    }
-    let pattern_largest_edge: Vec<f32> = edge_items
-        .iter()
-        .map(|item| decode_f16(&item.0, edge_ty.little))
-        .collect();
+    // Legacy/default tetra3 databases omit the precomputed largest-edge and 16-bit
+    // hash arrays. Fall back to empty vectors; lookup.rs will recompute or skip the
+    // corresponding filters when these are absent.
+    let pattern_largest_edge: Vec<f32> = read_optional_f16_array(archive, "pattern_largest_edge", catalog_length)?
+        .map(|items| {
+            items
+                .iter()
+                .map(|item| decode_f16(&item.0, true))
+                .collect()
+        })
+        .unwrap_or_default();
+    let pattern_key_hashes: Vec<u16> = read_optional_uint_array(archive, "pattern_key_hashes", catalog_length, 2)?
+        .map(|items| {
+            items
+                .iter()
+                .map(|item| decode_uint(&item.0, true) as u16)
+                .collect()
+        })
+        .unwrap_or_default();
 
-    let (hash_dtype, hash_shape, hash_items) = read_raw(archive, "pattern_key_hashes")?;
-    let hash_ty = parse_type_str(&hash_dtype)?;
-    if hash_ty.kind != 'u' || hash_ty.size != 2 {
-        return Err(LoadError::Format(format!(
-            "pattern_key_hashes: expected u2 elements, got {}",
-            hash_dtype.descr()
-        )));
-    }
-    if hash_shape != [catalog_length as u64] {
-        return Err(LoadError::Format(format!(
-            "pattern_key_hashes: expected shape ({catalog_length}), got {hash_shape:?}"
-        )));
-    }
-    let pattern_key_hashes: Vec<u16> = hash_items
-        .iter()
-        .map(|item| decode_uint(&item.0, hash_ty.little) as u16)
-        .collect();
+    // If the arrays are absent, ensure they are empty rather than mismatched in length.
+    debug_assert!(
+        pattern_largest_edge.is_empty() || pattern_largest_edge.len() == catalog_length
+    );
+    debug_assert!(
+        pattern_key_hashes.is_empty() || pattern_key_hashes.len() == catalog_length
+    );
 
     let (ids_dtype, ids_shape, ids_items) = read_raw(archive, "star_catalog_IDs")?;
     let ids_ty = parse_type_str(&ids_dtype)?;
@@ -273,7 +265,11 @@ fn decode_properties(
                 field.name
             ))
         })?;
-        values.insert(field.name.as_str(), decode_field(&field.dtype, bytes)?);
+        // Skip fields we cannot decode; they simply won't appear in `values` and the
+        // downstream fallbacks will apply.
+        if let Ok(value) = decode_field(&field.dtype, bytes) {
+            values.insert(field.name.as_str(), value);
+        }
         offset += size;
     }
 
@@ -304,7 +300,7 @@ fn decode_properties(
     };
 
     let pattern_mode = str_field("pattern_mode").ok_or_else(|| missing("pattern_mode"))?;
-    let hash_table_type = str_field("hash_table_type").ok_or_else(|| missing("hash_table_type"))?;
+    let hash_table_type = str_field("hash_table_type").unwrap_or_else(|| "quadratic_probe".to_string());
     let pattern_size = u16_field("pattern_size").ok_or_else(|| missing("pattern_size"))?;
     let pattern_bins = u16_field("pattern_bins").ok_or_else(|| missing("pattern_bins"))?;
     let pattern_max_error =
@@ -350,16 +346,106 @@ enum FieldValue {
 fn decode_field(dtype: &DType, bytes: &[u8]) -> Result<FieldValue, LoadError> {
     let ty = parse_type_str(dtype)?;
     match (ty.kind, ty.size) {
+        // Byte strings and UCS-4 strings (numpy 'U' kind) both appear in legacy databases.
         ('S', _) => Ok(FieldValue::Str(decode_bytestr(bytes))),
+        ('U', size) => Ok(FieldValue::Str(decode_ucs4_str(bytes, size, ty.little))),
         ('u', 2) => Ok(FieldValue::U16(decode_uint(bytes, ty.little) as u16)),
         ('u', 4) => Ok(FieldValue::U32(decode_uint(bytes, ty.little) as u32)),
         ('f', 4) => Ok(FieldValue::F32(decode_f32(bytes, ty.little))),
+        // Legacy/default databases may carry wider unsigned fields, boolean fields, or other
+        // types we do not need. Treat them as absent rather than failing the whole load.
         _ => Err(LoadError::Format(format!(
             "unsupported properties field type '{}{}{}'",
             if ty.little { '<' } else { '>' },
             ty.kind,
             ty.size
         ))),
+    }
+}
+
+/// Decode a numpy UCS-4 (UTF-32) fixed-length string field ('U' dtype).
+fn decode_ucs4_str(bytes: &[u8], size: usize, little: bool) -> String {
+    // `size` is the number of 4-byte code points; `bytes` is `size * 4` long.
+    let mut chars = Vec::with_capacity(size);
+    for chunk in bytes.chunks_exact(4) {
+        let codepoint = if little {
+            u32::from_le_bytes(chunk.try_into().expect("UCS-4 chunk must be 4 bytes"))
+        } else {
+            u32::from_be_bytes(chunk.try_into().expect("UCS-4 chunk must be 4 bytes"))
+        };
+        if codepoint == 0 {
+            break;
+        }
+        chars.push(codepoint);
+    }
+    chars
+        .iter()
+        .filter_map(|&c| std::char::from_u32(c))
+        .collect::<String>()
+}
+
+/// Read an optional float16 array, returning `None` if the array is absent.
+fn read_optional_f16_array<R: io::Read + io::Seek>(
+    archive: &mut npyz::npz::NpzArchive<R>,
+    name: &str,
+    expected_length: usize,
+) -> Result<Option<Vec<RawItem>>, LoadError> {
+    let Some((dtype, shape, items)) = read_raw_optional(archive, name)? else {
+        return Ok(None);
+    };
+    let ty = parse_type_str(&dtype)?;
+    if ty.kind != 'f' || ty.size != 2 {
+        return Err(LoadError::Format(format!(
+            "{name}: expected f2 (float16) elements, got {}",
+            dtype.descr()
+        )));
+    }
+    if shape != [expected_length as u64] {
+        return Err(LoadError::Format(format!(
+            "{name}: expected shape ({expected_length}), got {shape:?}"
+        )));
+    }
+    Ok(Some(items))
+}
+
+/// Read an optional unsigned integer array, returning `None` if the array is absent.
+fn read_optional_uint_array<R: io::Read + io::Seek>(
+    archive: &mut npyz::npz::NpzArchive<R>,
+    name: &str,
+    expected_length: usize,
+    expected_size: usize,
+) -> Result<Option<Vec<RawItem>>, LoadError> {
+    let Some((dtype, shape, items)) = read_raw_optional(archive, name)? else {
+        return Ok(None);
+    };
+    let ty = parse_type_str(&dtype)?;
+    if ty.kind != 'u' || ty.size != expected_size {
+        return Err(LoadError::Format(format!(
+            "{name}: expected u{expected_size} elements, got {}",
+            dtype.descr()
+        )));
+    }
+    if shape != [expected_length as u64] {
+        return Err(LoadError::Format(format!(
+            "{name}: expected shape ({expected_length}), got {shape:?}"
+        )));
+    }
+    Ok(Some(items))
+}
+
+/// Read an optional array, returning `None` if it is not present in the archive.
+fn read_raw_optional<R: io::Read + io::Seek>(
+    archive: &mut npyz::npz::NpzArchive<R>,
+    name: &str,
+) -> Result<Option<(DType, Vec<u64>, Vec<RawItem>)>, LoadError> {
+    match archive.by_name(name)? {
+        Some(npy) => {
+            let dtype = npy.dtype();
+            let shape = npy.shape().to_vec();
+            let items = npy.into_vec::<RawItem>()?;
+            Ok(Some((dtype, shape, items)))
+        }
+        None => Ok(None),
     }
 }
 

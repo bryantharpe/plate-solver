@@ -51,6 +51,7 @@ pub fn solve_from_centroids(
     distortion: f64,
     match_max_error: f64,
     db: PatternDatabase,
+    pattern_checking_stars: usize,
 ) -> Solution {
     let ctx = build_context(
         db,
@@ -61,6 +62,7 @@ pub fn solve_from_centroids(
         match_max_error,
         distortion,
         solve_timeout,
+        pattern_checking_stars,
     );
 
     let (width, height) = (size.0 as f64, size.1 as f64);
@@ -91,6 +93,7 @@ pub fn solve_from_image(
     match_max_error: f64,
     db: PatternDatabase,
     detect_params: DetectParams,
+    pattern_checking_stars: usize,
 ) -> Solution {
     let sigma = detect_params.sigma;
     let noise_estimate = detect_params
@@ -123,6 +126,7 @@ pub fn solve_from_image(
         distortion,
         match_max_error,
         db,
+        pattern_checking_stars,
     );
 
     // Stash the estimated noise in a field for now; downstream beads will replace
@@ -142,7 +146,7 @@ fn iterate_patterns(
     width: f64,
     height: f64,
 ) -> Solution {
-    let n = vectors.len();
+    let n = vectors.len().min(ctx.pattern_checking_stars);
     if n < 4 {
         return Solution {
             status: Some(SolveStatus::TooFew),
@@ -152,6 +156,8 @@ fn iterate_patterns(
     }
 
     // Breadth-first: outer loop over pattern radius (max index distance), inner loops over i0..i3.
+    // Only the brightest `pattern_checking_stars` centroids are used for pattern formation,
+    // matching upstream tetra3's default search behaviour.
     for radius in 1..n {
         for i0 in 0..n {
             if ctx.should_stop() {

@@ -84,22 +84,14 @@ impl PatternDatabase {
             is_empty,
         );
 
+        let has_key_hashes = !self.pattern_key_hashes.is_empty();
+        let has_largest_edges = !self.pattern_largest_edge.is_empty();
+
         let mut candidates = Vec::new();
         for table_index in occupied {
-            // 16-bit key pre-filter.
-            if self.pattern_key_hashes[table_index] != key_hash16 {
+            // 16-bit key pre-filter (only when the database provides it).
+            if has_key_hashes && self.pattern_key_hashes[table_index] != key_hash16 {
                 continue;
-            }
-
-            // Largest-edge / FOV pre-filter.
-            if let (Some(fov_estimate), Some(fov_max_error)) =
-                (query.fov_estimate, query.fov_max_error)
-            {
-                let catalog_largest = self.pattern_largest_edge[table_index] as f64 / 1000.0;
-                let implied_fov = catalog_largest / image_largest_edge * fov_estimate;
-                if (implied_fov - fov_estimate).abs() > fov_max_error {
-                    continue;
-                }
             }
 
             let star_indices = self.pattern_catalog[table_index];
@@ -110,6 +102,24 @@ impl PatternDatabase {
 
             let (_key, catalog_largest) =
                 pattern_key(&vectors, self.properties.pattern_bins as u32);
+
+            // Largest-edge / FOV pre-filter. When the database stores the value we use it;
+            // otherwise we use the value just recomputed from the catalog vectors.
+            if let (Some(fov_estimate), Some(fov_max_error)) =
+                (query.fov_estimate, query.fov_max_error)
+            {
+                let stored_largest = if has_largest_edges {
+                    Some(self.pattern_largest_edge[table_index] as f64 / 1000.0)
+                } else {
+                    None
+                };
+                let catalog_largest_for_fov = stored_largest.unwrap_or(catalog_largest);
+                let implied_fov = catalog_largest_for_fov / image_largest_edge * fov_estimate;
+                if (implied_fov - fov_estimate).abs() > fov_max_error {
+                    continue;
+                }
+            }
+
             let mut edges: [f64; 6] = [0.0; 6];
             let mut idx = 0;
             for i in 0..PATTERN_SIZE {

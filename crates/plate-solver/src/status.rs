@@ -90,6 +90,8 @@ pub struct SolveContext {
     pub start_instant: std::time::Instant,
     pub cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
     pub verification_stars_per_fov: usize,
+    /// Maximum number of brightest centroids to use when forming 4-star patterns.
+    pub pattern_checking_stars: usize,
 }
 
 impl SolveContext {
