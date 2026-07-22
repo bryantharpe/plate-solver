@@ -95,10 +95,19 @@ enum SolveStatus {
 
 message MatchedStar {
   ImageCoord centroid = 1;
+  // Degrees.
   double ra = 2;
   double dec = 3;
-  double mag = 4;
-  int64 cat_id = 5;
+  // Apparent magnitude from the database star table. Unset if the database
+  // carries no entry for this star.
+  optional double mag = 4;
+  // Source-catalog identifier, NOT the database's internal star index.
+  // BSC and Hipparcos are a single number and populate `cat_id`; Tycho is a
+  // (TYC1, TYC2, TYC3) triple that does not fit one integer, so `cat_id_str`
+  // carries the canonical rendering for every catalog and is the field to
+  // prefer when the catalog is unknown.
+  optional int64 cat_id = 5;
+  optional string cat_id_str = 6;
 }
 
 message Solution {
