@@ -40,10 +40,15 @@ economics are driven by architecture, using this repo as the evidence:
 5. **Twelve deterministic gates cost zero tokens** — and in an end-to-end audit of
    one merged change, ten of the twelve turned out to be hygiene while three
    carried the actual weight.
+6. **The cheap reviewer earned its keep, measurably** — across 29 merged changes
+   the independent judge ran 56 review rounds and sent 8 back, and all 8 were
+   correctness bugs rather than style. Roughly 10 further attempts were abandoned
+   before ever reaching a verdict, so the deterministic gates and the integration
+   step killed more work than the reviewer did.
 
 ## Two things to finish before presenting
 
-**1 · Spend figures.** Every cost number is a marked placeholder — the Grafana LLM
+**1 · Spend figures (slide 8).** Every cost number is a marked placeholder — the Grafana LLM
 consumption data was not available when the deck was built. Search the HTML for
 `is-pending` to find them. They render with a visible `PENDING` chip and dashed
 borders specifically so an unfilled figure cannot be mistaken for a real one.
@@ -56,5 +61,5 @@ correcting the palette is a single-block edit.
 ## Provenance
 
 Every non-placeholder figure in the deck is reproducible from this repository at
-the `v1-original` tag and `main`. Slide 12 lists each claim with the command or
+the `v1-original` tag and `main`, or from the pull-request record on GitHub. Slide 13 lists each claim with the command or
 file it came from.

@@ -323,6 +323,17 @@ strong{ color: var(--ink); font-weight: 700; }
   color: var(--brand); line-height:1; letter-spacing:-.03em;
   padding-top: .06em; opacity:.85;
 }
+/* judge findings — one row per DISSENT */
+.finds{ display:flex; flex-direction:column; gap: clamp(5px,.62cqw,11px); }
+.find{ display:grid; grid-template-columns: auto 1fr; gap: 11px; align-items:baseline; }
+.find .pr{
+  font-family: var(--font-data); font-size: clamp(8.5px,.62cqw,11px); font-weight:700;
+  color: var(--crit); background: var(--crit-wash); border:1px solid var(--crit);
+  border-radius:2px; padding:1px 5px; white-space:nowrap; letter-spacing:.03em;
+}
+.find .what{ font-size: clamp(10px,.76cqw,13.5px); color: var(--ink-dim); line-height:1.4; }
+.find .what b{ color: var(--ink); font-weight:700; }
+
 .qs{ display:flex; flex-direction:column; gap: clamp(12px,1.5cqw,26px); counter-reset: q; }
 .q{
   font-family: var(--font-display); font-weight:700; color:#fff;
@@ -512,7 +523,7 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
 </section>
 
 <!-- ================================================== 2 · THE PRODUCT ==== -->
-<section class="slide" data-title="What it does" data-mark="0:30" data-budget="90">
+<section class="slide" data-title="What it does" data-mark="0:30" data-budget="80">
   <p class="eyebrow">The system · plate-solver</p>
   <h2 style="max-width:26ch">A photo of the sky in. Where the camera was pointed, out.</h2>
   <div class="cols cols-2u top">
@@ -540,7 +551,7 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
 </section>
 
 <!-- ================================================ 3 · NOBODY TYPED IT == -->
-<section class="slide" data-ground="alt" data-title="Nobody typed this" data-mark="2:00" data-budget="60">
+<section class="slide" data-ground="alt" data-title="Nobody typed this" data-mark="1:50" data-budget="50">
   <p class="eyebrow">The reveal</p>
   <h2>Nobody wrote it.</h2>
   <div class="cols cols-2">
@@ -575,7 +586,7 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
 </section>
 
 <!-- =================================================== 4 · BUILT TWICE === -->
-<section class="slide" data-title="Built twice" data-mark="3:00" data-budget="90">
+<section class="slide" data-title="Built twice" data-mark="2:40" data-budget="85">
   <p class="eyebrow">The natural experiment</p>
   <h2 style="max-width:30ch">We deleted the implementation and built it again from the spec alone.</h2>
   <div class="legend">
@@ -598,7 +609,7 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
 </section>
 
 <!-- ================================================= 5 · THE ROUTING ===== -->
-<section class="slide" data-ground="alt" data-title="Route by size" data-mark="4:30" data-budget="90">
+<section class="slide" data-ground="alt" data-title="Route by size" data-mark="4:05" data-budget="85">
   <p class="eyebrow">The decision that moves the bill</p>
   <h2 style="max-width:32ch">Nothing in the fleet asks "which model is best."</h2>
   <p class="lede" style="margin-top:-.2em">
@@ -644,7 +655,7 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
 </section>
 
 <!-- ================================================== 6 · FREE GATES ===== -->
-<section class="slide" data-title="The cheapest reviewer" data-mark="6:00" data-budget="60">
+<section class="slide" data-title="The cheapest reviewer" data-mark="5:30" data-budget="50">
   <p class="eyebrow">Tier 0</p>
   <h2 style="max-width:24ch">The cheapest reviewer on the team is a compiler.</h2>
   <p class="lede">
@@ -671,8 +682,50 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
   </div>
 </section>
 
-<!-- ================================================= 7 · THE GRAFANA ===== -->
-<section class="slide" data-ground="alt" data-title="What it cost" data-mark="7:00" data-budget="90">
+<!-- =============================================== 7 · WHAT IT CAUGHT ==== -->
+<section class="slide" data-title="What the judge caught" data-mark="6:20" data-budget="70">
+  <p class="eyebrow" style="white-space:nowrap">The cheap reviewer, measured</p>
+  <h2 style="max-width:30ch">The judge sent 8 back. All 8 were real bugs.</h2>
+  <div class="cols cols-2u">
+    <div>
+      <p class="small" style="margin:0 0 12px"><strong>Every DISSENT it issued, and what it caught:</strong></p>
+      <div class="finds">
+        <div class="find"><span class="pr">#54</span><span class="what"><b>Infinite loop</b> when the hash table fills — a denial of service</span></div>
+        <div class="find"><span class="pr">#55</span><span class="what"><b>Dimensional error</b> — field of view computed ~850× wrong</span></div>
+        <div class="find"><span class="pr">#66</span><span class="what"><b>Assert too tight</b> (1e-12) — would panic on real catalog data</span></div>
+        <div class="find"><span class="pr">#73</span><span class="what"><b>Off-by-one exponent</b> — every f16 subnormal decoded at half value</span></div>
+        <div class="find"><span class="pr">#76</span><span class="what"><b>Search-radius regression</b> — silently returns nothing past a cutoff</span></div>
+        <div class="find"><span class="pr">#77</span><span class="what"><b>Wrong variable returned</b> — search bound used as the FOV estimate</span></div>
+        <div class="find"><span class="pr">#79</span><span class="what"><b>Dead loop</b> — iterated over keys it never passed to the database</span></div>
+        <div class="find"><span class="pr">#84</span><span class="what"><b>Unit heuristic breaks</b> — a 2° field reported as 114.6°</span></div>
+      </div>
+      <p class="small" style="margin:14px 0 0">
+        Not one was style. These are the bugs a human reviewer skims past at 4pm.
+      </p>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px; min-height:0">
+      <div class="statrow" style="grid-template-columns:1fr 1fr">
+        <div class="stat"><span class="k">Review rounds</span><span class="v">56</span><span class="n">Across 29 merged changes</span></div>
+        <div class="stat"><span class="k">Sent back</span><span class="v" style="color:var(--crit)">8</span><span class="n">28% of changes, 14% of rounds</span></div>
+      </div>
+      <div class="callout crit">
+        <p class="small" style="margin:0"><strong>The number that's larger than the judge.</strong>
+        Roughly <strong>10 more attempts were abandoned</strong> before they ever reached a
+        verdict — one bead burned <strong>six</strong> pull requests before one landed.
+        The gates and the integration step kill more work than the reviewer does.</p>
+      </div>
+      <div class="callout warn">
+        <p class="small" style="margin:0"><strong>Honest caveat.</strong> On one change the judge
+        returned <em>APPROVE and DISSENT on the same commit, 46 seconds apart.</em> It isn't
+        deterministic — "8" is a sample, not a constant. On another it returned nothing
+        27 times running and a human had to sign off.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================= 8 · THE GRAFANA ===== -->
+<section class="slide" data-ground="alt" data-title="What it cost" data-mark="7:30" data-budget="80">
   <p class="eyebrow">Consumption visibility · Grafana</p>
   <h2>You can't optimize what you can't see.</h2>
   <div class="cols cols-2u">
@@ -710,7 +763,7 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
 </section>
 
 <!-- =================================================== 8 · THREE MOVES == -->
-<section class="slide" data-title="Three moves" data-mark="8:30" data-budget="60">
+<section class="slide" data-title="Three moves" data-mark="8:50" data-budget="50">
   <p class="eyebrow">Take this back to your team</p>
   <h2>Three moves, none of them about token pricing.</h2>
   <div class="moves">
@@ -749,7 +802,7 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
 </section>
 
 <!-- ==================================================== 9 · DISCUSSION === -->
-<section class="slide" data-ground="deep" data-title="Discussion" data-mark="9:30" data-budget="30">
+<section class="slide" data-ground="deep" data-title="Discussion" data-mark="9:40" data-budget="20">
   <p class="eyebrow" style="color:#9FC0FF">Over to the room</p>
   <h2 style="color:#fff; max-width:22ch">Three things we'd like to argue about.</h2>
   <div class="qs" style="margin-top:auto; margin-bottom:auto">
@@ -872,6 +925,14 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
         <tr><td>Runaway context burn</td><td class="m">72 min · 1,410 cmds · 0 LOC</td><td class="p">docs/audit-run-07-pinhole.md — ps-exp-01</td></tr>
         <tr><td>Byte-for-byte recovery</td><td class="m">90 seconds, all gates green</td><td class="p">docs/audit-run-07-pinhole.md — ps-exp-02</td></tr>
         <tr><td>Human-in-the-loop points</td><td class="m">4</td><td class="p">ENVIRONMENT.md — "where the human is in the loop"</td></tr>
+        <tr><td>Judge review rounds</td><td class="m">56</td><td class="p">GitHub: <code>review/judge</code> verdict comments, 29 merged code PRs</td></tr>
+        <tr><td>Judge DISSENTs</td><td class="m">8</td><td class="p">PRs #54 #55 #66 #73 #76 #77 #79 #84</td></tr>
+        <tr><td>Dissents that were correctness</td><td class="m">8 of 8</td><td class="p">Each DISSENT's BLOCKING line, read individually</td></tr>
+        <tr><td>Same-SHA disagreement</td><td class="m">APPROVE + DISSENT</td><td class="p">PR #66 on <code>8b6eb167</code>, 46 s apart — judge is nondeterministic</td></tr>
+        <tr><td>Judge returned empty</td><td class="m">27 consecutive</td><td class="p">PR #62 — 105 KB fixture; merged on recorded human override (U4)</td></tr>
+        <tr><td>Abandoned attempts</td><td class="m">~10 PRs</td><td class="p">Closed unmerged: #27 #60 #63 #65 #67 #68 #69 #70 #72 #74</td></tr>
+        <tr><td>Worst single bead</td><td class="m">6 PRs</td><td class="p">ps-plate-01-solve-loop: #67 #68 #69 #70 #72 → #77 merged</td></tr>
+        <tr><td>Refinery merge rejection</td><td class="m">1</td><td class="p">PR #56 — 3 failing tests + clippy errors; re-authored as #71</td></tr>
         <tr><td>Token spend / cost figures</td><td class="m">PENDING</td><td class="p">Grafana LLM consumption dashboard — not yet filled in</td></tr>
       </tbody>
     </table>
@@ -959,6 +1020,13 @@ table.src td.p{ font-family: var(--font-data); color: var(--ink-dim); font-size:
 <p>We audited one merged change end to end. Twelve green checkmarks. <b>Ten of them were hygiene.</b> Three carried the actual weight. And one of those three had to be run by hand.</p>
 <p>That's worth knowing. Green isn't proof — and knowing which gates are load-bearing tells you where model spend is buying you something real.</p>
 <p>The general principle: push verification as far down the cost curve as it will go. Deterministic before probabilistic. Cheap model before expensive model. Model before human.</p>`,
+
+`<p>Fair question at this point: did the cheap reviewer actually earn its keep, or is it theatre? We can answer that, because every verdict it ever issued is on the pull requests.</p>
+<p><b>56 review rounds across 29 merged changes. It sent 8 back.</b> That's 28% of changes, 14% of rounds.</p>
+<p><em>Don't read all eight — pick two.</em> The two I'd pick: a <b>dimensional error</b> that computed field of view about 850 times wrong, and an <b>off-by-one in a floating-point exponent</b> that decoded every half-precision subnormal at half its value.</p>
+<p>The point is <b>not one of the eight was style.</b> No naming, no formatting — eight for eight were correctness. These are exactly the bugs a human reviewer skims past at four in the afternoon.</p>
+<p><b>Now the number that's bigger than the judge.</b> Roughly ten more attempts were abandoned before they ever got a verdict — one task burned six pull requests before one of them landed. So the deterministic gates and the integration step killed <em>more</em> work than the reviewer did. That's the tier-0 argument paying off, measured.</p>
+<p><em>Volunteer the caveat — someone will ask.</em> On one change the judge returned APPROVE and DISSENT on the <b>same commit</b>, 46 seconds apart. It is not deterministic. On another it returned nothing 27 times running and a human had to sign off. So "8" is a sample, not a constant — and that is an argument for cheap reviewers being <em>redundant</em>, not for trusting one.</p>`,
 
 `<p><span class="cue live">Switch to Grafana</span> This is the part to drive live if the board is up.</p>
 <p>You can't optimize what you can't see, so we instrumented it.</p>
