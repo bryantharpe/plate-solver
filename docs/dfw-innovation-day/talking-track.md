@@ -15,27 +15,28 @@ architecture and model routing change AI economics.
 
 | | |
 |---|---|
-| **Format** | Discussion-led. The deck is scaffolding, not the point. Slides 2 and 7 are demo moments. |
+| **Format** | Discussion-led. The deck is scaffolding, not the point. Slides 2 and 8 are demo moments. |
 | **Total** | 10:00, then open discussion |
 | **Clock** | Press `T` in the deck. It turns amber at 8:30 and red past 10:00. |
-| **Two live moments** | The plate-solver web UI (slide 2) and the Grafana board (slide 7). Both have screenshot fallbacks — if a build fails at 9am, nothing breaks. |
-| **Must fill in first** | The four spend tiles on slide 7. Search the HTML for `is-pending`. They are visibly marked PENDING so nothing fake can be shown as real. |
+| **Two live moments** | The plate-solver web UI (slide 2) and the Grafana board (slide 8). Both have screenshot fallbacks — if a build fails at 9am, nothing breaks. |
+| **Must fill in first** | The four spend tiles on slide 8. Search the HTML for `is-pending`. They are visibly marked PENDING so nothing fake can be shown as real. |
 
 **Timing marks** — glance at these, don't obsess:
 
 | At | Slide | Budget |
 |----|-------|--------|
 | 0:00 | 1 · Title | 30s |
-| 0:30 | 2 · What it does | 90s |
-| 2:00 | 3 · Nobody wrote it | 60s |
-| 3:00 | 4 · Built twice | 90s |
-| 4:30 | 5 · Route by size | 90s |
-| 6:00 | 6 · The cheapest reviewer | 60s |
-| 7:00 | 7 · What it cost | 90s |
-| 8:30 | 8 · Three moves | 60s |
-| 9:30 | 9 · Discussion | 30s |
+| 0:30 | 2 · What it does | 80s |
+| 1:50 | 3 · Nobody wrote it | 50s |
+| 2:40 | 4 · Built twice | 85s |
+| 4:05 | 5 · Route by size | 85s |
+| 5:30 | 6 · The cheapest reviewer | 50s |
+| 6:20 | 7 · What the judge caught | 70s |
+| 7:30 | 8 · What it cost | 80s |
+| 8:50 | 9 · Three moves | 50s |
+| 9:40 | 10 · Discussion | 20s |
 
-Slides 10–12 are Q&A backup and are not timed.
+Slides 11–13 are Q&A backup and are not timed.
 
 ---
 
@@ -52,7 +53,7 @@ Ten minutes. Mostly demo. Then let's argue about it.
 
 ---
 
-## 2 · What it does — 0:30 (90s)
+## 2 · What it does — 0:30 (80s)
 
 > **SWITCH TO LIVE?** If the app is up, drive it live: drop the image in, set FOV
 > to `11`, hit Solve. Otherwise the screenshots are the real output and nobody
@@ -78,7 +79,7 @@ Hold that in your head, because here's the actual point.
 
 ---
 
-## 3 · Nobody wrote it — 2:00 (60s)
+## 3 · Nobody wrote it — 1:50 (50s)
 
 I didn't write it. **Nobody** wrote it.
 
@@ -97,7 +98,7 @@ The question becomes: **what did that cost, and what would make it cost less?**
 
 ---
 
-## 4 · Built twice — 3:00 (90s)
+## 4 · Built twice — 2:40 (85s)
 
 Here's why I can answer that with something better than a vibe. We built this
 system **twice**.
@@ -124,7 +125,7 @@ required checks and an independent model review. Less time, less code, more proo
 
 ---
 
-## 5 · Route by size — 4:30 (90s)
+## 5 · Route by size — 4:05 (85s)
 
 **This is the slide that actually matters.** If they remember one, it's this one.
 
@@ -150,7 +151,7 @@ the expensive tier on purpose.
 
 ---
 
-## 6 · The cheapest reviewer — 6:00 (60s)
+## 6 · The cheapest reviewer — 5:30 (50s)
 
 There's a fourth thing, and it's free.
 
@@ -176,7 +177,54 @@ before human.
 
 ---
 
-## 7 · What it cost — 7:00 (90s)
+## 7 · What the judge caught — 6:20 (70s)
+
+Fair question at this point: did the cheap reviewer actually earn its keep, or is
+it theatre? We can answer that, because every verdict it ever issued is on the
+pull requests.
+
+**56 review rounds across 29 merged changes. It sent 8 back.** That's 28% of
+changes, 14% of rounds.
+
+> **Don't read all eight aloud — pick two.**
+
+The two I'd pick: a **dimensional error** that computed field of view about 850
+times wrong, and an **off-by-one in a floating-point exponent** that decoded every
+half-precision subnormal at half its value.
+
+The point is **not one of the eight was style.** No naming, no formatting — eight
+for eight were correctness. These are exactly the bugs a human reviewer skims past
+at four in the afternoon.
+
+**Now the number that's bigger than the judge.** Roughly ten more attempts were
+abandoned before they ever got a verdict — one task burned six pull requests
+before one of them landed. So the deterministic gates and the integration step
+killed *more* work than the reviewer did. That's the tier-0 argument from the last
+slide, paying off, measured.
+
+> **Volunteer the caveat — someone will ask.**
+
+On one change the judge returned APPROVE and DISSENT on the **same commit**, 46
+seconds apart. It is not deterministic. On another it returned nothing 27 times
+running and a human had to sign off. So "8" is a sample, not a constant — and
+that's an argument for cheap reviewers being *redundant*, not for trusting one.
+
+### The eight, for reference
+
+| PR | What it caught |
+|----|----------------|
+| #54 | Infinite loop when the hash table fills — a denial of service |
+| #55 | Dimensional error — field of view computed ~850× wrong |
+| #66 | Assert too tight (1e-12) — would panic on real catalog data |
+| #73 | Off-by-one exponent — every f16 subnormal decoded at half value |
+| #76 | Search-radius regression — silently returns nothing past a cutoff |
+| #77 | Wrong variable returned — search bound used as the FOV estimate |
+| #79 | Dead loop — iterated over keys it never passed to the database |
+| #84 | Unit heuristic breaks — a 2° field reported as 114.6° |
+
+---
+
+## 8 · What it cost — 7:30 (80s)
 
 > **SWITCH TO GRAFANA.** This is the part to drive live if the board is up.
 
@@ -198,7 +246,7 @@ different metrics, and only one of them is a business metric.
 
 ---
 
-## 8 · Three moves — 8:30 (60s)
+## 9 · Three moves — 8:50 (50s)
 
 If you take three things back to your team:
 
@@ -217,7 +265,7 @@ None of this is about the price of tokens. All of it is about architecture.
 
 ---
 
-## 9 · Discussion — 9:30 (30s)
+## 10 · Discussion — 9:40 (20s)
 
 Three questions we'd genuinely like to argue about:
 
@@ -234,7 +282,7 @@ Three questions we'd genuinely like to argue about:
 
 ## Q&A backup
 
-### "What goes wrong?" → slide 10
+### "What goes wrong?" → slide 11
 
 - **Runaway context burn.** One worker ran 72 minutes and 1,410 commands, consumed
   100% of its context window, and produced **zero lines of code**. Auto-compaction
@@ -249,7 +297,7 @@ Three questions we'd genuinely like to argue about:
 Both clauses in every task brief today were bought with a failed run. Your first
 spend on an agent fleet is on learning which failure modes cost money.
 
-### "How do you trust code no human wrote?" → slide 11
+### "How do you trust code no human wrote?" → slide 12
 
 You don't trust the author. You make the author's output falsifiable by something
 it cannot influence. The vendored Python reference was not produced by the code
@@ -257,7 +305,7 @@ under test, so agreement with it is external validation, not self-certification:
 RA/Dec within a few arcseconds, centroids within ±0.1 px, identical catalog IDs,
 90% coverage floor on the numerical core.
 
-### "Where did that number come from?" → slide 12
+### "Where did that number come from?" → slide 13
 
 Every figure with the command or file it came from. All reproducible from this
 repo at `v1-original` and `main`. The one row marked PENDING is the Grafana spend
@@ -286,13 +334,13 @@ be — that's the discussion.
 
 ## Rehearsal checklist — Monday morning
 
-- [ ] Fill the four spend tiles on slide 7 from Grafana (search `is-pending`)
-- [ ] Drop a Grafana panel screenshot into the slot on slide 7, or confirm the
+- [ ] Fill the four spend tiles on slide 8 from Grafana (search `is-pending`)
+- [ ] Drop a Grafana panel screenshot into the slot on slide 8, or confirm the
       live board loads
 - [ ] Decide live vs. screenshots for slide 2 and, if live, pre-warm the solver
 - [ ] Swap the brand tokens if the palette is off (top of the HTML, one block —
       `slalom.com` was unreachable from the build environment, so the colors are
       brand-adjacent, not sampled)
 - [ ] Run it once end-to-end with the clock (`T`) — the target is landing on slide
-      9 at 9:30
+      10 at 9:40
 - [ ] Agree who takes which slides, and who fields which pushback
