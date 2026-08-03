@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/*"]
-exclude = ["reference-solutions/cedar-detect"]
+exclude = []
 resolver = "2"
 
 [workspace.package]

@@ -1,3 +1,0 @@
-# Clippy configuration. `msrv` keeps clippy from suggesting APIs newer than the
-# minimum supported Rust version the `msrv` CI job builds against.
-msrv = "1.96"
