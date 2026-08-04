@@ -75,7 +75,8 @@ pub fn verify_candidate_with_outcome(
     let image_largest_edge = largest_pixel_edge(&pattern_centroids);
     let catalog_largest_edge = candidate.edges[5]; // largest of the six sorted edges
     let fov = estimate_fov(
-        Some(ctx.fov_initial),
+        // ctx.fov_initial is degrees; estimate_fov works in radians.
+        Some(ctx.fov_initial.to_radians()),
         image_largest_edge,
         catalog_largest_edge,
         width,

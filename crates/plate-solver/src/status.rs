@@ -85,11 +85,18 @@ pub struct SolveContext {
     pub match_threshold: f64,
     pub match_radius: f64,
     pub match_max_error: f64,
+    /// Optional FOV tolerance in degrees; enables the largest-edge/FOV
+    /// candidate pre-filter when present.
+    pub fov_max_error: Option<f64>,
     pub distortion: f64,
     pub solve_timeout_ms: u64,
     pub start_instant: std::time::Instant,
     pub cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
     pub verification_stars_per_fov: usize,
+    /// Maximum number of brightest centroids used when forming 4-star
+    /// patterns (upstream tetra3's `pattern_checking_stars`, default 8).
+    /// Verification still uses the full prepared centroid list.
+    pub pattern_checking_stars: usize,
 }
 
 impl SolveContext {

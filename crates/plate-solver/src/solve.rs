@@ -6,7 +6,7 @@ use crate::refine::refine_solution;
 use crate::status::{Solution, SolveContext, SolveStatus};
 use math_core::UnitVector;
 use pattern_database::PatternDatabase;
-use star_detection::{detect_stars, noise::estimate_noise};
+use star_detection::detect_stars;
 
 /// Parameters controlling star extraction.
 #[derive(Debug, Clone, Copy)]
@@ -35,6 +35,9 @@ impl Default for DetectParams {
 }
 
 /// Solve a lost-in-space plate from pre-extracted centroids.
+///
+/// Centroids are `(y, x)` pixel coordinates (tetra3's convention), with
+/// `(0.5, 0.5)` at the center of the top-left pixel.
 ///
 /// This function owns the front of the solve loop: context construction,
 /// preparation, and breadth-first image-pattern iteration. Verification and
@@ -93,9 +96,8 @@ pub fn solve_from_image(
     detect_params: DetectParams,
 ) -> Solution {
     let sigma = detect_params.sigma;
-    let noise_estimate = detect_params
-        .noise_estimate
-        .unwrap_or_else(|| estimate_noise(image, width, height));
+    // `detect_params.noise_estimate` is reserved for a future explicit-noise
+    // detection path; `detect_stars` currently estimates noise internally.
     let binning = detect_params.binning;
     let normalize_rows = detect_params.normalize_rows;
     let detect_hot_pixels = detect_params.detect_hot_pixels;
@@ -110,9 +112,11 @@ pub fn solve_from_image(
         detect_hot_pixels,
     );
 
-    let centroids: Vec<(f64, f64)> = stars.iter().map(|s| (s.x, s.y)).collect();
+    // The solve pipeline uses tetra3's (y, x) centroid convention throughout
+    // (see PinholeCamera::unproject).
+    let centroids: Vec<(f64, f64)> = stars.iter().map(|s| (s.y, s.x)).collect();
 
-    let mut solution = solve_from_centroids(
+    solve_from_centroids(
         &centroids,
         (width, height),
         fov_estimate,
@@ -123,12 +127,7 @@ pub fn solve_from_image(
         distortion,
         match_max_error,
         db,
-    );
-
-    // Stash the estimated noise in a field for now; downstream beads will replace
-    // this with the verified match probability once verification is implemented.
-    solution.match_probability = Some(noise_estimate);
-    solution
+    )
 }
 
 /// Breadth-first iteration over 4-star combinations.
@@ -142,7 +141,10 @@ fn iterate_patterns(
     width: f64,
     height: f64,
 ) -> Solution {
-    let n = vectors.len();
+    // Only the brightest `pattern_checking_stars` centroids form patterns,
+    // matching upstream tetra3's search behaviour; verification below still
+    // sees the full centroid list.
+    let n = vectors.len().min(ctx.pattern_checking_stars);
     if n < 4 {
         return Solution {
             status: Some(SolveStatus::TooFew),

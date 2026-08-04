@@ -123,17 +123,36 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
     // Measured pattern key and largest edge.
     let (key, largest_edge) = pattern_key(&ordered, bins);
 
+    // Measured (unquantized) edge ratios. The tolerance band and the key
+    // enumeration must center on these, not on `key[m]/bins`: the quantized
+    // value is the bin FLOOR, up to a full bin width below the measurement,
+    // and a band centered on it excludes true catalog ratios in the upper
+    // half of the bin.
+    let mut measured_edges = [0.0f64; 6];
+    let mut idx = 0;
+    for i in 0..PATTERN_SIZE {
+        for j in (i + 1)..PATTERN_SIZE {
+            measured_edges[idx] = math_core::angular_distance(ordered[i], ordered[j]);
+            idx += 1;
+        }
+    }
+    measured_edges.sort_by(|a, b| a.total_cmp(b));
+    let measured_largest = measured_edges[5];
+    let mut measured_ratios = [0.0f64; KEY_LEN];
+    for m in 0..KEY_LEN {
+        measured_ratios[m] = measured_edges[m] / measured_largest;
+    }
+
     // Tolerance band in ratio space.
     let mut ratio_min = [0.0; KEY_LEN];
     let mut ratio_max = [0.0; KEY_LEN];
     for m in 0..KEY_LEN {
-        let ratio = key[m] as f64 / bins as f64;
-        ratio_min[m] = (ratio - p_max_err).clamp(0.0, 1.0);
-        ratio_max[m] = (ratio + p_max_err).clamp(0.0, 1.0);
+        ratio_min[m] = (measured_ratios[m] - p_max_err).clamp(0.0, 1.0);
+        ratio_max[m] = (measured_ratios[m] + p_max_err).clamp(0.0, 1.0);
     }
 
     // Enumerate candidate keys nearest-first.
-    let keys = candidate_keys(&key, bins, p_max_err);
+    let keys = candidate_keys(&key, &measured_ratios, bins, p_max_err);
 
     // Query each candidate key, collecting unique candidates in probe order.
     let mut seen = std::collections::HashSet::new();
@@ -155,7 +174,7 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
         let query = LookupQuery {
             vectors: candidate_vectors,
             fov_estimate: Some(ctx.fov_initial),
-            fov_max_error: Some(ctx.match_max_error),
+            fov_max_error: ctx.fov_max_error,
             ratio_min,
             ratio_max,
         };
@@ -178,12 +197,17 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
 /// For each of the 5 ratios, compute the integer bin range that falls inside
 /// `[ratio_min, ratio_max]`, then take the cartesian product and sort by squared
 /// distance from the measured key in bin space.
-fn candidate_keys(measured: &[u32; KEY_LEN], bins: u32, p_max_err: f64) -> Vec<[u32; KEY_LEN]> {
+fn candidate_keys(
+    measured: &[u32; KEY_LEN],
+    measured_ratios: &[f64; KEY_LEN],
+    bins: u32,
+    p_max_err: f64,
+) -> Vec<[u32; KEY_LEN]> {
     let mut ranges: [Vec<u32>; KEY_LEN] = std::array::from_fn(|_| Vec::new());
     for m in 0..KEY_LEN {
-        let ratio = measured[m] as f64 / bins as f64;
+        let ratio = measured_ratios[m];
         let lo = ((ratio - p_max_err).clamp(0.0, 1.0) * bins as f64).floor() as u32;
-        let hi = ((ratio + p_max_err).clamp(0.0, 1.0) * bins as f64).ceil() as u32;
+        let hi = ((ratio + p_max_err).clamp(0.0, 1.0) * bins as f64).floor() as u32;
         let hi = hi.min(bins - 1);
         ranges[m] = (lo..=hi).collect();
     }
@@ -297,6 +321,8 @@ mod tests {
             start_instant: std::time::Instant::now(),
             cancelled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             verification_stars_per_fov: verification_stars_per_fov as usize,
+            pattern_checking_stars: 8,
+            fov_max_error: None,
         }
     }
 
@@ -319,7 +345,9 @@ mod tests {
     fn nearest_first_ordering_by_squared_distance() {
         let _ctx = test_db(10.0, 30.0, 100, 150, 10, 0.001);
         let measured = [5u32; KEY_LEN];
-        let keys = candidate_keys(&measured, 10, 0.002);
+        // Measured ratios at the center of bin 5 of 10.
+        let measured_ratios = [0.55f64; KEY_LEN];
+        let keys = candidate_keys(&measured, &measured_ratios, 10, 0.002);
         // The first key must be the measured key itself (distance 0).
         assert_eq!(keys[0], measured);
         // Distances must be non-decreasing.

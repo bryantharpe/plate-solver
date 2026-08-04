@@ -121,13 +121,21 @@ pub fn build_context(
         match_threshold: bonferroni_threshold(match_threshold, props.num_patterns),
         match_radius,
         match_max_error,
+        fov_max_error: (fov_max_error > 0.0).then_some(fov_max_error),
         distortion,
         solve_timeout_ms,
         start_instant: Instant::now(),
         cancelled: Arc::new(AtomicBool::new(false)),
         verification_stars_per_fov: props.verification_stars_per_fov as usize,
+        pattern_checking_stars: PATTERN_CHECKING_STARS,
     }
 }
+
+/// Upstream tetra3's `pattern_checking_stars` default: only the brightest 8
+/// centroids form candidate 4-star patterns. Without this cap the
+/// breadth-first iteration explodes combinatorially (C(n,4) probes for n
+/// detected stars) and real images time out instead of solving.
+const PATTERN_CHECKING_STARS: usize = 8;
 
 /// Run the preparation stage and return either the prepared context/centroids or a solution
 /// already terminated with `TOO_FEW`.

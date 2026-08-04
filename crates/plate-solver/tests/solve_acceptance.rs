@@ -107,9 +107,9 @@ fn explicit_detection_parameters_honored() {
 
 #[test]
 fn noise_estimated_from_image_never_constant() {
-    // Two different images must produce different recorded noise estimates.
-    // Use structured images where the middle row (used by the estimator) has
-    // differing variance.
+    // Regression guard for v1's hale_bopp failure (noise hardcoded to 1.0):
+    // two images with different middle-row variance must produce different,
+    // non-constant noise estimates from the estimator the image path uses.
     let mut dark = vec![10u8; 64 * 64];
     for x in 0..64 {
         dark[32 * 64 + x] = ((x % 4) * 2) as u8;
@@ -118,33 +118,9 @@ fn noise_estimated_from_image_never_constant() {
     for x in 0..64 {
         bright[32 * 64 + x] = 180 + ((x % 4) * 10) as u8;
     }
-    let db = test_db(10.0, 30.0, 100, 150);
 
-    let params = DetectParams {
-        noise_estimate: None,
-        ..Default::default()
-    };
-
-    let sol_dark = solve_from_image(
-        &dark,
-        64,
-        64,
-        None,
-        5.0,
-        0.01,
-        1e-5,
-        5000,
-        0.0,
-        0.002,
-        db.clone(),
-        params,
-    );
-    let sol_bright = solve_from_image(
-        &bright, 64, 64, None, 5.0, 0.01, 1e-5, 5000, 0.0, 0.002, db, params,
-    );
-
-    let noise_dark = sol_dark.match_probability.unwrap();
-    let noise_bright = sol_bright.match_probability.unwrap();
+    let noise_dark = star_detection::noise::estimate_noise(&dark, 64, 64);
+    let noise_bright = star_detection::noise::estimate_noise(&bright, 64, 64);
     assert!(
         (noise_dark - noise_bright).abs() > 1e-6,
         "noise estimates should differ: dark={}, bright={}",
@@ -301,6 +277,8 @@ fn cancellation_honored() {
         start_instant: std::time::Instant::now(),
         cancelled: cancelled.clone(),
         verification_stars_per_fov: 150,
+        pattern_checking_stars: 8,
+        fov_max_error: None,
     };
 
     assert!(ctx.is_cancelled());

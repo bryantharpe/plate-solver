@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --color-space-950: #05070f;
+  --color-space-900: #0a0f1f;
+  --color-space-800: #111a33;
+  --color-ink: #e2e8f0;
+  --color-ink-muted: #94a3b8;
+  --color-ink-faint: #64748b;
+  --color-accent: #818cf8;
+  --color-accent-bright: #a5b4fc;
+  --color-nebula: #c084fc;
+  --color-star-ring: #34d399;
+  --font-mono-num: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-space-950 text-ink antialiased;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Pure-CSS starfield: three parallax-ish layers of radial-gradient "stars"
+   plus a faint nebula glow. No images, works offline. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, rgba(226, 232, 240, 0.9) 50%, transparent 51%),
+    radial-gradient(1px 1px at 31% 67%, rgba(226, 232, 240, 0.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 47% 12%, rgba(226, 232, 240, 0.9) 50%, transparent 51%),
+    radial-gradient(1px 1px at 58% 43%, rgba(226, 232, 240, 0.6) 50%, transparent 51%),
+    radial-gradient(1px 1px at 66% 81%, rgba(226, 232, 240, 0.8) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 78% 29%, rgba(226, 232, 240, 0.9) 50%, transparent 51%),
+    radial-gradient(1px 1px at 84% 62%, rgba(226, 232, 240, 0.6) 50%, transparent 51%),
+    radial-gradient(1px 1px at 91% 9%, rgba(226, 232, 240, 0.8) 50%, transparent 51%),
+    radial-gradient(1px 1px at 6% 84%, rgba(226, 232, 240, 0.7) 50%, transparent 51%),
+    radial-gradient(1px 1px at 22% 45%, rgba(148, 163, 184, 0.6) 50%, transparent 51%),
+    radial-gradient(1px 1px at 39% 90%, rgba(148, 163, 184, 0.6) 50%, transparent 51%),
+    radial-gradient(1px 1px at 53% 71%, rgba(148, 163, 184, 0.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 53%, rgba(148, 163, 184, 0.55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 95% 44%, rgba(148, 163, 184, 0.6) 50%, transparent 51%),
+    radial-gradient(1px 1px at 44% 33%, rgba(148, 163, 184, 0.45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 87% 88%, rgba(148, 163, 184, 0.5) 50%, transparent 51%),
+    radial-gradient(ellipse 60% 45% at 75% -10%, rgba(129, 140, 248, 0.12), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 15% 110%, rgba(192, 132, 252, 0.08), transparent 70%);
+  background-color: transparent;
+}
+
+/* Shared surface for cards/panels. */
+.panel {
+  @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm;
+}
+
+/* Numeric input styling shared by all form fields. */
+.field-input {
+  @apply w-full rounded-lg border border-white/10 bg-space-900/80 px-3 py-2 text-sm text-ink
+    placeholder:text-ink-faint focus:border-accent/60 focus:outline-none focus:ring-2
+    focus:ring-accent/25 transition;
+}
+
+.field-label {
+  @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-muted;
+}

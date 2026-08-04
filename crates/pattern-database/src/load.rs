@@ -273,7 +273,14 @@ fn decode_properties(
                 field.name
             ))
         })?;
-        values.insert(field.name.as_str(), decode_field(&field.dtype, bytes)?);
+        // Newer upstream databases add fields with exotic dtypes (nested
+        // arrays like range_ra, bools) that no DatabaseProperties field
+        // consumes. Skip anything undecodable instead of refusing the whole
+        // database; a required field that fails to decode still surfaces as
+        // "missing field" below.
+        if let Ok(value) = decode_field(&field.dtype, bytes) {
+            values.insert(field.name.as_str(), value);
+        }
         offset += size;
     }
 
@@ -351,6 +358,10 @@ fn decode_field(dtype: &DType, bytes: &[u8]) -> Result<FieldValue, LoadError> {
     let ty = parse_type_str(dtype)?;
     match (ty.kind, ty.size) {
         ('S', _) => Ok(FieldValue::Str(decode_bytestr(bytes))),
+        ('U', _) => Ok(FieldValue::Str(decode_ucs4(bytes, ty.little))),
+        // numpy bool (e.g. upstream's presort_patterns); no properties field
+        // consumes booleans today, so a widened integer representation is enough.
+        ('b', 1) => Ok(FieldValue::U16(bytes.first().copied().unwrap_or(0) as u16)),
         ('u', 2) => Ok(FieldValue::U16(decode_uint(bytes, ty.little) as u16)),
         ('u', 4) => Ok(FieldValue::U32(decode_uint(bytes, ty.little) as u32)),
         ('f', 4) => Ok(FieldValue::F32(decode_f32(bytes, ty.little))),
@@ -516,6 +527,24 @@ fn decode_f16(bytes: &[u8], little: bool) -> f32 {
 fn decode_bytestr(bytes: &[u8]) -> String {
     let end = bytes.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
     String::from_utf8_lossy(&bytes[..end]).into_owned()
+}
+
+/// Decode a numpy `U` (UCS-4) string field: one 4-byte codepoint per
+/// character, NUL-padded to the declared width.
+fn decode_ucs4(bytes: &[u8], little: bool) -> String {
+    bytes
+        .chunks_exact(4)
+        .map(|c| {
+            let raw = [c[0], c[1], c[2], c[3]];
+            if little {
+                u32::from_le_bytes(raw)
+            } else {
+                u32::from_be_bytes(raw)
+            }
+        })
+        .take_while(|&cp| cp != 0)
+        .map(|cp| char::from_u32(cp).unwrap_or(char::REPLACEMENT_CHARACTER))
+        .collect()
 }
 
 #[cfg(test)]

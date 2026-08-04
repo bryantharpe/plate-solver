@@ -1,0 +1,25 @@
+[package]
+name = "ps-web"
+description = "Web test harness for the plate solver: embedded SPA + JSON solve API"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pattern-database = { path = "../pattern-database" }
+plate-solver = { path = "../plate-solver" }
+axum = { version = "0.8", features = ["multipart"] }
+rust-embed = "8"
+mime_guess = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+serde = { version = "1", features = ["derive"] }
+clap = { version = "4.6", default-features = false, features = ["std", "help", "derive"] }
+# Enable PNG in addition to JPEG for uploaded images.
+image = { version = "0.25.1", default-features = false, features = ["jpeg", "png"] }
+
+[dev-dependencies]
+serde_json = "1"
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

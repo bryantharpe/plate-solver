@@ -32,18 +32,42 @@ pub fn refine_solution(
         };
     }
 
+    // The verification stage unprojected centroids with the caller's initial
+    // FOV estimate; re-unproject the matched centroids with the coarse FOV it
+    // measured, so the refinement below corrects a small residual error
+    // instead of double-applying the largest-edge correction.
+    let coarse_camera = PinholeCamera::new(width, height, outcome.coarse_fov);
+    let refit_image_vectors: Vec<UnitVector> = coarse_camera
+        .unproject(&outcome.matched_centroids)
+        .into_iter()
+        .flatten()
+        .collect();
+    let image_vectors: &[UnitVector] = if refit_image_vectors.len() == outcome.matched_stars.len() {
+        &refit_image_vectors
+    } else {
+        &outcome.matched_image_vectors
+    };
+
     // 1. Re-fit attitude over all matched pairs.
-    let (_rotation, ra, dec, roll) =
-        match fit_attitude(&outcome.matched_image_vectors, &outcome.matched_stars) {
-            Some(r) => r,
-            None => {
-                return Solution {
-                    status: Some(SolveStatus::NoMatch),
-                    fov_used: Some(ctx.fov_initial),
-                    ..Solution::default()
-                }
+    let (rotation, ra, dec, roll) = match fit_attitude(image_vectors, &outcome.matched_stars) {
+        Some(r) => r,
+        None => {
+            return Solution {
+                status: Some(SolveStatus::NoMatch),
+                fov_used: Some(ctx.fov_initial),
+                ..Solution::default()
             }
-        };
+        }
+    };
+
+    // FOV refinement and residuals compare per-pair angles, so the catalog
+    // vectors (celestial frame) must first be derotated into the camera
+    // frame, exactly as the verification stage does before projecting.
+    let derotated_stars: Vec<UnitVector> = outcome
+        .matched_stars
+        .iter()
+        .map(|v| rotation.rotate(*v))
+        .collect();
 
     // 2. Refine FOV and optionally distortion.
     let estimate_distortion = ctx.distortion != 0.0;
@@ -51,13 +75,13 @@ pub fn refine_solution(
         outcome.coarse_fov,
         width,
         height,
-        &outcome.matched_image_vectors,
-        &outcome.matched_stars,
+        image_vectors,
+        &derotated_stars,
         estimate_distortion,
     );
 
     // 3. Residuals in arcseconds.
-    let stats = residual_stats(&outcome.matched_image_vectors, &outcome.matched_stars);
+    let stats = residual_stats(image_vectors, &derotated_stars);
 
     // 4. Assemble solution.
     Solution {
