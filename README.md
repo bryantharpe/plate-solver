@@ -1,89 +1,126 @@
-# plate-solver — Gastown rewrite
+# plate-solver
 
-This branch (`rewrite`) is a **from-scratch reimplementation** of plate-solver, driven
-entirely by the specifications in [`openspec/`](openspec/). The original v1 implementation
-has been removed here so the rewrite starts clean.
+A fast Rust implementation of the **tetra3 / cedar-solve "lost-in-space"
+plate-solving algorithm**: give it a night-sky image and a rough field-of-view
+guess, and it tells you where the camera was pointing — right ascension,
+declination, roll, refined FOV, and the matched catalog stars — with no other
+prior knowledge.
 
-> **The original is preserved.** The complete v1 codebase lives on `main` and is frozen
-> at the immutable tag [`v1-original`](../../releases/tag/v1-original) (`185128e`).
-> Recover it any time with `git checkout v1-original`. This branch will be merged on top
-> of the original once the rewrite is ready.
+On the reference corpus it produces the **same solutions as tetra3 and
+cedar-solve (boresight agreement within arcseconds) at about half the wall
+time**, full image → solution in ~8 ms on a desktop CPU against a
+million-pattern database. See [the benchmark](docs/benchmarks/RESULTS.md) for
+the tables and [methodology](docs/benchmarks/README.md) to reproduce them.
 
-## What's in this branch (and only this)
+## Where it came from
 
-| Path | Role |
-|------|------|
-| `openspec/` | **Source of truth.** Capability specs, PRD, and project conventions. Start at `openspec/project.md` and `openspec/PRD.md`. |
-| `openspec/specs/` | The six canonical capability specs the rewrite must satisfy, in dependency order: `math-core`, `star-detection`, `pattern-database`, `database-generation`, `plate-solver`, `grpc-service`. (`mobile-runtime` is the seventh capability, still an open change under `openspec/changes/`.) |
-| `proto/` | The gRPC interface contracts (`plate_solver.proto`, `cedar_detect.proto`) — relocated out of the old crate as standalone specs. |
-| `reference-solutions/` | **The oracle.** Vendored reference outputs (cedar-solve / tetra3 / cedar-detect) that parity / differential tests validate the rewrite against. Kept deliberately so the rewrite can prove behavioral equivalence, not just compile. |
+- [**tetra3**](https://github.com/esa/tetra3) (ESA, Apache-2.0) is the
+  original Python implementation: geometric hashing of 4-star patterns —
+  five rotation/scale-invariant edge ratios quantized into a key, hashed
+  into a precomputed sky database — followed by attitude solving (Wahba/SVD)
+  and a binomial false-alarm test.
+- [**cedar-solve**](https://github.com/smroid/cedar-solve) and
+  [**cedar-detect**](https://github.com/smroid/cedar-detect)
+  (Steven Rosenthal) evolved tetra3 for the Cedar star-tracker: a faster
+  star detector, database layout extensions (largest-edge and 16-bit hash
+  pre-filters), and a gRPC service surface.
+- **This repo** is a from-scratch Rust implementation of that algorithm
+  family, written against [written specifications](openspec/) with the
+  Python implementations used only as test oracles. It reads cedar-format
+  `.npz` pattern databases directly, matches cedar-detect's centroids to
+  0.1 px on upstream's own test images (`crates/star-detection/tests/parity.rs`),
+  and reproduces the reference solutions end-to-end
+  (`crates/ps-web/tests/solve_integration.rs`).
 
-## What was intentionally removed
+Nothing from the upstream projects is vendored or redistributed here;
+`scripts/fetch-references.sh` clones them at pinned commits into a
+gitignored `references/` directory for parity tests and benchmarks.
 
-Everything that is *implementation* rather than *specification*: all `ps-*` crates, the
-Cargo workspace and lockfile, `rust-toolchain.toml`, the `tools/` and `notes/` directories,
-the v1 planning docs, and the `.claude/` tooling. These are rebuilt from scratch.
+## How it compares
 
-Also removed: every artifact that reported **v1's implementation status** — `openspec/STATUS.md`,
-`openspec/IMPLEMENTATION-STATUS.md`, `CODEBASE-REVIEW.md`, and the two changes written against
-v1's now-deleted code (`feat-09-eval-harness`, whose tasks were checked off against a `tools/parity/`
-harness that no longer exists, and `feat-10-solve-from-image-detect-params`, a patch for a defect
-in deleted code). They described code that does not exist on this branch, and an agent reading them
-would build against an API that was never here. Their surviving *requirements* were folded into
-`openspec/specs/` rather than dropped — see the `plate-solver` and `grpc-service` specs on detection
-parameters and image-estimated noise.
+8-frame calibrated corpus, each solver running its own shipped end-to-end
+path (star detection + solve, stock defaults, database preloaded — median of
+5 warm runs, AMD Ryzen 9 9950X3D):
 
-Also removed, and this is the important one: **`openspec/changes/archive/`** — v1's seven archived
-changes, holding its architecture rationale (`design.md`) and its exact dependency-ordered task
-breakdown (`tasks.md`). It was *useful*, and it was removed anyway. See below.
+| solver | solved | median wall time | agreement with tetra3 (worst case) |
+|---|---|---|---|
+| **plate-solver (this repo)** | 8/8 | **8.4 ms** | 18.7″ boresight |
+| tetra3 (Python) | 8/8 | 16.2 ms | — (baseline) |
+| cedar-solve (Python) | 8/8 | 15.9 ms | 13.6″ boresight |
 
-Along with it went the places v1's architecture had leaked into the specs themselves:
-`project.md`'s crate→capability table (which handed over the module split and the library picks),
-and the `web-ui` spec — written retroactively to describe an already-built harness, citing its
-source files thirteen times, and never part of the product path in the first place.
+Full tables, per-image data, and known gaps: [docs/benchmarks/RESULTS.md](docs/benchmarks/RESULTS.md).
 
-**No code exists on this branch.** Nothing here reports implementation progress; the rewrite's
-progress is tracked in beads (`ps-*`), not in `openspec/`.
+## Try it in the browser
 
-## The constraint: specs are the only input
+```bash
+scripts/fetch-references.sh    # pinned upstream checkouts (database + test images)
+cargo run --release -p ps-web -- \
+    --db references/cedar-solve/tetra3/data/default_database.npz
+```
 
-This rewrite is deliberately run as if **no prior implementation had ever existed** — because
-that is the realistic condition. On a real project you inherit a specification and a system to
-match; you do not inherit your own previous attempt's design decisions and task list.
+Then open <http://127.0.0.1:8080>: drag in a star-field photo, set the FOV
+estimate, and get the solution with a matched-star overlay and an Aladin sky
+view. `POST /api/solve` (multipart: `image`, `fov_estimate`, optional
+`timeout_ms`/`match_radius`/`match_threshold`/`fov_max_error`/`distortion`)
+returns the same result as JSON — see [crates/ps-web](crates/ps-web/README.md).
 
-So the build must be derivable from **`openspec/specs/` + `reference-solutions/` alone.**
+Or from the command line:
 
-- `openspec/specs/` — the six capability specs. The requirements, and the `#### Scenario:` blocks
-  that are the acceptance criteria.
-- `reference-solutions/` — the external oracle. Legitimate: it is the system being
-  re-implemented and the parity contract, the equivalent of the legacy system or paper you would
-  have at work.
+```bash
+cargo run --release -p plate-solver --example solve_image -- \
+    references/cedar-solve/tetra3/data/default_database.npz \
+    references/cedar-solve/examples/data/medium_fov/2019-07-29T204726_Alt40_Azi-135_Try1.jpg \
+    11
+```
 
-What the specs deliberately do **not** say is how to build it. They name capabilities, not
-modules. The crate structure, the internal interfaces, and the dependency choices are for the
-implementation to determine; `project.md` §5 lists the binding constraints — the ones fixed by
-parity, by the proto contracts, or by the PRD — and nothing beyond them. Where the fleet lands
-differently from v1 is a result, not a defect.
+## Crates
 
-`changes/archive/` was neither of those. It was the record of *our own previous build's* internal
-choices — the crate split, the decomposition, the order. Keeping it would have quietly changed
-the question from *"are these specs sufficient to build the system?"* to *"can an agent follow
-v1's build plan?"* — and the second question is already answered, because v1 followed it.
+| Crate | What it owns |
+|---|---|
+| [`math-core`](crates/math-core) | Attitude (Wahba/SVD), pattern keys and hashing, pinhole camera, FOV refinement, residuals |
+| [`star-detection`](crates/star-detection) | Noise estimation, binning, centroiding (cedar-detect-compatible, parity-tested) |
+| [`pattern-database`](crates/pattern-database) | `.npz` database loader (eager or mmap), KD-tree, key→candidates lookup |
+| [`database-generation`](crates/database-generation) | `tetra3-gen-db` CLI: catalog parsing (BSC5/HIP/TYC), proper motion, pattern enumeration, serialization |
+| [`plate-solver`](crates/plate-solver) | The solve loop: preparation, candidate generation, verification, refinement |
+| [`grpc-service`](crates/grpc-service) | tonic service surface for [`proto/plate_solver.proto`](proto/plate_solver.proto) |
+| [`ps-web`](crates/ps-web) | Web test harness: axum server + embedded React UI |
 
-It is preserved on `main` and at tag [`v1-original`](../../releases/tag/v1-original), and it has a
-real use *after* the fact: diff what gets built from the specs against what v1 did, and the
-differences are the finding. But it must be invisible while the work is running, because a rule
-that says "don't read the answer key" is not a rule anyone can enforce.
+Design documents live in [`openspec/`](openspec/) (capability specs and PRD)
+and [`docs/algorithms/`](docs/algorithms/) (algorithm write-ups, including a
+[tetra3 vs cedar comparison](docs/algorithms/08-tetra3-vs-cedar-comparison.md)).
 
-One v1 lesson was kept, and the way it was kept is the point: v1 hardcoded `noise_estimate = 1.0`
-in `solve_from_image`, which is why `hale_bopp.jpg` failed to solve. That did not survive as
-history or as a note — it survives as a **requirement and a regression scenario in the
-`grpc-service` and `plate-solver` specs**. Lessons enter through the spec, or not at all.
+## Building and testing
 
-## Getting started
+```bash
+cargo build --release        # needs protobuf-compiler for grpc-service
+cargo test --workspace       # self-contained; reference-based tests skip if references/ absent
+scripts/fetch-references.sh  # enable the cedar-detect parity + reference solve tests
+cargo test --workspace       # now includes them
+```
 
-1. Read `openspec/project.md` (conventions) and `openspec/PRD.md` (product requirements).
-2. Work capability-by-capability from `openspec/specs/`.
-3. Validate against `reference-solutions/` as each capability lands.
-4. A CI pipeline (quality / security / test gates) will be added once there is buildable
-   code to run it against.
+Generating a pattern database from a star catalog:
+
+```bash
+cargo run --release -p database-generation -- --help   # tetra3-gen-db
+```
+
+## Status
+
+Working today: solve-from-image and solve-from-centroids as a library, the
+web harness, database generation, and the benchmark suite. Not finished:
+a runnable gRPC server binary (the tonic service surface exists as a
+library), distortion estimation polish (the refinement-stage RMSE gap noted
+in the benchmark), and mobile (UniFFI) bindings.
+
+## License
+
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or
+[MIT license](LICENSE-MIT) at your option.
+
+This project reimplements, and is tested against, algorithms from
+[tetra3](https://github.com/esa/tetra3) (ESA, Apache-2.0),
+[cedar-solve](https://github.com/smroid/cedar-solve) (Steven Rosenthal,
+Apache-2.0), and [cedar-detect](https://github.com/smroid/cedar-detect)
+(Steven Rosenthal, FSL-1.1 — used only as a local test oracle, never
+redistributed). Reference test imagery is credited in the upstream
+repositories.

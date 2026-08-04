@@ -41,7 +41,8 @@ impl Default for DetectParams {
 ///
 /// This function owns the front of the solve loop: context construction,
 /// preparation, and breadth-first image-pattern iteration. Verification and
-/// refinement are delegated to downstream beads via the `candidates` module.
+/// refinement are delegated to the `candidates`, `verify`, and `refine`
+/// modules.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_from_centroids(
     centroids: &[(f64, f64)],

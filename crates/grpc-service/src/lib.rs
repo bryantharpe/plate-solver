@@ -12,7 +12,7 @@
 //! * Forwarding detection/solve parameters to the solver.
 //!
 //! The shared-memory fast path and full `SolveFromImage` detection fidelity are
-//! owned by `ps-grpc-02`; this bead stubs them so the files stay disjoint.
+//! not implemented yet; the service returns explicit errors for them.
 
 pub mod proto {
     tonic::include_proto!("plate_solver");

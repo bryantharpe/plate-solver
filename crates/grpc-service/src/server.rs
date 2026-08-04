@@ -236,7 +236,7 @@ fn read_image(image: &Option<Image>) -> Result<(Vec<u8>, usize, usize), Status> 
         // ps-grpc-02 owns shared-memory handling. For now, signal the client to
         // fall back to inline image_data per the spec.
         return Err(Status::internal(
-            "shared-memory fast path not implemented in this bead",
+            "shared-memory fast path not implemented yet",
         ));
     }
 

@@ -1,6 +1,6 @@
-//! Acceptance tests for ps-plate-01-solve-loop.
+//! Acceptance tests for the solve loop.
 //!
-//! Covers the three Requirement sections owned by this bead:
+//! Covers three Requirement sections of the plate-solver spec:
 //!   - Solve inputs and defaults
 //!   - Preparation
 //!   - Image-pattern iteration

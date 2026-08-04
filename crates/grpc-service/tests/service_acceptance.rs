@@ -1,6 +1,6 @@
-//! Acceptance tests for ps-grpc-01-surface.
+//! Acceptance tests for the gRPC service surface.
 //!
-//! Covers the Requirements owned by this bead:
+//! Covers:
 //!   - PlateSolver service surface (all four RPCs available)
 //!   - Image message (inline vs shmem selection field-level)
 //!   - ImageCoord and centroid messages (pixel-center convention, brightest-first)
@@ -231,7 +231,7 @@ async fn shmem_name_returns_internal() {
         })
         .await;
 
-    assert!(response.is_err(), "shmem should fail in this bead");
+    assert!(response.is_err(), "shmem is not implemented and must fail");
     let status = response.unwrap_err();
     assert_eq!(status.code(), tonic::Code::Internal);
 }

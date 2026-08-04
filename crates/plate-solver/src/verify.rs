@@ -13,7 +13,7 @@
 //! 3. **False-alarm acceptance** — run the binomial test; accept the first candidate
 //!    whose probability is below the Bonferroni-corrected threshold.
 //!
-//! Out of scope (owned by the refinement bead): re-fit over all matches, RA/Dec/Roll
+//! Out of scope (owned by the refinement stage): re-fit over all matches, RA/Dec/Roll
 //! extraction, FOV/distortion refinement, residuals, and solution assembly.
 
 use crate::status::{MatchResult, SolveContext, VerificationOutcome};
