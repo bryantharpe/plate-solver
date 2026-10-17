@@ -18,11 +18,8 @@
 
 use crate::status::{MatchResult, SolveContext, VerificationOutcome};
 use math_core::{
-    attitude::solve_attitude,
-    binomial::false_alarm_test,
-    fov::{diagonal_fov, estimate_fov},
-    pattern::order_pattern_by_centroid_distance,
-    PinholeCamera, UnitVector,
+    attitude::solve_attitude, binomial::false_alarm_test, fov::diagonal_fov,
+    pattern::order_pattern_by_centroid_distance, PinholeCamera, UnitVector,
 };
 use pattern_database::Candidate;
 
@@ -66,99 +63,165 @@ pub fn verify_candidate_with_outcome(
     width: f64,
     height: f64,
 ) -> Option<VerificationOutcome> {
-    // 1. Attitude: pair image/catalog stars by centroid-distance order.
-    let (image_pattern, catalog_pattern) =
-        ordered_pattern_pair(image_vectors, pattern_indices, candidate, &ctx.db);
+    // 1. Coarse FOV (radians), exactly as cedar: scale the caller's estimate by the
+    //    ratio of catalog to image largest-edge *angles*, or, with no estimate, solve
+    //    the focal length from the largest pixel distance.
+    let pattern_centroids: [(f64, f64); 4] = pattern_indices.map(|i| centroids[i]);
+    let catalog_largest_edge = candidate.edges[5];
+    let fov = if ctx.fov_estimate.is_some() {
+        let initial: [UnitVector; 4] = pattern_indices.map(|i| image_vectors[i]);
+        let image_largest_angle = largest_angle(&initial);
+        catalog_largest_edge / image_largest_angle * ctx.fov_initial.to_radians()
+    } else {
+        let d = largest_pixel_edge(&pattern_centroids);
+        let f = d / 2.0 / (catalog_largest_edge / 2.0).tan();
+        2.0 * ((width / 2.0) / f).atan()
+    };
+    if !(fov.is_finite() && fov > 0.0 && fov < std::f64::consts::PI) {
+        return None;
+    }
+    let camera = PinholeCamera::new(width, height, fov);
 
-    // 2. Coarse FOV from largest-edge ratio (or focal length when no estimate).
-    let pattern_centroids: [(f64, f64); 4] = std::array::from_fn(|m| centroids[pattern_indices[m]]);
-    let image_largest_edge = largest_pixel_edge(&pattern_centroids);
-    let catalog_largest_edge = candidate.edges[5]; // largest of the six sorted edges
-    let fov = estimate_fov(
-        Some(ctx.fov_initial),
-        image_largest_edge,
-        catalog_largest_edge,
-        width,
-    );
+    // 2. Recompute the pattern vectors at the coarse FOV, pair by centroid order.
+    let image_pattern: [UnitVector; 4] = {
+        let v = camera.unproject(&pattern_centroids);
+        std::array::from_fn(|m| v[m].expect("pinhole unprojection is never zero-length"))
+    };
+    let catalog_pattern: [UnitVector; 4] = std::array::from_fn(|m| {
+        ctx.db
+            .star_vector(pattern_database::StarId(candidate.star_indices[m]))
+            .expect("candidate star index valid")
+    });
+    let io = order_pattern_by_centroid_distance(&image_pattern);
+    let co = order_pattern_by_centroid_distance(&catalog_pattern);
+    let image_ordered: Vec<UnitVector> = (0..4).map(|m| image_pattern[io[m]]).collect();
+    let catalog_ordered: Vec<UnitVector> = (0..4).map(|m| catalog_pattern[co[m]]).collect();
 
-    // 3. Solve SVD attitude. Reject reflections.
-    let rotation = solve_attitude(&image_pattern, &catalog_pattern)?;
+    // 3. Attitude; reflections are rejected inside `solve_attitude`.
+    let rotation = solve_attitude(&image_ordered, &catalog_ordered)?;
 
-    // 4. Gather nearby catalog stars within diagonal FOV of the boresight.
+    // 4. Catalog stars within HALF the diagonal FOV of the boresight (cedar passes
+    //    fov_diagonal/2 as the radius), brightest first.
     let boresight = UnitVector {
         x: rotation.rows[0][0],
         y: rotation.rows[0][1],
         z: rotation.rows[0][2],
     };
-    let radius = diagonal_fov(fov, width, height);
-    let nearby = ctx.db.nearby_stars(boresight, radius);
+    let nearby = ctx
+        .db
+        .nearby_stars(boresight, diagonal_fov(fov, width, height) / 2.0);
 
-    // 5. Derotate and project catalog stars to pixels; keep in-frame.
-    let camera = PinholeCamera::new(width, height, fov);
-    let catalog_vectors: Vec<UnitVector> = nearby
+    // 5. Derotate and project; keep in-frame; trim to 2 * num_centroids.
+    let derotated: Vec<UnitVector> = nearby
         .iter()
         .map(|&idx| {
-            ctx.db
-                .star_vector(pattern_database::StarId(idx))
-                .expect("valid star index")
+            rotation.rotate(
+                ctx.db
+                    .star_vector(pattern_database::StarId(idx))
+                    .expect("valid star index"),
+            )
         })
-        .collect();
-    let derotated: Vec<UnitVector> = catalog_vectors
-        .iter()
-        .map(|v| rotation.rotate(*v))
         .collect();
     let (projected, in_frame) = camera.project(&derotated);
-
-    // 6. Trim to brightest 2·num_centroids (brightness order is index order).
-    let max_catalog_stars = (centroids.len() * 2).min(in_frame.len());
-
-    // 7. Match projected catalog stars to image centroids uniquely within match_radius·width.
-    let match_radius_px = ctx.match_radius * width;
-    let (matches, matched_centroids, matched_image_vectors, matched_stars, matched_catalog_ids) =
-        match_projected_to_centroids(
-            &projected,
-            &in_frame,
-            &nearby,
-            &ctx.db,
-            max_catalog_stars,
-            centroids,
-            image_vectors,
-            match_radius_px,
-        );
-
-    // 8. Binomial false-alarm acceptance.
     let n = centroids.len();
-    let nc = max_catalog_stars;
-    let m = matches;
+    let kept: Vec<usize> = in_frame.iter().copied().take(2 * n).collect();
+    let kept_px: Vec<(f64, f64)> = kept.iter().map(|&k| projected[k]).collect();
+
+    // 6. Unique 1:1 matches within match_radius * width, cedar semantics.
+    let pairs = find_centroid_matches(centroids, &kept_px, ctx.match_radius * width);
+
+    // 7. Binomial false-alarm test. `ctx.match_threshold` is already divided by
+    //    num_patterns, and `false_alarm_test` divides again, so undo it here.
+    let num_patterns = ctx.props.num_patterns as usize;
+    let raw_threshold = ctx.match_threshold * num_patterns.max(1) as f64;
     let result = false_alarm_test(
         n,
-        nc,
-        m,
+        kept.len(),
+        pairs.len(),
         ctx.match_radius,
-        ctx.match_threshold,
-        ctx.props.num_patterns as usize,
+        raw_threshold,
+        num_patterns,
     );
-
-    if result.accepted {
-        Some(VerificationOutcome {
-            accepted: true,
-            rotation: Some(rotation),
-            matched_centroids,
-            matched_image_vectors,
-            matched_stars,
-            matched_catalog_ids,
-            match_probability: Some(result.prob),
-            coarse_fov: fov,
-        })
-    } else {
-        None
+    if !result.accepted {
+        return None;
     }
+
+    let matched_image_indices: Vec<usize> = pairs.iter().map(|&(i, _)| i).collect();
+    let matched_catalog_ids: Vec<usize> = pairs.iter().map(|&(_, k)| nearby[kept[k]]).collect();
+    let matched_centroids: Vec<(f64, f64)> = matched_image_indices
+        .iter()
+        .map(|&i| centroids[i])
+        .collect();
+    let matched_image_vectors: Vec<UnitVector> = camera
+        .unproject(&matched_centroids)
+        .into_iter()
+        .map(|v| v.expect("never zero-length"))
+        .collect();
+    let matched_stars: Vec<UnitVector> = matched_catalog_ids
+        .iter()
+        .map(|&s| {
+            ctx.db
+                .star_vector(pattern_database::StarId(s))
+                .expect("valid")
+        })
+        .collect();
+    Some(VerificationOutcome {
+        accepted: true,
+        rotation: Some(rotation),
+        matched_centroids,
+        matched_image_vectors,
+        matched_stars,
+        matched_catalog_ids,
+        match_probability: Some(result.prob),
+        coarse_fov: fov,
+        matched_image_indices,
+    })
+}
+
+/// Largest central angle between any two of the four vectors.
+fn largest_angle(v: &[UnitVector; 4]) -> f64 {
+    let mut best: f64 = 0.0;
+    for i in 0..4 {
+        for j in (i + 1)..4 {
+            best = best.max(math_core::angular_distance(v[i], v[j]));
+        }
+    }
+    best
+}
+
+/// Unique 1:1 matches within radius `r` pixels, with cedar's tie-breaking:
+/// all pairs closer than `r`; keep, per catalog star, the lowest image index; then,
+/// per image star, the lowest catalog index. Returns `(image, catalog)` pairs sorted
+/// by image index.
+fn find_centroid_matches(
+    image: &[(f64, f64)],
+    catalog: &[(f64, f64)],
+    r: f64,
+) -> Vec<(usize, usize)> {
+    use std::collections::BTreeMap;
+    let r2 = r * r;
+    let mut per_catalog: BTreeMap<usize, usize> = BTreeMap::new();
+    for (i, a) in image.iter().enumerate() {
+        for (c, b) in catalog.iter().enumerate() {
+            let dy = a.0 - b.0;
+            let dx = a.1 - b.1;
+            if dy * dy + dx * dx < r2 {
+                per_catalog.entry(c).or_insert(i);
+            }
+        }
+    }
+    let mut per_image: BTreeMap<usize, usize> = BTreeMap::new();
+    for (c, i) in per_catalog {
+        per_image.entry(i).or_insert(c);
+    }
+    per_image.into_iter().collect()
 }
 
 /// Pair the four image and four catalog pattern stars by centroid-distance order.
 ///
 /// Both patterns are ordered independently using the same deterministic rule, so the
 /// m-th image star corresponds to the m-th catalog star.
+#[allow(dead_code)]
 fn ordered_pattern_pair(
     image_vectors: &[UnitVector],
     pattern_indices: [usize; 4],
@@ -206,6 +269,7 @@ fn largest_pixel_edge(centroids: &[(f64, f64)]) -> f64 {
 /// participate in at most one match. Greedy nearest-first matching is used: for each
 /// projected catalog star (in brightness order), find the closest unmatched centroid
 /// within `radius_px`; if found, record the match.
+#[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 fn match_projected_to_centroids(

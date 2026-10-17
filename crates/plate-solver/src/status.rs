@@ -47,6 +47,8 @@ pub struct VerificationOutcome {
     pub match_probability: Option<f64>,
     /// Coarse horizontal FOV used during verification, in radians.
     pub coarse_fov: f64,
+    /// Indices into the prepared (verification) centroid list for each matched pair.
+    pub matched_image_indices: Vec<usize>,
 }
 
 /// A solved (or failed) solution.
@@ -74,6 +76,8 @@ pub struct Solution {
     pub maxe: Option<f64>,
     /// Refined radial distortion coefficient, if estimated.
     pub distortion: Option<f64>,
+    /// Noise estimate used for detection (`solve_from_image` only).
+    pub noise_estimate: Option<f64>,
 }
 
 /// Context carried through the solve pipeline.
@@ -82,6 +86,11 @@ pub struct SolveContext {
     pub db: pattern_database::PatternDatabase,
     pub props: pattern_database::DatabaseProperties,
     pub fov_initial: f64,
+    /// Caller's FOV estimate in degrees, if one was given. Selects the coarse-FOV
+    /// formula in verification and enables the largest-edge pre-filter (cedar).
+    pub fov_estimate: Option<f64>,
+    /// Caller's FOV tolerance in degrees for the largest-edge pre-filter, if any.
+    pub fov_max_error: Option<f64>,
     pub match_threshold: f64,
     pub match_radius: f64,
     pub match_max_error: f64,

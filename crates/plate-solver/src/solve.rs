@@ -1,7 +1,7 @@
 //! Solve entry points: `solve_from_centroids` and `solve_from_image`.
 
 use crate::candidates;
-use crate::preparation::{build_context, prepare};
+use crate::preparation::{build_context, prepare, Prepared};
 use crate::refine::refine_solution;
 use crate::status::{Solution, SolveContext, SolveStatus};
 use math_core::UnitVector;
@@ -65,12 +65,12 @@ pub fn solve_from_centroids(
 
     let (width, height) = (size.0 as f64, size.1 as f64);
 
-    let (vectors, prepared_centroids) = match prepare(&ctx, centroids, width, height) {
+    let prep = match prepare(&ctx, centroids, width, height) {
         Ok(v) => v,
         Err(solution) => return *solution,
     };
 
-    iterate_patterns(&ctx, &vectors, &prepared_centroids, width, height)
+    iterate_patterns(&ctx, &prep, width, height)
 }
 
 /// Solve a lost-in-space plate from a raw grayscale image.
@@ -110,8 +110,8 @@ pub fn solve_from_image(
         detect_hot_pixels,
     );
 
-    let centroids: Vec<(f64, f64)> = stars.iter().map(|s| (s.x, s.y)).collect();
-
+    // The solver speaks (y, x); `Star` carries named x (column) and y (row) fields.
+    let centroids: Vec<(f64, f64)> = stars.iter().map(|s| (s.y, s.x)).collect();
     let mut solution = solve_from_centroids(
         &centroids,
         (width, height),
@@ -124,68 +124,43 @@ pub fn solve_from_image(
         match_max_error,
         db,
     );
-
-    // Stash the estimated noise in a field for now; downstream beads will replace
-    // this with the verified match probability once verification is implemented.
-    solution.match_probability = Some(noise_estimate);
+    // Report the noise estimate in its own field; `match_probability` is the
+    // false-alarm probability and must not be overwritten.
+    solution.noise_estimate = Some(noise_estimate);
     solution
 }
 
-/// Breadth-first iteration over 4-star combinations.
+/// Breadth-first iteration over 4-star combinations of the pattern stars.
 ///
-/// For each combination, generate a pattern key, look up candidates, and verify.
-/// Returns immediately on the first accepted candidate, timeout, or cancellation.
-fn iterate_patterns(
-    ctx: &SolveContext,
-    vectors: &[UnitVector],
-    centroids: &[(f64, f64)],
-    width: f64,
-    height: f64,
-) -> Solution {
-    let n = vectors.len();
-    if n < 4 {
-        return Solution {
-            status: Some(SolveStatus::TooFew),
-            fov_used: Some(ctx.fov_initial),
-            ..Solution::default()
-        };
-    }
-
-    // Breadth-first: outer loop over pattern radius (max index distance), inner loops over i0..i3.
-    for radius in 1..n {
-        for i0 in 0..n {
-            if ctx.should_stop() {
-                return stopped_solution(ctx);
-            }
-            for i1 in (i0 + 1)..n.min(i0 + radius + 1) {
-                if ctx.should_stop() {
-                    return stopped_solution(ctx);
-                }
-                for i2 in (i1 + 1)..n.min(i0 + radius + 1) {
+/// Matches cedar's `breadth_first_combinations`: every combination is visited
+/// exactly once, ordered by its faintest member, so all patterns drawn from the
+/// brightest k stars are tried before any pattern that needs star k+1.
+fn iterate_patterns(ctx: &SolveContext, prep: &Prepared, width: f64, height: f64) -> Solution {
+    let p = &prep.pattern_indices;
+    let n = p.len();
+    for i3 in 3..n {
+        for i2 in 2..i3 {
+            for i1 in 1..i2 {
+                for i0 in 0..i1 {
                     if ctx.should_stop() {
                         return stopped_solution(ctx);
                     }
-                    for i3 in (i2 + 1)..n.min(i0 + radius + 1) {
-                        if ctx.should_stop() {
-                            return stopped_solution(ctx);
-                        }
-                        let pattern = [vectors[i0], vectors[i1], vectors[i2], vectors[i3]];
-                        let cands = candidates::lookup_candidates(ctx, pattern);
-                        for candidate in cands {
-                            if let Some(outcome) = crate::verify::verify_candidate_with_outcome(
-                                ctx,
-                                &candidate,
-                                [i0, i1, i2, i3],
-                                vectors,
-                                centroids,
-                                width,
-                                height,
-                            ) {
-                                if outcome.accepted {
-                                    return refine_solution(
-                                        ctx, &candidate, &outcome, width, height,
-                                    );
-                                }
+                    let idx = [p[i0], p[i1], p[i2], p[i3]];
+                    let pattern: [UnitVector; 4] = idx.map(|i| prep.vectors[i]);
+                    for candidate in candidates::lookup_candidates(ctx, pattern) {
+                        if let Some(outcome) = crate::verify::verify_candidate_with_outcome(
+                            ctx,
+                            &candidate,
+                            idx,
+                            &prep.vectors,
+                            &prep.centroids,
+                            width,
+                            height,
+                        ) {
+                            if outcome.accepted {
+                                return refine_solution(
+                                    ctx, &candidate, &outcome, prep, width, height,
+                                );
                             }
                         }
                     }

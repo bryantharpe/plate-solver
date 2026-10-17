@@ -112,6 +112,9 @@ pub fn parse_bsc5<R: Read>(mut reader: R) -> io::Result<Vec<CatalogEntry>> {
 /// Rows with empty RA/Dec/mag are skipped.
 pub fn parse_hip<R: Read>(reader: R) -> io::Result<Vec<CatalogEntry>> {
     parse_pipe_delimited(reader, |cols| {
+        if cols.first().map(String::as_str) == Some("H") {
+            return parse_cds_row(cols, |c| Some(CatalogId::Hip(c.get(1)?.parse().ok()?)));
+        }
         let hip = cols.first()?.parse::<u32>().ok()?;
         let ra_deg: f64 = cols.get(1)?.parse().ok()?;
         let dec_deg: f64 = cols.get(2)?.parse().ok()?;
@@ -147,6 +150,12 @@ pub fn parse_hip<R: Read>(reader: R) -> io::Result<Vec<CatalogEntry>> {
 /// Rows with empty RA/Dec/mag are skipped.
 pub fn parse_tyc<R: Read>(reader: R) -> io::Result<Vec<CatalogEntry>> {
     parse_pipe_delimited(reader, |cols| {
+        if cols.first().map(String::as_str) == Some("T") {
+            return parse_cds_row(cols, |c| {
+                let mut it = c.get(1)?.split_whitespace().map(|v| v.parse::<u32>().ok());
+                Some(CatalogId::Tyc(it.next()??, it.next()??, it.next()??))
+            });
+        }
         let tyc1 = cols.first()?.parse::<u32>().ok()?;
         let tyc2 = cols.get(1)?.parse::<u32>().ok()?;
         let tyc3 = cols.get(2)?.parse::<u32>().ok()?;
@@ -167,6 +176,30 @@ pub fn parse_tyc<R: Read>(reader: R) -> io::Result<Vec<CatalogEntry>> {
         entry.pm_dec = Some(pm_dec);
         Some(entry)
     })
+}
+
+/// Parse one row of the real CDS `hip_main.dat` / `tyc_main.dat` (catalog I/239), the
+/// files tetra3/cedar read: identifier in field 1, Vmag in 5, RAdeg in 8, DEdeg in 9,
+/// pmRA (mas/yr, mu_alpha*cos(delta)) in 12, pmDE in 13. Rows without
+/// magnitude or position are skipped; a missing proper motion is left unset.
+fn parse_cds_row(
+    cols: &[String],
+    id: impl Fn(&[String]) -> Option<CatalogId>,
+) -> Option<CatalogEntry> {
+    let mag: f64 = cols.get(5)?.parse().ok()?;
+    let ra_deg: f64 = cols.get(8)?.parse().ok()?;
+    let dec_deg: f64 = cols.get(9)?.parse().ok()?;
+    if !(mag.is_finite() && ra_deg.is_finite() && dec_deg.is_finite()) {
+        return None;
+    }
+    let mut entry = CatalogEntry::new(ra_deg.to_radians(), dec_deg.to_radians(), mag, id(cols)?);
+    entry.pm_ra = cols.get(12).and_then(|v| v.parse().ok());
+    entry.pm_dec = cols.get(13).and_then(|v| v.parse().ok());
+    if entry.pm_ra.is_none() || entry.pm_dec.is_none() {
+        entry.pm_ra = None;
+        entry.pm_dec = None;
+    }
+    Some(entry)
 }
 
 fn parse_pipe_delimited<R: Read, F>(reader: R, mut parse_row: F) -> io::Result<Vec<CatalogEntry>>

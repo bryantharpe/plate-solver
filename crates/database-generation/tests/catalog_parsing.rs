@@ -181,3 +181,21 @@ fn current_year_is_reasonable() {
     assert!(year > 2020.0);
     assert!(year < 2100.0);
 }
+
+#[test]
+fn hip_reads_the_real_cds_hip_main_layout() {
+    // Two verbatim rows of CDS I/239 hip_main.dat (truncated after pmDE; the
+    // parser only needs fields 0-13). The second has no proper motion.
+    let text = "H|           1| |00 00 00.22|+01 05 20.4| 9.10| |H|000.00091185|+01.08901332| |   3.54|   -5.20|   -1.88|  1.32|\n\
+                H|       32349| |06 45 08.92|-16 42 58.0|-1.44| |H|101.28715539|-16.71611582| | 379.21| -546.01|-1223.08|  1.40|\n\
+                H|         999| |00 00 00.00|+00 00 00.0| 8.00| | |            |            | |       |        |        |      |\n";
+    let entries = parse_hip(Cursor::new(text)).unwrap();
+    assert_eq!(entries.len(), 2, "rows without a position are skipped");
+    assert_eq!(entries[0].id, CatalogId::Hip(1));
+    assert_eq!(entries[1].id, CatalogId::Hip(32349)); // Sirius
+    assert!((entries[1].mag - -1.44).abs() < 1e-12);
+    assert!((entries[1].ra.to_degrees() - 101.28715539).abs() < 1e-9);
+    assert!((entries[1].dec.to_degrees() - -16.71611582).abs() < 1e-9);
+    assert_eq!(entries[1].pm_ra, Some(-546.01));
+    assert_eq!(entries[1].pm_dec, Some(-1223.08));
+}

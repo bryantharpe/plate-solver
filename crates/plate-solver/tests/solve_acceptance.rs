@@ -143,8 +143,8 @@ fn noise_estimated_from_image_never_constant() {
         &bright, 64, 64, None, 5.0, 0.01, 1e-5, 5000, 0.0, 0.002, db, params,
     );
 
-    let noise_dark = sol_dark.match_probability.unwrap();
-    let noise_bright = sol_bright.match_probability.unwrap();
+    let noise_dark = sol_dark.noise_estimate.unwrap();
+    let noise_bright = sol_bright.noise_estimate.unwrap();
     assert!(
         (noise_dark - noise_bright).abs() > 1e-6,
         "noise estimates should differ: dark={}, bright={}",
@@ -293,6 +293,8 @@ fn cancellation_honored() {
         db,
         props: DatabaseProperties::default(),
         fov_initial: 20.0_f64.to_radians(),
+        fov_estimate: None,
+        fov_max_error: None,
         match_threshold: 1e-8,
         match_radius: 0.01,
         match_max_error: 0.002,

@@ -13,3 +13,7 @@ pattern-database = { version = "0.1.0", path = "../pattern-database" }
 star-detection = { version = "0.1.0", path = "../star-detection" }
 
 [dev-dependencies]
+# Used only by examples/solve_image.rs to read PNG/JPEG/BMP/PGM frames.
+# Parses the cedar golden fixture in tests/reference_parity.rs.
+serde_json = "1.0"
+image = { version = "0.25.1", default-features = false, features = ["png", "jpeg", "bmp", "pnm"] }
