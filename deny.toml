@@ -23,6 +23,21 @@ ignore = [
     # parity test in crates/star-detection; it is not part of the production
     # dependency graph.
     "RUSTSEC-2024-0436",
+    # zip 0.6.6 — three advisories, all in archive EXTRACTION to the filesystem:
+    # ZipArchive::extract / ZipStreamReader::extract keeping SUID/SGID bits
+    # (RUSTSEC-2026-0367), creating symlinks whose targets escape the destination
+    # (RUSTSEC-2026-0368), and applying permissions through symlinks
+    # (RUSTSEC-2026-0369). Nothing in this workspace extracts an archive:
+    # pattern-database reads .npz members into memory through npyz, and
+    # database-generation only writes archives (zip::ZipWriter). zip 0.6 comes in
+    # twice: through the `npz` feature of npyz 0.9.1 (the newest npyz, so no
+    # `cargo update` clears it) and as database-generation's own `zip = "0.6.6"`.
+    # Remove these once both are gone: the loader off npyz (the same change that
+    # fixes its 1.2 GB peak, docs/audit-e2e-parity.md D2) and database-generation
+    # on zip >= 9.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
 ]
 
 [licenses]
