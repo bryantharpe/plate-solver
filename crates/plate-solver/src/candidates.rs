@@ -20,6 +20,7 @@ use pattern_database::{Candidate, LookupQuery};
 /// the requested key and a plausible largest edge will do. We build them from a
 /// fixed canonical tetrahedron by scaling its ratios to match `key` and scaling the
 /// whole figure so the largest edge equals `largest_edge`.
+#[allow(dead_code)]
 fn synthetic_vectors_for_key(
     key: &[u32; KEY_LEN],
     bins: u32,
@@ -120,20 +121,41 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
     let order = order_pattern_by_centroid_distance(&vectors);
     let ordered: [UnitVector; PATTERN_SIZE] = std::array::from_fn(|m| vectors[order[m]]);
 
-    // Measured pattern key and largest edge.
-    let (key, largest_edge) = pattern_key(&ordered, bins);
+    // Measured edge angles, largest edge, and the *unquantized* ratios. The band
+    // must be centred on the measured ratio, not on its bin floor: a band built
+    // from floor(ratio·bins)/bins can sit entirely below the true ratio.
+    let mut edges = [0.0f64; 6];
+    let mut e = 0;
+    for i in 0..PATTERN_SIZE {
+        for j in (i + 1)..PATTERN_SIZE {
+            edges[e] = math_core::angular_distance(ordered[i], ordered[j]);
+            e += 1;
+        }
+    }
+    edges.sort_by(|a, b| a.total_cmp(b));
+    let largest_edge = edges[5];
+    if largest_edge.is_nan() || largest_edge <= 0.0 {
+        return Vec::new();
+    }
+    let (key, _) = pattern_key(&ordered, bins);
 
-    // Tolerance band in ratio space.
     let mut ratio_min = [0.0; KEY_LEN];
     let mut ratio_max = [0.0; KEY_LEN];
+    let mut ranges: [Vec<u32>; KEY_LEN] = std::array::from_fn(|_| Vec::new());
     for m in 0..KEY_LEN {
-        let ratio = key[m] as f64 / bins as f64;
-        ratio_min[m] = (ratio - p_max_err).clamp(0.0, 1.0);
-        ratio_max[m] = (ratio + p_max_err).clamp(0.0, 1.0);
+        let ratio = edges[m] / largest_edge;
+        ratio_min[m] = ratio - p_max_err;
+        ratio_max[m] = ratio + p_max_err;
+        // Same truncation as cedar's `np.maximum(0, x).astype(int)` / `np.minimum(bins, x)`.
+        let lo = (ratio_min[m] * bins as f64).max(0.0) as u32;
+        let hi = (ratio_max[m] * bins as f64).min(bins as f64) as u32;
+        ranges[m] = (lo..=hi).collect();
     }
 
     // Enumerate candidate keys nearest-first.
-    let keys = candidate_keys(&key, bins, p_max_err);
+    let mut keys: Vec<[u32; KEY_LEN]> = Vec::new();
+    cartesian_product(&ranges, 0, &mut [0; KEY_LEN], &mut keys);
+    keys.sort_by_key(|k| squared_key_distance(&key, k));
 
     // Query each candidate key, collecting unique candidates in probe order.
     let mut seen = std::collections::HashSet::new();
@@ -148,14 +170,13 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
         );
         let key_hash16 = pattern_key_hash16(key_hash);
 
-        // The database lookup derives its hash from the query vectors, so we must
-        // supply vectors whose quantized key matches the candidate key. Build a
-        // synthetic pattern with the candidate ratios and the measured largest edge.
-        let candidate_vectors = synthetic_vectors_for_key(&candidate_key, bins, largest_edge);
+        // `lookup_candidates_at_index` takes the hash index directly and never reads
+        // `vectors`, so the measured pattern is passed as-is. The FOV pre-filter is
+        // only applied when the caller gave an estimate *and* a tolerance (degrees).
         let query = LookupQuery {
-            vectors: candidate_vectors,
-            fov_estimate: Some(ctx.fov_initial),
-            fov_max_error: Some(ctx.match_max_error),
+            vectors: ordered,
+            fov_estimate: ctx.fov_estimate,
+            fov_max_error: ctx.fov_max_error,
             ratio_min,
             ratio_max,
         };
@@ -178,6 +199,7 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
 /// For each of the 5 ratios, compute the integer bin range that falls inside
 /// `[ratio_min, ratio_max]`, then take the cartesian product and sort by squared
 /// distance from the measured key in bin space.
+#[allow(dead_code)]
 fn candidate_keys(measured: &[u32; KEY_LEN], bins: u32, p_max_err: f64) -> Vec<[u32; KEY_LEN]> {
     let mut ranges: [Vec<u32>; KEY_LEN] = std::array::from_fn(|_| Vec::new());
     for m in 0..KEY_LEN {
@@ -289,6 +311,8 @@ mod tests {
                 ..DatabaseProperties::default()
             },
             fov_initial: 20.0,
+            fov_estimate: None,
+            fov_max_error: None,
             match_threshold: 1e-8,
             match_radius: 0.01,
             match_max_error: 0.002,

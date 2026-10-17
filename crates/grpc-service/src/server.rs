@@ -75,9 +75,10 @@ impl PlateSolver for PlateSolverServer {
             .iter()
             .map(|s| StarCentroid {
                 centroid_position: Some(ImageCoord {
-                    // Solver (y, x) -> wire (x, y).
-                    x: s.y,
-                    y: s.x,
+                    // `Star` has named fields (x = column, y = row), which is
+                    // already the wire order; no swap here.
+                    x: s.x,
+                    y: s.y,
                 }),
                 brightness: s.brightness,
                 num_saturated: s.num_saturated as i32,

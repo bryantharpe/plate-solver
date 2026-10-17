@@ -114,10 +114,18 @@ pub fn build_context(
 ) -> SolveContext {
     let props = db.properties.clone();
     let fov_initial = initial_fov(&props, fov_estimate, fov_max_error);
+    // Cedar applies the largest-edge/FOV pre-filter only when the caller supplied
+    // both an estimate and a tolerance. The tolerance is in degrees.
+    let fov_estimate = fov_estimate.filter(|f| f.is_finite() && *f > 0.0);
+    let fov_max_error = fov_estimate
+        .and(Some(fov_max_error))
+        .filter(|e| e.is_finite() && *e > 0.0);
     SolveContext {
         db,
         props: props.clone(),
         fov_initial,
+        fov_estimate,
+        fov_max_error,
         match_threshold: bonferroni_threshold(match_threshold, props.num_patterns),
         match_radius,
         match_max_error,
@@ -129,12 +137,49 @@ pub fn build_context(
     }
 }
 
-/// Run the preparation stage and return either the prepared context/centroids or a solution
-/// already terminated with `TOO_FEW`.
-/// Prepared centroids and their unit vectors, or an early `TOO_FEW` solution.
-pub type PrepareResult = Result<(Vec<UnitVector>, Vec<(f64, f64)>), Box<Solution>>;
+/// Indices of the centroids kept by cluster-busting (brightest wins), in input order.
+pub fn cluster_bust_indices(
+    centroids: &[(f64, f64)],
+    fov_initial: f64,
+    stars_per_fov: usize,
+    width: f64,
+) -> Vec<usize> {
+    let sep_px = width * separation_for_density(fov_initial, stars_per_fov) / fov_initial;
+    let sep2 = sep_px * sep_px;
+    let mut kept: Vec<usize> = Vec::with_capacity(centroids.len());
+    for (i, c) in centroids.iter().enumerate() {
+        let occupied = kept.iter().any(|&k| {
+            let dy = c.0 - centroids[k].0;
+            let dx = c.1 - centroids[k].1;
+            dy * dy + dx * dx <= sep2
+        });
+        if !occupied {
+            kept.push(i);
+        }
+    }
+    kept
+}
 
-/// Run the preparation stage and return either the prepared context/centroids or a solution
+/// The prepared solve inputs.
+///
+/// Cedar forms patterns from the cluster-busted subset but verifies against the full
+/// (brightest-`verification_stars_per_fov`) centroid list, so both are carried here.
+#[derive(Debug, Clone)]
+pub struct Prepared {
+    /// Brightest-N centroids as supplied (before undistortion), `(y, x)`.
+    pub raw_centroids: Vec<(f64, f64)>,
+    /// Brightest-N centroids after undistortion, `(y, x)`. Verification set.
+    pub centroids: Vec<(f64, f64)>,
+    /// Unit vectors for `centroids` at the initial FOV.
+    pub vectors: Vec<UnitVector>,
+    /// Indices into `centroids` of the cluster-busted pattern stars, brightest first.
+    pub pattern_indices: Vec<usize>,
+}
+
+/// Prepared inputs, or an early `TOO_FEW` solution.
+pub type PrepareResult = Result<Prepared, Box<Solution>>;
+
+/// Run the preparation stage and return either the prepared inputs or a solution
 /// already terminated with `TOO_FEW`.
 pub fn prepare(
     ctx: &SolveContext,
@@ -142,16 +187,16 @@ pub fn prepare(
     width: f64,
     height: f64,
 ) -> PrepareResult {
-    let limited = limit_centroids(centroids, ctx.verification_stars_per_fov);
-    let undistorted = undistort(&limited, width, height, ctx.distortion);
-    let busted = cluster_bust(
+    let raw = limit_centroids(centroids, ctx.verification_stars_per_fov);
+    let undistorted = undistort(&raw, width, height, ctx.distortion);
+    let pattern_indices = cluster_bust_indices(
         &undistorted,
         ctx.fov_initial,
         ctx.verification_stars_per_fov,
         width,
     );
 
-    if busted.len() < MIN_CENTROIDS {
+    if undistorted.len() < MIN_CENTROIDS || pattern_indices.len() < MIN_CENTROIDS {
         return Err(Box::new(Solution {
             status: Some(SolveStatus::TooFew),
             fov_used: Some(ctx.fov_initial),
@@ -159,6 +204,16 @@ pub fn prepare(
         }));
     }
 
-    let vectors = centroid_vectors(&busted, width, height, ctx.fov_initial);
-    Ok((vectors, busted))
+    let camera = PinholeCamera::new(width, height, ctx.fov_initial.to_radians());
+    let vectors: Vec<UnitVector> = camera
+        .unproject(&undistorted)
+        .into_iter()
+        .map(|v| v.expect("pinhole unprojection has i = 1, never zero-length"))
+        .collect();
+    Ok(Prepared {
+        raw_centroids: raw,
+        centroids: undistorted,
+        vectors,
+        pattern_indices,
+    })
 }

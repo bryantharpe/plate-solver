@@ -399,3 +399,45 @@ async fn get_info_reports_database_fov_range() {
     assert_eq!(info.num_patterns, 100);
     assert_eq!(info.star_catalog, "test_catalog");
 }
+
+#[tokio::test]
+async fn extract_centroids_reports_wire_x_as_column() {
+    // A single bright pixel at row 5, column 9 of a 16-wide, 12-high image. On the
+    // wire (x, y) is (column, row), so the centroid must come back as (9.5, 5.5).
+    // A symmetric position like (4, 4) cannot tell the two orders apart.
+    let (w, h) = (16usize, 12usize);
+    let mut image = vec![50u8; w * h];
+    image[5 * w + 9] = 200;
+    let mut client = make_client().await;
+    let result = client
+        .extract_centroids(CentroidsRequest {
+            input_image: Some(Image {
+                width: w as i32,
+                height: h as i32,
+                image_data: image,
+                shmem_name: None,
+                reopen_shmem: false,
+            }),
+            sigma: 2.0,
+            binning: None,
+            return_binned: false,
+            use_binned_for_star_candidates: false,
+            detect_hot_pixels: false,
+            normalize_rows: false,
+            estimate_background_region: None,
+        })
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(result.star_candidates.len(), 1, "one star expected");
+    let c = result.star_candidates[0]
+        .centroid_position
+        .as_ref()
+        .unwrap();
+    assert!(
+        (c.x - 9.5).abs() < 1e-6 && (c.y - 5.5).abs() < 1e-6,
+        "got x={} y={}",
+        c.x,
+        c.y
+    );
+}

@@ -116,36 +116,44 @@ fn breadth_first_combinations(
     sequence: &[usize],
     r: usize,
 ) -> impl Iterator<Item = Pattern> + use<'_> {
-    let mut state: Vec<usize> = Vec::new();
-
+    // Cedar's `breadth_first_combinations`: combinations ordered by their largest
+    // index, so every 4-subset of the brightest k stars comes before any subset
+    // that needs star k+1. (itertools.combinations order would instead pair the
+    // two or three brightest stars with ever-fainter ones.)
+    assert_eq!(r, 4, "only 4-star patterns are generated");
+    let n = sequence.len();
+    let mut idx: Option<[usize; 4]> = if n >= 4 { None } else { Some([0, 0, 0, n]) };
+    let mut started = false;
     std::iter::from_fn(move || {
-        if state.is_empty() {
-            // First call: initialise with the first r indices.
-            if sequence.len() < r {
-                return None;
-            }
-            state.extend(0..r);
-            let pattern: Pattern = std::array::from_fn(|i| sequence[state[i]]);
-            return Some(pattern);
+        if n < 4 {
+            return None;
         }
-
-        // Try to advance the rightmost choosable position.
-        let mut pos = r;
-        while pos > 0 {
-            pos -= 1;
-            let max_at_pos = sequence.len() - r + pos;
-            if state[pos] < max_at_pos {
-                state[pos] += 1;
-                // Reset all later positions to follow immediately after.
-                for j in pos + 1..r {
-                    state[j] = state[j - 1] + 1;
+        let next = if !started {
+            started = true;
+            [0, 1, 2, 3]
+        } else {
+            let [mut i0, mut i1, mut i2, mut i3] = idx?;
+            i0 += 1;
+            if i0 == i1 {
+                i0 = 0;
+                i1 += 1;
+                if i1 == i2 {
+                    i1 = 1;
+                    i2 += 1;
+                    if i2 == i3 {
+                        i2 = 2;
+                        i3 += 1;
+                        if i3 == n {
+                            idx = None;
+                            return None;
+                        }
+                    }
                 }
-                let pattern: Pattern = std::array::from_fn(|i| sequence[state[i]]);
-                return Some(pattern);
             }
-        }
-
-        None
+            [i0, i1, i2, i3]
+        };
+        idx = Some(next);
+        Some(next.map(|i| sequence[i]))
     })
 }
 
@@ -226,5 +234,33 @@ mod tests {
             budget,
             patterns.len()
         );
+    }
+}
+
+#[cfg(test)]
+mod bfc_order_tests {
+    use super::breadth_first_combinations;
+
+    #[test]
+    fn matches_cedar_order_and_visits_each_combination_once() {
+        let seq: Vec<usize> = (0..7).collect();
+        let got: Vec<[usize; 4]> = breadth_first_combinations(&seq, 4).collect();
+        // Cedar: grouped by largest element, then recursively breadth-first.
+        assert_eq!(
+            &got[..6],
+            &[
+                [0, 1, 2, 3],
+                [0, 1, 2, 4],
+                [0, 1, 3, 4],
+                [0, 2, 3, 4],
+                [1, 2, 3, 4],
+                [0, 1, 2, 5]
+            ]
+        );
+        assert_eq!(got.len(), 35);
+        let mut sorted = got.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), 35);
     }
 }

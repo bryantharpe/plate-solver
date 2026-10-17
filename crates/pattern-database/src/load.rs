@@ -275,7 +275,12 @@ fn decode_properties(
                 field.name
             ))
         })?;
-        values.insert(field.name.as_str(), decode_field(&field.dtype, bytes)?);
+        // cedar writes fields this loader has no use for (bools such as
+        // `presort_patterns`, `(2,)` subarrays such as `range_ra`). Skip what can't be
+        // decoded; a *required* field that is missing still fails below.
+        if let Ok(value) = decode_field(&field.dtype, bytes) {
+            values.insert(field.name.as_str(), value);
+        }
         offset += size;
     }
 
@@ -353,6 +358,22 @@ fn decode_field(dtype: &DType, bytes: &[u8]) -> Result<FieldValue, LoadError> {
     let ty = parse_type_str(dtype)?;
     match (ty.kind, ty.size) {
         ('S', _) => Ok(FieldValue::Str(decode_bytestr(bytes))),
+        // numpy unicode (`<U64` in cedar's databases): UCS-4 code units, NUL padded.
+        ('U', _) => Ok(FieldValue::Str(
+            bytes
+                .chunks_exact(4)
+                .map(|c| {
+                    let a = [c[0], c[1], c[2], c[3]];
+                    if ty.little {
+                        u32::from_le_bytes(a)
+                    } else {
+                        u32::from_be_bytes(a)
+                    }
+                })
+                .take_while(|&u| u != 0)
+                .filter_map(char::from_u32)
+                .collect(),
+        )),
         ('u', 2) => Ok(FieldValue::U16(decode_uint(bytes, ty.little) as u16)),
         ('u', 4) => Ok(FieldValue::U32(decode_uint(bytes, ty.little) as u32)),
         ('f', 4) => Ok(FieldValue::F32(decode_f32(bytes, ty.little))),
