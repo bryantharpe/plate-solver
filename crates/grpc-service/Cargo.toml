@@ -36,3 +36,7 @@ ignored = ["prost", "tonic-prost"]
 # Needed to construct a `PinholeCamera` when unit-testing the Solution boundary
 # conversion, which discriminates FOV units on the presence of a camera.
 math-core = { version = "0.1.0", path = "../math-core" }
+# tests/e2e_service.rs: decodes the reference JPEGs and reads the cedar golden
+# fixture for the end-to-end eval (CI job `e2e-eval`).
+image = { version = "0.25.1", default-features = false, features = ["jpeg"] }
+serde_json = "1.0"
