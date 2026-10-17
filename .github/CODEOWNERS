@@ -1,0 +1,32 @@
+# The oracle, and the gate that enforces it.
+#
+# ENVIRONMENT.md: humans decide what is built and what "correct" means. For this rig,
+# "correct" is these files: the cedar goldens, the database and images they came from,
+# the tests that compare against them, and the CI that runs those tests. A change here
+# can make a broken product look green without touching a line of product code, so it
+# needs the human who owns "correct" — not only green CI and a judge APPROVE.
+#
+# The list is longer than the test files on purpose. A required check is just a name,
+# and each of these decides what runs under it: the workflow (an edit to `run: true`
+# keeps the name and passes), the scripts it calls, any Cargo.toml (a [[test]] entry
+# can point a test name at another file), build scripts (they run before the tests
+# compile), cargo config (a `runner` wraps every test binary) and the toolchain pin.
+# Cargo.toml and Cargo.lock are critical paths under the overlay already.
+#
+# Enforced only once main requires review from code owners, with stale approvals
+# dismissed on new pushes. Until then GitHub only requests a review, and not even that
+# on a PR the owner opened.
+
+/reference-solutions/                           @bryantharpe
+/crates/*/tests/data/                           @bryantharpe
+/crates/plate-solver/tests/reference_parity.rs  @bryantharpe
+/crates/plate-solver/tests/image_parity.rs      @bryantharpe
+/crates/grpc-service/tests/e2e_service.rs       @bryantharpe
+/crates/star-detection/tests/parity.rs          @bryantharpe
+/scripts/ci/                                    @bryantharpe
+/.github/                                       @bryantharpe
+Cargo.toml                                      @bryantharpe
+/Cargo.lock                                     @bryantharpe
+build.rs                                        @bryantharpe
+/.cargo/                                        @bryantharpe
+/rust-toolchain*                                @bryantharpe

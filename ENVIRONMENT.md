@@ -76,7 +76,9 @@ PR opened by the author polecat
   │
   ▼  ① FAST Tier-2 CI gates (.github/workflows/ci.yml) — must be GREEN
   │     fmt · clippy -D · test+coverage · doc · msrv · machete ·
-  │     semver-checks · cargo-deny(4) · secret-scan · differential/parity
+  │     semver-checks · cargo-deny(4) · secret-scan ·
+  │     e2e-eval (differential parity vs cedar: E1 centroids · E2 pixels · E3 gRPC) ·
+  │     e2e-canary (proof the e2e gate can fail)
   │
   ▼  ② INDEPENDENT REVIEW — authoritative
   │     an adversarial review by the `judge` role (glm-5.2, Zhipu), a DIFFERENT
@@ -110,6 +112,7 @@ lands, and never let it claim more than what is enforced.
 | Branch protection, `main` | **ENFORCED** — **10 required checks** (`ci.yml`'s 9 + `review/judge`); enforced for admins; force-push and deletion disabled. Auto-merge (squash) enabled so an approved, green PR merges itself. A repository ruleset additionally blocks deletion of `refs/heads/polecat/**` work branches for every actor (added 2026-07-12 after hq-91n, where a failed merge deleted the only remote copy of the work). Blanket required review removed 2026-07-12 by ratified decision (checks-only merges). `main` became the one working branch on 2026-07-12: the orphan `rewrite` branch converged into it (merge `f93eaf8`, tree identical to the rewrite tip) and was deleted; v1 remains reachable as the merge's second parent and under tag **`v1`**. |
 | Independent review (② — `review/judge`) | **ENFORCED and AUTONOMOUS** — a PR whose head SHA lacks a passing `review/judge` status cannot merge; absence fails closed. The reviewer (`judge` role, glm-5.2 — a different lineage than every author seat) runs town-side; only the verdict is published. A town-side sweep (cron, every 10 min) reviews every open PR that lacks a verdict, arms auto-merge on APPROVE, and escalates a DISSENT to a human once per PR; a dissent is answered by pushing a fix, which re-triggers review on the new head SHA. Human override is a recorded status with login + reason (U4), never a bypass. Proven on canary PR #16 and live on PR #18 (first fleet code: 9 CI gates + judge APPROVE → merged). The originally-planned in-formula refinery dissent loop is not possible on the current gt build — patrols render from the binary's embedded formulas (gastown#4472) — which is why review runs as a sweep outside the refinery. |
 | Fast Tier-2 CI (① — `ci.yml`) | **ENFORCED, firing** — all 9 checks run on every PR since the workspace `Cargo.toml` landed (PR #18); first full green run on PR #18/#19 (including a real `cargo-machete` catch, resolved as an oracle codegen false-positive with an explicit ignore). |
+| End-to-end eval (`e2e-eval`, `e2e-canary`) | **PARTLY ENFORCED** — the E1–E3 tests are ordinary integration tests, so their assertions already block merges through `test-coverage`. What is not yet enforced is everything only these two jobs check: the oracle-integrity step, the owned-test-target and tree-untouched checks, the scorecard judgement, and the canary. They become ENFORCED when both are added to `main`'s required checks (pinned to GitHub Actions) and code-owner review is required. Armed unless the Actions variable `E2E_ARMED` is `false-until-YYYY-MM-DD` and that date has not passed (for a from-specs rebuild that cannot solve yet; the score is still published and the attestation says DISARMED; `test-coverage` is not disarmed by it). Added 2026-10-17 after the end-to-end audit (`docs/audit-e2e-parity.md`): `main` had passed every gate above, with a judge APPROVE on each PR, and solved 0 of the 21 reference images. |
 | Merge-record integrity | **ENFORCED by audit** — a cron guard (every 15 min) re-derives every recent "merged" bead claim from `origin/main` and PR state: a record with no backing commit or PR is reopened, labeled, and escalated; a vanished work branch, a disabled deletion ruleset, or disabled auto-merge also alarm. Exists because the work-tracking layer can record merges it never verified (hq-91n, upstream gastown#4472) — the git remote, not the ledger, is the source of truth. |
 | Deep nightly gates (`deep.yml`) | **NOT INSTALLED.** |
 | Standards subtree | `standards/` pinned at **agent-standards v1.0** (v1.1 — the judge-role U3 — is released upstream; adoption is a deliberate subtree bump, not yet taken, so `standards/universal/OPUS-REVIEW.md` here still shows the v1.0 Opus mechanism). |
@@ -162,6 +165,33 @@ contract tolerances: **RA/Dec within a few arcseconds, centroids within ±0.1 px
 identical matched catalog IDs.** These references were not produced by the code
 under test, so agreement is external validation.
 
+Enforced by the `e2e-eval` job, in three tiers, on the 21 sample images in
+`reference-solutions/cedar-solve/examples/data/medium_fov/`, against results captured
+from cedar-solve (`crates/plate-solver/tests/data/cedar_parity.json`):
+
+- **E1 centroid parity** — the contract as written: same status, identical matched
+  catalog IDs, RA/Dec, roll and FOV within 5″ — once without an FOV estimate and once
+  with a user-style one (nearest degree, ±1°), each against its own cedar answers.
+  `scripts/ci/cedar-goldens.py --check` re-derives every golden from the vendored
+  cedar and pins the inputs they were derived from.
+- **E2 image entry point** — JPEG → `solve_from_image`: identical to the composed
+  detect → solve path, and within 10″ of cedar (roll 60″, FOV 15″, ≥90% of cedar's
+  stars matched). Looser than E1 because this path solves with every detected star,
+  while the goldens used the brightest 30; identical IDs are E1's job.
+- **E3 gRPC service** — the same through `SolveFromImage`, `ExtractCentroids` and
+  `SolveFromCentroids` with the real database: wire = library (status, attitude, FOV,
+  distortion, stars), image = composed path, within E2's tolerances of cedar, and
+  `hale_bopp` at sigma 8 is `MATCH_FOUND`.
+
+One caveat on independence: the centroid lists the goldens start from were produced
+by this repo's own detector (binning 2, `normalize_rows`, hot pixels). The goldens are
+cedar's answers to those centroids; detection at those settings is not yet held to
+cedar-detect (star-detection's parity test covers binning 1).
+
+`e2e-canary` proves the gate can fail and that each check bites: ten probes, each
+nudging one golden just past one tolerance or dropping one star ID, and five bugs
+re-injected from `main` must each turn the tier that owns them red.
+
 ### Critical paths (human sign-off on change)
 
 - `ps-core/**` — the numerical-parity correctness contract (angle convention,
@@ -173,11 +203,18 @@ under test, so agreement is external validation.
 - `ps-db` / `ps-dbgen` DB format & serialization — on-disk/mmap format is a
   compatibility contract.
 - any change to the dependency graph (`Cargo.toml` / `Cargo.lock`).
+- the oracle and its gate — `reference-solutions/**`, the goldens under
+  `crates/*/tests/data/`, the e2e tests (`reference_parity.rs`, `image_parity.rs`,
+  `e2e_service.rs`), `scripts/ci/**`, `.github/**`, and whatever decides what runs
+  under a test's name: every `Cargo.toml`, `build.rs`, `.cargo/**` and the toolchain
+  pin. A change here can make a broken product look green without touching product
+  code (`.github/CODEOWNERS`).
 
 ### Gate deltas from the org baseline
 
 - Parity scenarios are **blocking on every PR** (not just nightly) for `ps-core`
-  and `ps-solve` — parity is the product's correctness definition here.
+  and `ps-solve` — parity is the product's correctness definition here. Implemented
+  as `e2e-eval` + `e2e-canary` (2026-10-17).
 - Coverage floor raised to **90%** for `ps-core`.
 
 ### Performance / resource budgets (asserted by the perf gate)

@@ -768,11 +768,13 @@ name = "grpc-service"
 version = "0.1.0"
 dependencies = [
  "hyper-util",
+ "image",
  "math-core",
  "pattern-database",
  "plate-solver",
  "prost",
  "prost-types",
+ "serde_json",
  "star-detection",
  "tokio",
  "tokio-stream",

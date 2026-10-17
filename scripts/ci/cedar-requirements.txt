@@ -1,0 +1,17 @@
+# The vendored cedar-solve's runtime, for scripts/ci/cedar-goldens.py: the set that
+# produced and reproduces the e2e goldens. cedar's own pyproject still says numpy<2 and
+# Pillow<9, which have no wheels for current Pythons.
+#
+# Installed with --only-binary=:all: --require-hashes: pip installs exactly these files
+# or nothing. Hashes are PyPI's, for CPython 3.12 (what ci.yml pins) and 3.13 on
+# x86_64 Linux. Bumping a version means new hashes and re-running
+# `cedar-goldens.py --check` on the new set before merging.
+numpy==2.5.3 \
+    --hash=sha256:b7e18c623bb5c95acb3b3328861272816ba199fb531921c5d6d0b675f1fde9e3 \
+    --hash=sha256:a5fa86b80fd24bcd1aff83ad23be44ea323de3f787be8f8b15d4a65621e25321
+scipy==1.18.1 \
+    --hash=sha256:f55fa87b6c612ecd6b058f167c53231b1d14e412efe361d3d6e38b3631c73218 \
+    --hash=sha256:fdaf5ea890a6183d0565f51a61799d67081bd5b1cf03c5f4b3fd3732108625c9
+pillow==12.3.0 \
+    --hash=sha256:78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91 \
+    --hash=sha256:0847a763afefb695bc912d7c131e7e0632d4edc1d8698f58ddabec8e46b8b6d3

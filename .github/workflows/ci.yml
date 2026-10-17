@@ -42,6 +42,7 @@ env:
   CARGO_LLVM_COV_VERSION: "0.8.7"
   CARGO_MACHETE_VERSION: "0.9.2"
   RIPSECRETS_VERSION: "0.1.11"
+  # The vendored cedar-solve's runtime is pinned by hash in scripts/ci/cedar-requirements.txt.
 
 jobs:
   detect:
@@ -141,6 +142,107 @@ jobs:
           gate: test-coverage
           proves: "workspace line coverage is at or above the 80% floor; all tests and doctests pass under --locked"
           measured: "${{ steps.cov.outputs.pct }}% lines (floor 80%)"
+
+  # End-to-end eval. Every gate above asks whether the code is GOOD; provenance and
+  # integrity ask whether an agent WROTE it. None asks whether it WORKS — and on
+  # 2026-10-17 main (a275521), merged through all of them with a judge APPROVE on every
+  # PR, solved 0 of the 21 reference images cedar solves 19 of
+  # (docs/audit-e2e-parity.md). 156 tests at 80%+ coverage ran against empty databases
+  # and symmetric coordinates: tests that could not fail.
+  #
+  # The overlay already declared this gate — "Parity scenarios are blocking on every PR
+  # ... parity is the product's correctness definition here" (ENVIRONMENT.md) — and
+  # nothing implemented it. Three tiers, each anchored to the independent oracle, on the
+  # product's real entry points, with the real database: E1 centroid parity · E2 image
+  # entry point · E3 gRPC service. Release build on purpose: these are the numbers a
+  # user gets. Armed unless vars.E2E_ARMED disarms it with an expiry date
+  # (scripts/ci/e2e-eval.sh, which also checks the test targets it runs).
+  #
+  # Deliberately NOT gated on detect.has_code: a skipped required check counts as
+  # passed, so a PR that removed the root Cargo.toml would skip its way to green. The
+  # script decides instead and fails when there is no workspace (as provenance does).
+  # The attestation runs on failure too: a red e2e run's numbers are the finding.
+  e2e-eval:
+    name: e2e-eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with: { shared-key: e2e-release }
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with: { python-version: "3.12" }
+      # A golden is only as good as its provenance. Re-derive every one from the vendored
+      # cedar before trusting any of them, and check that the inputs they were derived
+      # from are the ones a human approved (cedar-goldens.py pins their hash and count).
+      - name: Oracle integrity — every golden reproduces from the vendored cedar
+        id: oracle
+        run: |
+          python -m pip install --quiet --only-binary=:all: --require-hashes \
+            -r scripts/ci/cedar-requirements.txt
+          python scripts/ci/cedar-goldens.py --check
+      - name: End-to-end eval against the cedar oracle (E1 centroids · E2 pixels · E3 gRPC)
+        id: eval
+        env:
+          E2E_REPORT_DIR: ${{ runner.temp }}/e2e
+          E2E_ARMED: ${{ vars.E2E_ARMED }}
+        run: bash scripts/ci/e2e-eval.sh
+      - name: Keep the scorecards
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-scorecard
+          path: ${{ runner.temp }}/e2e
+          retention-days: 90
+          if-no-files-found: warn
+      - uses: ./.github/actions/attest
+        if: always()
+        continue-on-error: true
+        with:
+          gate: e2e-eval
+          proves: "the product solves the 21 reference images the way the independent oracle (cedar) does — from centroids, with and without an FOV estimate (E1: same status, identical matched stars, within 5 arcsec), from pixels via solve_from_image (E2: within 10 arcsec, identical to the composed path) and over gRPC with the real database (E3) — that every tier ran from its owned test file and left the tree untouched, and that every golden it compared against reproduces from the vendored cedar"
+          measured: "${{ steps.oracle.outputs.reproduced }} · ${{ steps.eval.outputs.measured }}"
+
+  # The e2e gate's own proof. A gate that cannot fail is decoration
+  # (standards/rust/GATES.md, "The gates are not vacuous"). Two families, one mutant at
+  # a time, each required to turn the e2e tier that owns it red: bugs the audit found
+  # on main, re-injected; and probes that nudge one golden just past one tolerance (or
+  # drop one star ID), so loosening any tolerance or deleting any check lets a probe
+  # survive. Anchors fail closed (scripts/ci/e2e-canary.sh). Not gated on detect, for
+  # the same reason as e2e-eval.
+  e2e-canary:
+    name: e2e-canary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with: { shared-key: e2e-release }
+      - name: Probe every e2e check and re-inject audited bugs; each must turn its tier red
+        id: canary
+        env:
+          E2E_ARMED: ${{ vars.E2E_ARMED }}
+          E2E_CANARY_WORK: ${{ runner.temp }}/e2e-canary
+        run: bash scripts/ci/e2e-canary.sh
+      - name: Keep the canary's evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-canary
+          path: ${{ runner.temp }}/e2e-canary
+          retention-days: 90
+          if-no-files-found: warn
+      - uses: ./.github/actions/attest
+        if: always()
+        continue-on-error: true
+        with:
+          gate: e2e-canary
+          proves: "e2e-eval is not vacuous: ten probes (one golden nudged past one tolerance, or one star ID dropped) and five bugs re-injected from main (docs/audit-e2e-parity.md: S1 twice, S2, G1, S5), each applied alone, turn the e2e tier that owns them red with a recorded failure, and the unmutated tree is green"
+          measured: "${{ steps.canary.outputs.measured }}"
 
   docs:
     name: docs
