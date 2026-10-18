@@ -129,8 +129,8 @@ PY
   restore
 }
 
-# PROBES — one value past one tolerance (on case 0; worst real errors are 0.0001" in E1,
-# 6.4" position / 46" roll / 11.7" FOV in E2 and E3, so each nudge clears them).
+# PROBES — one value past one tolerance (on case 0; worst real errors are 0.003" in E1,
+# 5.4" position / 30" roll / 14.9" FOV in E2 and E3, so each nudge clears them).
 probe P1 E1 '.cases[0].cedar.dec += 6/3600' 'E1 position: golden Dec +6″ (tolerance 5″)'
 probe P2 E1 '.cases[0].cedar.roll += 6/3600' 'E1 roll: golden roll +6″ (tolerance 5″)'
 probe P3 E1 '.cases[0].cedar.fov += 6/3600' 'E1 FOV: golden FOV +6″ (tolerance 5″)'
