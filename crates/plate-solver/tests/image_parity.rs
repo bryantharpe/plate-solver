@@ -14,7 +14,7 @@
 //!    within 15″, and at least 90% of cedar's matched stars matched again. Looser
 //!    than E1's 5″ on purpose: this path solves with every detected star, while the
 //!    goldens were solved from the brightest 30. Measured worst on these images:
-//!    6.4″, 46″, 11.7″, and 100% of cedar's stars.
+//!    5.4″, 30″, 14.9″ (hale_bopp's FOV), and 100% of cedar's stars.
 //!
 //! Gray conversion matches PIL's `convert('L')`, which is how the goldens' centroids
 //! were produced; `image`'s own `to_luma8` uses Rec. 709 weights and moves faint stars.
@@ -32,7 +32,7 @@ const TOL_POS_ARCSEC: f64 = 10.0;
 const TOL_ROLL_ARCSEC: f64 = 60.0;
 const TOL_FOV_ARCSEC: f64 = 15.0;
 const MIN_CEDAR_RECALL: f64 = 0.9;
-const EXPECTED_SOLVED: usize = 19;
+const EXPECTED_SOLVED: usize = 20;
 
 fn repo_path(rel: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -284,7 +284,7 @@ fn reference_images_solve_to_cedar_parity_from_pixels() {
     );
     assert_eq!(
         solved, EXPECTED_SOLVED,
-        "cedar solves 19 of the 21 reference images"
+        "cedar solves 20 of the 21 reference images"
     );
     assert_eq!(composed_identical, cases.len());
 }

@@ -19,10 +19,13 @@ reproduce cleanly. --check fails unless the fixture holds exactly EXPECTED_CASES
 whose inputs (image, size, centroid list, FOV hint) hash to INPUTS_SHA256. Changing
 them is a human decision: update both constants in this owned file, in the same PR.
 
-The centroid lists came from this repo's own detector (PIL-decoded gray, sigma 8,
-binning 2, normalize_rows, hot pixels, brightest 30). The goldens are cedar-solve's
-answers to those centroids; detection at these settings is not yet held to
-cedar-detect (star-detection's parity test covers binning 1 only).
+The centroid lists are cedar-detect's, the copy vendored in reference-solutions/
+(estimate_noise_from_image, then get_stars_from_image: sigma 8, binning 2,
+normalize_rows, hot pixels), on PIL-decoded gray (convert('L')), brightest 30, as (y, x).
+The goldens are cedar-solve's answers to those centroids, so E2 and E3 hold the
+product's image path to cedar's own detect-then-solve pipeline. star-detection's
+detect_stars returns the same lists bit for bit at these settings. Each fov_hint is
+cedar's FOV to the nearest degree, +/-1 deg (roof, which cedar cannot solve, keeps 12).
 
 Needs numpy, scipy and Pillow (cedar-solve's own dependencies; scripts/ci/cedar-requirements.txt).
 Exit: 0 ok · 1 differs · 2 cannot run.
@@ -41,7 +44,7 @@ CEDAR = ROOT / "reference-solutions/cedar-solve"
 # Matches the fixture's documented solve settings.
 SOLVE = dict(solve_timeout=5000, distortion=0, return_matches=True)
 EXPECTED_CASES = 21
-INPUTS_SHA256 = "d086c815957f1dab772e59637b5f9295d71202857280ee4b9f1d6f1f0c2dc3eb"
+INPUTS_SHA256 = "90f3d167eaefe1213f6aef6e58305825905c851711d721ae27ea7a94781e5d5f"
 
 
 def inputs_sha256(cases):

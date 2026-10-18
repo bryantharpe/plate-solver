@@ -35,7 +35,7 @@ use serde_json::{json, Value};
 const TOL_POS_ARCSEC: f64 = 10.0;
 const TOL_ROLL_ARCSEC: f64 = 60.0;
 const TOL_FOV_ARCSEC: f64 = 15.0;
-const EXPECTED_SOLVED: usize = 19;
+const EXPECTED_SOLVED: usize = 20;
 const SOLVE_TIMEOUT_MS: i32 = 5000;
 
 fn repo_path(rel: &str) -> PathBuf {
@@ -369,6 +369,6 @@ async fn reference_images_solve_end_to_end_over_grpc() {
     );
     assert_eq!(
         solved, EXPECTED_SOLVED,
-        "cedar solves 19 of the 21 reference images"
+        "cedar solves 20 of the 21 reference images"
     );
 }

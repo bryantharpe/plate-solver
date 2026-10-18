@@ -30,8 +30,8 @@ use serde_json::{json, Value};
 
 /// Position, roll and FOV tolerance, arcseconds ("a few arcseconds").
 const TOL_ARCSEC: f64 = 5.0;
-/// cedar solves 19 of the 21 sample images; the other two are exhaustive NO_MATCH.
-const EXPECTED_SOLVED: usize = 19;
+/// cedar solves 20 of the 21 sample images; the other (roof) is an exhaustive NO_MATCH.
+const EXPECTED_SOLVED: usize = 20;
 
 fn repo_path(rel: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -263,10 +263,10 @@ fn reference_images_solve_to_cedar_parity() {
     );
     assert_eq!(
         plain.solved, EXPECTED_SOLVED,
-        "cedar solves 19 of the 21 reference images"
+        "cedar solves 20 of the 21 reference images"
     );
     assert_eq!(
         hinted.solved, EXPECTED_SOLVED,
-        "cedar solves 19 of the 21 reference images with an FOV estimate"
+        "cedar solves 20 of the 21 reference images with an FOV estimate"
     );
 }
