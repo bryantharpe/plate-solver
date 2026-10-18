@@ -12,7 +12,7 @@
 //! * Forwarding detection/solve parameters to the solver.
 //!
 //! The shared-memory fast path and full `SolveFromImage` detection fidelity are
-//! owned by `ps-grpc-02`; this bead stubs them so the files stay disjoint.
+//! not implemented yet; they are stubbed here.
 
 // Generated code. tonic's `#[async_trait]` service trait trips clippy's
 // `double_must_use` (Rust 1.99+); the expansion isn't ours to change.

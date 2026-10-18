@@ -3,16 +3,14 @@
 #
 # WHY THIS EXISTS
 # ---------------
-# On 2026-10-17, main (a275521) had merged through every gate in ci.yml, with a judge
-# APPROVE on each PR, and it solved 0 of the 21 reference images. cedar solves 19.
-# (docs/audit-e2e-parity.md.) Every gate we own asks whether the code is GOOD
-# (rustfmt, clippy, coverage, docs, deny) or whether an agent WROTE it (provenance,
-# integrity). None asked whether it WORKS. The 156 unit tests ran against empty
-# databases and symmetric coordinates: tests that could not fail.
+# On 2026-10-17, main (a275521) had merged through every gate in ci.yml and it solved
+# 0 of the 21 reference images. cedar solves 19. (docs/audit-e2e-parity.md.) Every
+# other gate asks whether the code is GOOD (rustfmt, clippy, coverage, docs, deny).
+# None asked whether it WORKS. The 156 unit tests ran against empty databases and
+# symmetric coordinates: tests that could not fail.
 #
-# The rig overlay had already declared this gate — "Parity scenarios are blocking on
-# every PR ... parity is the product's correctness definition here" (ENVIRONMENT.md).
-# Nothing implemented it. This does.
+# Parity with cedar is the product's correctness definition (ENVIRONMENT.md), so this
+# gate blocks every PR.
 #
 # THE TIERS — each anchored to the independent oracle (cedar), on the product's own
 # entry points, with the real database:

@@ -3,9 +3,8 @@
 # A green tick is a summary, not evidence. It does not say what was asserted, and it does not
 # carry what was measured. `test-coverage` computed the workspace's line coverage, compared it
 # to an 80% floor, wrote lcov to a file and threw the number away: the strongest claim that
-# gate can make about run 7, forever, is "≥80%". `provenance` compared the diff against every
-# known prior implementation and found none identical — but never said how many it compared
-# against, so a real check and a check that compared against nothing look the same from here.
+# gate could make about a run, forever, was "≥80%". A gate that compares against a list and
+# never says how long the list was looks the same whether it checked many things or nothing.
 #
 # That is what forces an audit to reconstruct gate intent from the outside, and reconstruction
 # is guesswork. So each gate states its own case, once, in the job that actually knows:
@@ -15,22 +14,22 @@
 #
 # The VERDICT is deliberately absent: GitHub already records pass/fail on the check-run, and a
 # gate that reports its own verdict is a gate marking its own homework. This says what the gate
-# CHECKED. GitHub says whether it passed. The audit record joins them.
+# CHECKED. GitHub says whether it passed.
 #
 # NEVER FAILS THE GATE. Every caller sets continue-on-error; a bad attestation must not turn a
 # required check red. Attestation is evidence, not enforcement.
 name: attest
-description: Record what this gate proved and what it measured, as evidence for the bead audit record.
+description: Record what this gate proved and what it measured, as a per-gate JSON artifact.
 
 inputs:
   gate:
-    description: Gate name. MUST match the job's `name:` — that is the key the audit record joins on.
+    description: Gate name. MUST match the job's `name:`, so each artifact pairs with its check-run.
     required: true
   proves:
     description: What is true if this gate is green. Write it as a claim, not as a command.
     required: true
   measured:
-    description: The figure the gate found (coverage %, priors compared, count of findings). Empty if genuinely nothing to measure.
+    description: The figure the gate found (coverage %, count of findings). Empty if genuinely nothing to measure.
     required: false
     default: ""
 

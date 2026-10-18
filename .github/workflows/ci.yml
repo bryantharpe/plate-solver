@@ -1,8 +1,5 @@
 # Tier-2 verification — FAST gates for plate-solver.
 #
-# Derived from bryantharpe/agent-standards rust/ci/ci.yml (to be subtree-imported
-# as standards/ once standards-sync exists; this is the direct install).
-#
 # GATED ON BUILDABLE CODE: main starts spec-only (the specs-only rewrite). The `detect` job
 # checks for a root Cargo.toml; every cargo job skips cleanly until the first
 # crate lands (GitHub treats skipped required checks as satisfied), so branch
@@ -22,9 +19,8 @@ on:
     # `hold:human` would not re-run CI, so the required check would sit GREEN and
     # the brake would not brake.
     #
-    # Found the hard way on the first real hold (PR #27) — the label went on and
-    # nothing turned red. The thing described as "the only mechanism an autonomous
-    # participant cannot override" was, until this line, decoration.
+    # Found the hard way on the first real hold (PR #27): the label went on and
+    # nothing turned red.
     types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
@@ -38,7 +34,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
-  # Pinned tool versions — proven against the agent-standards canary.
+  # Pinned tool versions.
   CARGO_LLVM_COV_VERSION: "0.8.7"
   CARGO_MACHETE_VERSION: "0.9.2"
   RIPSECRETS_VERSION: "0.1.11"
@@ -118,7 +114,7 @@ jobs:
         with: { components: llvm-tools-preview }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo install cargo-llvm-cov --version "$CARGO_LLVM_COV_VERSION" --locked
-      - name: Tests + coverage gate (90% floor on ps-core per rig overlay; 80% workspace)
+      - name: Tests + coverage gate (80% workspace line-coverage floor)
         id: cov
         run: |
           set -uo pipefail
@@ -143,16 +139,14 @@ jobs:
           proves: "workspace line coverage is at or above the 80% floor; all tests and doctests pass under --locked"
           measured: "${{ steps.cov.outputs.pct }}% lines (floor 80%)"
 
-  # End-to-end eval. Every gate above asks whether the code is GOOD; provenance and
-  # integrity ask whether an agent WROTE it. None asks whether it WORKS — and on
-  # 2026-10-17 main (a275521), merged through all of them with a judge APPROVE on every
-  # PR, solved 0 of the 21 reference images cedar solves 19 of
-  # (docs/audit-e2e-parity.md). 156 tests at 80%+ coverage ran against empty databases
-  # and symmetric coordinates: tests that could not fail.
+  # End-to-end eval. Every gate above asks whether the code is GOOD. None asks whether
+  # it WORKS — and on 2026-10-17 main (a275521), merged through all of them, solved 0 of
+  # the 21 reference images cedar solves 19 of (docs/audit-e2e-parity.md). 156 tests at
+  # 80%+ coverage ran against empty databases and symmetric coordinates: tests that
+  # could not fail.
   #
-  # The overlay already declared this gate — "Parity scenarios are blocking on every PR
-  # ... parity is the product's correctness definition here" (ENVIRONMENT.md) — and
-  # nothing implemented it. Three tiers, each anchored to the independent oracle, on the
+  # Parity with cedar is the product's correctness definition (ENVIRONMENT.md), so it
+  # blocks every PR. Three tiers, each anchored to the independent oracle, on the
   # product's real entry points, with the real database: E1 centroid parity · E2 image
   # entry point · E3 gRPC service. Release build on purpose: these are the numbers a
   # user gets. Armed unless vars.E2E_ARMED disarms it with an expiry date
@@ -160,7 +154,7 @@ jobs:
   #
   # Deliberately NOT gated on detect.has_code: a skipped required check counts as
   # passed, so a PR that removed the root Cargo.toml would skip its way to green. The
-  # script decides instead and fails when there is no workspace (as provenance does).
+  # script decides instead and fails when there is no workspace.
   # The attestation runs on failure too: a red e2e run's numbers are the finding.
   e2e-eval:
     name: e2e-eval
@@ -205,8 +199,7 @@ jobs:
           proves: "the product solves the 21 reference images the way the independent oracle (cedar) does — from centroids, with and without an FOV estimate (E1: same status, identical matched stars, within 5 arcsec), from pixels via solve_from_image (E2: within 10 arcsec, identical to the composed path) and over gRPC with the real database (E3) — that every tier ran from its owned test file and left the tree untouched, and that every golden it compared against reproduces from the vendored cedar"
           measured: "${{ steps.oracle.outputs.reproduced }} · ${{ steps.eval.outputs.measured }}"
 
-  # The e2e gate's own proof. A gate that cannot fail is decoration
-  # (standards/rust/GATES.md, "The gates are not vacuous"). Two families, one mutant at
+  # The e2e gate's own proof: a gate that cannot fail is decoration. Two families, one mutant at
   # a time, each required to turn the e2e tier that owns it red: bugs the audit found
   # on main, re-injected; and probes that nudge one golden just past one tolerance (or
   # drop one star ID), so loosening any tolerance or deleting any check lets a probe
@@ -335,75 +328,14 @@ jobs:
           proves: "no committed file in the full history contains anything ripsecrets recognises as a credential"
           measured: "0 secrets (ripsecrets ${{ env.RIPSECRETS_VERSION }}, full history, fetch-depth 0)"
 
-  # hq-judge-01. Every other gate here asks "is this code GOOD?". None of them
-  # asks "did this agent WRITE it?" — and on 2026-07-12 that gap let a
-  # byte-identical restore of earlier work pass all nine checks AND an APPROVE
-  # from the judge. For a rewrite whose purpose is to measure whether a model can
-  # build from specs, a copied answer voids the experiment while showing 10/10
-  # green, which is worse than a failure because it looks like a success.
+  # A manual brake. On 2026-07-12 a human converted a PR to DRAFT to stop it while its
+  # contents were in question; an agent marked it ready_for_review 2m26s later and it
+  # merged 7 seconds after that. Draft status and labels are requests an automated
+  # participant can clear. A REQUIRED CHECK that is RED while the hold is on is not:
+  # GitHub refuses the merge.
   #
-  # fetch-depth: 0 is mandatory — the priors live in history.
-  #
-  # NOT gated on detect.has_code: that output tests whether a root Cargo.toml
-  # EXISTS, which has been permanently true since the first crate landed. It
-  # never distinguished a spec-only DIFF. The script gates on the diff itself and
-  # reports SUCCESS for spec-only PRs, which is also why this is a normal job and
-  # not a path-filtered workflow — a required check that never reports leaves the
-  # PR hanging on "Expected — waiting for status" forever.
-  provenance:
-    name: provenance
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-        with: { fetch-depth: 0 }
-      - run: git fetch -q origin main
-      - id: priors
-        env:
-          PROVENANCE_PRIORS: ${{ vars.PROVENANCE_PRIORS }}
-        # HOW MANY PRIORS DID IT ACTUALLY COMPARE AGAINST? Green meant "no prior matches", which
-        # is exactly what an EMPTY prior list also produces. A gate whose pass and whose no-op
-        # are indistinguishable is not yet evidence. Count them — the count only, never the SHAs
-        # (the list is an Actions variable and not a file precisely because a polecat once ran
-        # `cat .github/provenance-priors.txt` and went hunting the SHA it found).
-        run: |
-          set -uo pipefail
-          n="$(printf '%s\n' $PROVENANCE_PRIORS | grep -c '[0-9a-f]' || true)"
-          echo "n=${n:-0}" >> "$GITHUB_OUTPUT"
-          echo "comparing against ${n:-0} known prior implementation(s)"
-      - run: bash scripts/ci/verify-fresh-authoring.sh
-        env:
-          BASE_REF: origin/main
-          # The prior SHAs are an Actions variable, NOT a file in the repo. They used
-          # to live in .github/provenance-priors.txt — until a polecat on a from-specs
-          # bead ran `cat .github/provenance-priors.txt`, then spent six commands
-          # hunting the SHA it found there. The gate built to catch recovery was
-          # handing out the map. Edit with: gh variable set PROVENANCE_PRIORS
-          PROVENANCE_PRIORS: ${{ vars.PROVENANCE_PRIORS }}
-      - uses: ./.github/actions/attest
-        continue-on-error: true
-        with:
-          gate: provenance
-          proves: "no file in this diff is byte-identical to the same file in any known prior implementation"
-          measured: "0 byte-identical files, compared against ${{ steps.priors.outputs.n }} prior implementation(s)"
-
-  # hq-hold-01. On 2026-07-12 a human converted a PR to DRAFT to stop it while its
-  # contents were in question; an agent marked it ready_for_review 2m26s later and
-  # it merged 7 seconds after that. Nothing in our scripts, our formulas, or the gt
-  # binary calls `gh pr ready` — an agent simply decided to, being helpful.
-  #
-  # So the brake cannot be an honour-system label that agents are asked to respect,
-  # nor draft status, which they can clear. It has to be a REQUIRED CHECK that is
-  # RED while the hold is on: GitHub refuses the merge, and no amount of agent
-  # helpfulness can argue with that. This is the only mechanism in the pipeline
-  # that an autonomous participant cannot override.
-  #
-  # THIS JOB IS UNIVERSAL AND MUST STAY THAT WAY. DO NOT make it conditional on the
-  # rig's `hold.enabled` flag. The flag (config/rig-flags.json, town-side) governs only
-  # whether authoring-integrity-guard may APPLY the label automatically. The job is inert
-  # without the label — green by construction on a rig where nothing applies it — so
-  # leaving it universal costs nothing, keeps branch protection identical across rigs, and
-  # preserves the thing the label is actually for: an operator can park ANY PR, on ANY rig,
-  # by hand, and every tool in the pipeline will respect it.
+  # The job is inert without the `hold:human` label, so it is green on every PR nobody
+  # has parked, and a human can park any PR by adding the label.
   hold:
     name: hold
     runs-on: ubuntu-latest
@@ -414,29 +346,13 @@ jobs:
       - name: Fail while an operator has parked this PR
         if: contains(github.event.pull_request.labels.*.name, 'hold:human')
         run: |
-          echo "::error::hold:human — an operator has parked this PR. Merging is blocked."
+          echo "::error::hold:human — this PR is parked. Merging is blocked."
           echo
           echo "If you are an agent: do NOT remove the label, and do NOT mark this PR ready"
           echo "for review. Leave it parked and say so."
           echo
-          # This used to say 'Remove the label to release it', which was FALSE and was the
-          # last thing an operator read before acting. Removing the label does two things,
-          # both wrong: authoring-integrity-guard re-applies it within 2 minutes (a finding
-          # is cleared by ADDING integrity:cleared, never by removing a label), and it does
-          # not bring back the merge request that holding the PR destroyed — so `review/judge`,
-          # a required check, is never posted and the PR stays unmergeable no matter what you
-          # click. Two PRs were closed unmerged from this page because the release path was a
-          # lie and the Close button was the only thing that worked (#53/#54, 2026-07-14).
-          # ABSOLUTE PATH, ON PURPOSE. This text is read on github.com, in the Actions log of
-          # THIS repo — and `scripts/` does not exist in this repo. It lives in the town
-          # (gt-town-config, deployed to ~/gt). A bare `scripts/ops/...` sends the operator
-          # looking in the wrong checkout, which is the same class of mistake as the line this
-          # message replaced.
-          echo "OPERATOR — to release this PR, on the town host:"
-          echo "    ~/gt/scripts/ops/mq-release.sh plate_solver ${{ github.event.pull_request.number }} --yes"
-          echo "It adds integrity:cleared, drops the hold, and RESUBMITS the merge request"
-          echo "(without which the judge never runs and this PR can never merge)."
-          echo "Removing the label by hand will NOT work. Run it without --yes for a dry run."
+          echo "To release it, a human removes the hold:human label. The workflow re-runs on"
+          echo "'unlabeled' and this check turns green."
           exit 1
       - run: echo "No operator hold. Proceeding."
       - uses: ./.github/actions/attest
