@@ -205,7 +205,7 @@ fn merge_blobs(blobs: &mut [Blob], mut donor_id: usize, recipient_id: usize) {
     }
     loop {
         if !blobs[donor_id].candidates.is_empty() {
-            let mut donated: Vec<Candidate> = blobs[donor_id].candidates.drain(..).collect();
+            let mut donated: Vec<Candidate> = std::mem::take(&mut blobs[donor_id].candidates);
             blobs[donor_id].recipient = Some(recipient_id);
             blobs[recipient_id].candidates.append(&mut donated);
             return;

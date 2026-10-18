@@ -14,6 +14,9 @@
 //! The shared-memory fast path and full `SolveFromImage` detection fidelity are
 //! owned by `ps-grpc-02`; this bead stubs them so the files stay disjoint.
 
+// Generated code. tonic's `#[async_trait]` service trait trips clippy's
+// `double_must_use` (Rust 1.99+); the expansion isn't ours to change.
+#[allow(clippy::double_must_use)]
 pub mod proto {
     tonic::include_proto!("plate_solver");
 }
