@@ -226,8 +226,8 @@ fn fit_focal_and_k(
 ) -> Option<(f64, f64)> {
     let (mut a00, mut a01, mut a11, mut b0, mut b1) = (0.0, 0.0, 0.0, 0.0, 0.0);
     for (c, cat) in raw.iter().zip(catalog) {
-        let d = rotation.rotate(*cat);
-        let t = (d.y * d.y + d.z * d.z).sqrt() / d.x;
+        let cam = rotation.rotate(*cat);
+        let t = (cam.y * cam.y + cam.z * cam.z).sqrt() / cam.x;
         let r = ((c.0 - height / 2.0).powi(2) + (c.1 - width / 2.0).powi(2)).sqrt() / width * 2.0;
         let r3 = r * r * r;
         a00 += t * t;
