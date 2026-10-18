@@ -69,7 +69,7 @@ impl PlateSolver for PlateSolverServer {
         let elapsed = start.elapsed();
 
         let noise_estimate = estimate_noise(&image, width, height);
-        let hot_pixel_count = 0i32; // ps-grpc-02 owns accurate hot-pixel counting.
+        let hot_pixel_count = 0i32; // Accurate hot-pixel counting is not implemented yet.
 
         let mut candidates: Vec<StarCentroid> = stars
             .iter()
@@ -93,7 +93,7 @@ impl PlateSolver for PlateSolverServer {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        // ps-grpc-02 owns returning the binned image; the field stays unset here
+        // Returning the binned image is not implemented yet; the field stays unset
         // regardless of `return_binned`.
         let binned_image = None;
 
@@ -193,8 +193,8 @@ impl PlateSolver for PlateSolverServer {
             // `plate_solver::solve_from_image` fuses detection and solving into a
             // single call, so the two cannot be timed apart without duplicating
             // detection. Report the measured total under `t_solve_ms` rather than
-            // inventing a split. ps-grpc-02 owns this RPC's detection path and can
-            // report a true `t_extract_ms` once it drives detection itself.
+            // inventing a split. A true `t_extract_ms` needs this RPC to drive
+            // detection itself.
             0.0,
             total_ms,
         )))
@@ -219,18 +219,16 @@ impl PlateSolver for PlateSolverServer {
 
 /// Read an `Image` message into a row-major 8-bit buffer.
 ///
-/// Shared-memory images are stubbed here; ps-grpc-02 implements the fast path.
+/// Shared-memory images are stubbed: the fast path is not implemented yet.
 fn read_image(image: &Option<Image>) -> Result<(Vec<u8>, usize, usize), Status> {
     let img = image
         .as_ref()
         .ok_or_else(|| Status::invalid_argument("missing input_image"))?;
 
     if img.shmem_name.is_some() {
-        // ps-grpc-02 owns shared-memory handling. For now, signal the client to
+        // Shared-memory handling is not implemented yet. Signal the client to
         // fall back to inline image_data per the spec.
-        return Err(Status::internal(
-            "shared-memory fast path not implemented in this bead",
-        ));
+        return Err(Status::internal("shared-memory fast path not implemented"));
     }
 
     let width = img.width as usize;

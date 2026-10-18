@@ -3,8 +3,7 @@
 #
 # WHY THIS EXISTS
 # ---------------
-# A gate that cannot fail is decoration (standards/rust/GATES.md, "The gates are not
-# vacuous"). main shipped 156 green tests that could not fail; the e2e gate must not
+# A gate that cannot fail is decoration. main shipped 156 green tests that could not fail; the e2e gate must not
 # become the 157th. Two families of mutants, one at a time, each required to turn the
 # e2e tier that owns it RED, then put back:
 #

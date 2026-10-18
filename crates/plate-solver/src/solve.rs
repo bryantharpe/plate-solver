@@ -40,7 +40,7 @@ impl Default for DetectParams {
 ///
 /// This function owns the front of the solve loop: context construction,
 /// preparation, and breadth-first image-pattern iteration. Verification and
-/// refinement are delegated to downstream beads via the `candidates` module.
+/// refinement are delegated to the `candidates` module.
 ///
 /// The solver only reads `db`, so a caller that keeps its database passes `&db`
 /// (or `&*arc`) and pays no copy per solve. An owned `PatternDatabase` or an

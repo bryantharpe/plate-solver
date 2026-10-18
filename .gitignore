@@ -1,10 +1,5 @@
-# Claude Code local settings (personal, machine-specific)
-.claude/settings.local.json
-.claude/commands/handoff.md
-.claude/commands/review.md
-
-# Gas Town per-session runtime state (agent lock, session id)
-.runtime/
+# Claude Code: local settings and the app's per-session worktrees (.claude/worktrees/)
+.claude/
 
 # macOS
 .DS_Store
@@ -28,13 +23,8 @@ tools/parity/.venv-tetra3-orig
 tools/parity/benchmark/generated/*.bin
 tools/parity/benchmark/results.json
 
-# Gas Town (added by gt)
-.runtime/
-.claude/
-.logs/
+# Python bytecode (e.g. from running the vendored cedar-solve)
 __pycache__/
-state.json
 
-# Polecat/bead bookkeeping — never product code (nux committed .beads/redirect into PR #29)
-.beads/
+# Coverage output from cargo llvm-cov (CI's test-coverage job writes it)
 lcov.info
