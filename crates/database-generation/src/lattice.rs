@@ -1,10 +1,10 @@
 //! Fibonacci sphere lattice for uniform field-center distribution.
 
 use math_core::UnitVector;
-use std::f64::consts::PI;
+use std::f64::consts::{GOLDEN_RATIO, PI};
 
 /// Golden ratio.
-const PHI: f64 = 1.618_033_988_749_895;
+const PHI: f64 = GOLDEN_RATIO;
 
 /// Golden-angle increment in radians: `2π · (1 - 1/φ)`.
 const GOLDEN_ANGLE: f64 = 2.0 * PI * (1.0 - 1.0 / PHI);

@@ -119,7 +119,7 @@ fn decode_database<R: io::Read + io::Seek>(
         .map(|item| decode_uint(&item.0, cat_ty.little))
         .collect();
     let mut pattern_catalog = Vec::with_capacity(catalog_length);
-    for chunk in cat_flat.chunks_exact(PATTERN_SIZE) {
+    for chunk in cat_flat.as_chunks::<PATTERN_SIZE>().0 {
         // Upstream (tetra3) pre-zeros the table and marks a slot occupied only once every
         // column has been written, so an all-zero row is the on-disk "unoccupied" sentinel.
         // lookup.rs's is_empty predicate checks row[0] == usize::MAX, so that's the sentinel
@@ -190,7 +190,9 @@ fn decode_database<R: io::Read + io::Seek>(
             .map(|v| CatalogId::Hip(v as u32))
             .collect(),
         ([n, 3], 2) if *n as usize == num_stars => ids_flat
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|c| CatalogId::Tyc(c[0] as u16, c[1] as u16, c[2] as u16))
             .collect(),
         _ => {
