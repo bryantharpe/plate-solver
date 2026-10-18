@@ -1,5 +1,7 @@
 //! Solve entry points: `solve_from_centroids` and `solve_from_image`.
 
+use std::borrow::Borrow;
+
 use crate::candidates;
 use crate::preparation::{build_context, prepare, Prepared};
 use crate::refine::refine_solution;
@@ -39,6 +41,10 @@ impl Default for DetectParams {
 /// This function owns the front of the solve loop: context construction,
 /// preparation, and breadth-first image-pattern iteration. Verification and
 /// refinement are delegated to downstream beads via the `candidates` module.
+///
+/// The solver only reads `db`, so a caller that keeps its database passes `&db`
+/// (or `&*arc`) and pays no copy per solve. An owned `PatternDatabase` or an
+/// `Arc<PatternDatabase>` works too.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_from_centroids(
     centroids: &[(f64, f64)],
@@ -50,10 +56,10 @@ pub fn solve_from_centroids(
     solve_timeout: u64,
     distortion: f64,
     match_max_error: f64,
-    db: PatternDatabase,
+    db: impl Borrow<PatternDatabase>,
 ) -> Solution {
     let ctx = build_context(
-        db,
+        db.borrow(),
         fov_estimate,
         fov_max_error,
         match_radius,
@@ -77,6 +83,8 @@ pub fn solve_from_centroids(
 ///
 /// Extracts centroids via `star_detection::detect_stars`, using the supplied
 /// `DetectParams`. Records the extraction time in the returned `Solution`.
+///
+/// Takes `db` as [`solve_from_centroids`] does; pass `&db` to keep the database.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_from_image(
     image: &[u8],
@@ -89,7 +97,7 @@ pub fn solve_from_image(
     solve_timeout: u64,
     distortion: f64,
     match_max_error: f64,
-    db: PatternDatabase,
+    db: impl Borrow<PatternDatabase>,
     detect_params: DetectParams,
 ) -> Solution {
     let sigma = detect_params.sigma;
@@ -122,7 +130,7 @@ pub fn solve_from_image(
         solve_timeout,
         distortion,
         match_max_error,
-        db,
+        db.borrow(),
     );
     // Report the noise estimate in its own field; `match_probability` is the
     // false-alarm probability and must not be overwritten.
@@ -135,7 +143,12 @@ pub fn solve_from_image(
 /// Matches cedar's `breadth_first_combinations`: every combination is visited
 /// exactly once, ordered by its faintest member, so all patterns drawn from the
 /// brightest k stars are tried before any pattern that needs star k+1.
-fn iterate_patterns(ctx: &SolveContext, prep: &Prepared, width: f64, height: f64) -> Solution {
+fn iterate_patterns(
+    ctx: &SolveContext<&PatternDatabase>,
+    prep: &Prepared,
+    width: f64,
+    height: f64,
+) -> Solution {
     let p = &prep.pattern_indices;
     let n = p.len();
     for i3 in 3..n {
@@ -176,7 +189,7 @@ fn iterate_patterns(ctx: &SolveContext, prep: &Prepared, width: f64, height: f64
     }
 }
 
-fn stopped_solution(ctx: &SolveContext) -> Solution {
+fn stopped_solution(ctx: &SolveContext<&PatternDatabase>) -> Solution {
     let status = if ctx.is_cancelled() {
         SolveStatus::Cancelled
     } else {

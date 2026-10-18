@@ -4,6 +4,7 @@
 use crate::status::{Solution, SolveContext, SolveStatus};
 use math_core::{undistort_centroids, PinholeCamera, UnitVector};
 use pattern_database::{DatabaseProperties, PatternDatabase};
+use std::borrow::Borrow;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
@@ -101,9 +102,11 @@ pub fn centroid_vectors(
 }
 
 /// Build the solve context from inputs and the loaded pattern database.
+///
+/// `db` is held as given: pass `&PatternDatabase` to borrow it, or an owned database.
 #[allow(clippy::too_many_arguments)]
-pub fn build_context(
-    db: PatternDatabase,
+pub fn build_context<D: Borrow<PatternDatabase>>(
+    db: D,
     fov_estimate: Option<f64>,
     fov_max_error: f64,
     match_radius: f64,
@@ -111,8 +114,8 @@ pub fn build_context(
     match_max_error: f64,
     distortion: f64,
     solve_timeout_ms: u64,
-) -> SolveContext {
-    let props = db.properties.clone();
+) -> SolveContext<D> {
+    let props = db.borrow().properties.clone();
     let fov_initial = initial_fov(&props, fov_estimate, fov_max_error);
     // Cedar applies the largest-edge/FOV pre-filter only when the caller supplied
     // both an estimate and a tolerance. The tolerance is in degrees.
@@ -181,8 +184,8 @@ pub type PrepareResult = Result<Prepared, Box<Solution>>;
 
 /// Run the preparation stage and return either the prepared inputs or a solution
 /// already terminated with `TOO_FEW`.
-pub fn prepare(
-    ctx: &SolveContext,
+pub fn prepare<D>(
+    ctx: &SolveContext<D>,
     centroids: &[(f64, f64)],
     width: f64,
     height: f64,

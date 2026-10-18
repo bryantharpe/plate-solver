@@ -10,7 +10,8 @@ use math_core::pattern::{
     pattern_key_hash_index, KEY_LEN, PATTERN_SIZE,
 };
 use math_core::UnitVector;
-use pattern_database::{Candidate, LookupQuery};
+use pattern_database::{Candidate, LookupQuery, PatternDatabase};
+use std::borrow::Borrow;
 
 /// Reconstruct the four unit vectors that would produce a given quantized key.
 ///
@@ -110,9 +111,13 @@ fn synthetic_vectors_for_key(
 ///    space.
 /// 5. For each candidate key, look up the database probe chain and collect all
 ///    catalog patterns that survive the cheap filters.
-pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Candidate> {
+pub fn lookup_candidates<D: Borrow<PatternDatabase>>(
+    ctx: &SolveContext<D>,
+    vectors: [UnitVector; 4],
+) -> Vec<Candidate> {
+    let db = ctx.database();
     let bins = ctx.props.pattern_bins as u32;
-    if bins == 0 || ctx.db.pattern_catalog.is_empty() {
+    if bins == 0 || db.pattern_catalog.is_empty() {
         return Vec::new();
     }
     let p_max_err = ctx.match_max_error.max(ctx.props.pattern_max_error as f64);
@@ -165,8 +170,8 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
         let key_hash = pattern_key_hash(&candidate_key, bins);
         let hash_index = pattern_key_hash_index(
             key_hash,
-            ctx.db.pattern_catalog.len(),
-            ctx.db.properties.linear_probe(),
+            db.pattern_catalog.len(),
+            db.properties.linear_probe(),
         );
         let key_hash16 = pattern_key_hash16(key_hash);
 
@@ -181,9 +186,7 @@ pub fn lookup_candidates(ctx: &SolveContext, vectors: [UnitVector; 4]) -> Vec<Ca
             ratio_max,
         };
 
-        let cands = ctx
-            .db
-            .lookup_candidates_at_index(hash_index, key_hash16, largest_edge, &query);
+        let cands = db.lookup_candidates_at_index(hash_index, key_hash16, largest_edge, &query);
         for cand in cands {
             if seen.insert(cand.table_index) {
                 candidates.push(cand);
@@ -247,8 +250,8 @@ fn squared_key_distance(a: &[u32; KEY_LEN], b: &[u32; KEY_LEN]) -> u64 {
 ///
 /// Delegates to the `verify` module, which owns the authoritative verification
 /// pipeline: attitude solving, projection/match, and false-alarm acceptance.
-pub fn verify_candidate(
-    ctx: &SolveContext,
+pub fn verify_candidate<D: Borrow<PatternDatabase>>(
+    ctx: &SolveContext<D>,
     candidate: &Candidate,
     pattern_indices: [usize; 4],
     vectors: &[UnitVector],

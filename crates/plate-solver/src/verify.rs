@@ -21,15 +21,16 @@ use math_core::{
     attitude::solve_attitude, binomial::false_alarm_test, fov::diagonal_fov,
     pattern::order_pattern_by_centroid_distance, PinholeCamera, UnitVector,
 };
-use pattern_database::Candidate;
+use pattern_database::{Candidate, PatternDatabase};
+use std::borrow::Borrow;
 
 /// Verify a single candidate against the current context.
 ///
 /// This is the integration point called by `candidates::verify_candidate`. It runs
 /// the full verification pipeline and returns `Accepted` only when the candidate
 /// survives attitude solving, projection/match, and the binomial false-alarm test.
-pub fn verify_candidate(
-    ctx: &SolveContext,
+pub fn verify_candidate<D: Borrow<PatternDatabase>>(
+    ctx: &SolveContext<D>,
     candidate: &Candidate,
     pattern_indices: [usize; 4],
     image_vectors: &[UnitVector],
@@ -54,8 +55,8 @@ pub fn verify_candidate(
 /// Verify a single candidate and return the full outcome for refinement.
 ///
 /// Returns `None` if the candidate is rejected before the projection/match stage.
-pub fn verify_candidate_with_outcome(
-    ctx: &SolveContext,
+pub fn verify_candidate_with_outcome<D: Borrow<PatternDatabase>>(
+    ctx: &SolveContext<D>,
     candidate: &Candidate,
     pattern_indices: [usize; 4],
     image_vectors: &[UnitVector],
@@ -63,6 +64,7 @@ pub fn verify_candidate_with_outcome(
     width: f64,
     height: f64,
 ) -> Option<VerificationOutcome> {
+    let db = ctx.database();
     // 1. Coarse FOV (radians), exactly as cedar: scale the caller's estimate by the
     //    ratio of catalog to image largest-edge *angles*, or, with no estimate, solve
     //    the focal length from the largest pixel distance.
@@ -88,8 +90,7 @@ pub fn verify_candidate_with_outcome(
         std::array::from_fn(|m| v[m].expect("pinhole unprojection is never zero-length"))
     };
     let catalog_pattern: [UnitVector; 4] = std::array::from_fn(|m| {
-        ctx.db
-            .star_vector(pattern_database::StarId(candidate.star_indices[m]))
+        db.star_vector(pattern_database::StarId(candidate.star_indices[m]))
             .expect("candidate star index valid")
     });
     let io = order_pattern_by_centroid_distance(&image_pattern);
@@ -107,17 +108,14 @@ pub fn verify_candidate_with_outcome(
         y: rotation.rows[0][1],
         z: rotation.rows[0][2],
     };
-    let nearby = ctx
-        .db
-        .nearby_stars(boresight, diagonal_fov(fov, width, height) / 2.0);
+    let nearby = db.nearby_stars(boresight, diagonal_fov(fov, width, height) / 2.0);
 
     // 5. Derotate and project; keep in-frame; trim to 2 * num_centroids.
     let derotated: Vec<UnitVector> = nearby
         .iter()
         .map(|&idx| {
             rotation.rotate(
-                ctx.db
-                    .star_vector(pattern_database::StarId(idx))
+                db.star_vector(pattern_database::StarId(idx))
                     .expect("valid star index"),
             )
         })
@@ -159,11 +157,7 @@ pub fn verify_candidate_with_outcome(
         .collect();
     let matched_stars: Vec<UnitVector> = matched_catalog_ids
         .iter()
-        .map(|&s| {
-            ctx.db
-                .star_vector(pattern_database::StarId(s))
-                .expect("valid")
-        })
+        .map(|&s| db.star_vector(pattern_database::StarId(s)).expect("valid"))
         .collect();
     Some(VerificationOutcome {
         accepted: true,

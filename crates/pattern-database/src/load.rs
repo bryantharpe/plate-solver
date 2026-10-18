@@ -7,10 +7,10 @@
 //! derive-based structured-array reading can't express.
 
 use std::collections::HashMap;
-use std::io;
+use std::io::{self, Read};
 use std::path::Path;
 
-use npyz::{DType, DTypeError, Deserialize, TypeRead};
+use npyz::DType;
 
 use math_core::pattern::PATTERN_SIZE;
 use math_core::UnitVector;
@@ -81,105 +81,111 @@ pub fn load_mmap(path: &Path) -> Result<PatternDatabase, LoadError> {
 fn decode_database<R: io::Read + io::Seek>(
     archive: &mut npyz::npz::NpzArchive<R>,
 ) -> Result<PatternDatabase, LoadError> {
-    let (star_dtype, star_shape, star_items) = read_raw(archive, "star_table")?;
-    let star_ty = parse_type_str(&star_dtype)?;
+    let star = read_raw(archive, "star_table")?;
+    let star_ty = parse_type_str(&star.dtype)?;
     if star_ty.kind != 'f' || star_ty.size != 4 {
         return Err(LoadError::Format(format!(
             "star_table: expected f4 elements, got {}",
-            star_dtype.descr()
+            star.dtype.descr()
         )));
     }
-    if star_shape.len() != 2 || star_shape[1] != 6 {
+    if star.shape.len() != 2 || star.shape[1] != 6 {
         return Err(LoadError::Format(format!(
-            "star_table: expected shape (N, 6), got {star_shape:?}"
+            "star_table: expected shape (N, 6), got {:?}",
+            star.shape
         )));
     }
-    let num_stars = star_shape[0] as usize;
-    let star_table: Vec<f32> = star_items
-        .iter()
-        .map(|item| decode_f32(&item.0, star_ty.little))
+    let num_stars = star.shape[0] as usize;
+    let star_table: Vec<f32> = star
+        .items()
+        .map(|item| decode_f32(item, star_ty.little))
         .collect();
 
-    let (cat_dtype, cat_shape, cat_items) = read_raw(archive, "pattern_catalog")?;
-    let cat_ty = parse_type_str(&cat_dtype)?;
-    if cat_ty.kind != 'u' {
+    let cat = read_raw(archive, "pattern_catalog")?;
+    let cat_ty = parse_type_str(&cat.dtype)?;
+    if cat_ty.kind != 'u' || !matches!(cat_ty.size, 1 | 2 | 4 | 8) {
         return Err(LoadError::Format(format!(
             "pattern_catalog: expected an unsigned int dtype, got {}",
-            cat_dtype.descr()
+            cat.dtype.descr()
         )));
     }
-    if cat_shape.len() != 2 || cat_shape[1] as usize != PATTERN_SIZE {
+    if cat.shape.len() != 2 || cat.shape[1] as usize != PATTERN_SIZE {
         return Err(LoadError::Format(format!(
-            "pattern_catalog: expected shape (N, {PATTERN_SIZE}), got {cat_shape:?}"
+            "pattern_catalog: expected shape (N, {PATTERN_SIZE}), got {:?}",
+            cat.shape
         )));
     }
-    let catalog_length = cat_shape[0] as usize;
-    let cat_flat: Vec<u64> = cat_items
-        .iter()
-        .map(|item| decode_uint(&item.0, cat_ty.little))
+    let catalog_length = cat.shape[0] as usize;
+    let pattern_catalog: Vec<[usize; PATTERN_SIZE]> = cat
+        .bytes
+        .chunks_exact(cat_ty.size * PATTERN_SIZE)
+        .map(|row| {
+            // Upstream (tetra3) pre-zeros the table and marks a slot occupied only once every
+            // column has been written, so an all-zero row is the on-disk "unoccupied" sentinel.
+            // lookup.rs's is_empty predicate checks row[0] == usize::MAX, so that's the
+            // sentinel we must translate it to here.
+            if row.iter().all(|&b| b == 0) {
+                [usize::MAX; PATTERN_SIZE]
+            } else {
+                let size = cat_ty.size;
+                std::array::from_fn(|i| {
+                    decode_uint(&row[i * size..(i + 1) * size], cat_ty.little) as usize
+                })
+            }
+        })
         .collect();
-    let mut pattern_catalog = Vec::with_capacity(catalog_length);
-    for chunk in cat_flat.as_chunks::<PATTERN_SIZE>().0 {
-        // Upstream (tetra3) pre-zeros the table and marks a slot occupied only once every
-        // column has been written, so an all-zero row is the on-disk "unoccupied" sentinel.
-        // lookup.rs's is_empty predicate checks row[0] == usize::MAX, so that's the sentinel
-        // we must translate it to here.
-        if chunk.iter().all(|&v| v == 0) {
-            pattern_catalog.push([usize::MAX; PATTERN_SIZE]);
-        } else {
-            let row: [usize; PATTERN_SIZE] = std::array::from_fn(|i| chunk[i] as usize);
-            pattern_catalog.push(row);
-        }
-    }
 
-    let (edge_dtype, edge_shape, edge_items) = read_raw(archive, "pattern_largest_edge")?;
-    let edge_ty = parse_type_str(&edge_dtype)?;
+    let edge = read_raw(archive, "pattern_largest_edge")?;
+    let edge_ty = parse_type_str(&edge.dtype)?;
     if edge_ty.kind != 'f' || edge_ty.size != 2 {
         return Err(LoadError::Format(format!(
             "pattern_largest_edge: expected f2 (float16) elements, got {}",
-            edge_dtype.descr()
+            edge.dtype.descr()
         )));
     }
-    if edge_shape != [catalog_length as u64] {
+    if edge.shape != [catalog_length as u64] {
         return Err(LoadError::Format(format!(
-            "pattern_largest_edge: expected shape ({catalog_length}), got {edge_shape:?}"
+            "pattern_largest_edge: expected shape ({catalog_length}), got {:?}",
+            edge.shape
         )));
     }
-    let pattern_largest_edge: Vec<f32> = edge_items
-        .iter()
-        .map(|item| decode_f16(&item.0, edge_ty.little))
+    let pattern_largest_edge: Vec<f32> = edge
+        .items()
+        .map(|item| decode_f16(item, edge_ty.little))
         .collect();
 
-    let (hash_dtype, hash_shape, hash_items) = read_raw(archive, "pattern_key_hashes")?;
-    let hash_ty = parse_type_str(&hash_dtype)?;
+    let hash = read_raw(archive, "pattern_key_hashes")?;
+    let hash_ty = parse_type_str(&hash.dtype)?;
     if hash_ty.kind != 'u' || hash_ty.size != 2 {
         return Err(LoadError::Format(format!(
             "pattern_key_hashes: expected u2 elements, got {}",
-            hash_dtype.descr()
+            hash.dtype.descr()
         )));
     }
-    if hash_shape != [catalog_length as u64] {
+    if hash.shape != [catalog_length as u64] {
         return Err(LoadError::Format(format!(
-            "pattern_key_hashes: expected shape ({catalog_length}), got {hash_shape:?}"
+            "pattern_key_hashes: expected shape ({catalog_length}), got {:?}",
+            hash.shape
         )));
     }
-    let pattern_key_hashes: Vec<u16> = hash_items
-        .iter()
-        .map(|item| decode_uint(&item.0, hash_ty.little) as u16)
+    let pattern_key_hashes: Vec<u16> = hash
+        .items()
+        .map(|item| decode_uint(item, hash_ty.little) as u16)
         .collect();
 
-    let (ids_dtype, ids_shape, ids_items) = read_raw(archive, "star_catalog_IDs")?;
-    let ids_ty = parse_type_str(&ids_dtype)?;
-    if ids_ty.kind != 'u' {
+    let ids = read_raw(archive, "star_catalog_IDs")?;
+    let ids_ty = parse_type_str(&ids.dtype)?;
+    if ids_ty.kind != 'u' || !matches!(ids_ty.size, 1 | 2 | 4 | 8) {
         return Err(LoadError::Format(format!(
             "star_catalog_IDs: expected an unsigned int dtype, got {}",
-            ids_dtype.descr()
+            ids.dtype.descr()
         )));
     }
-    let ids_flat: Vec<u64> = ids_items
-        .iter()
-        .map(|item| decode_uint(&item.0, ids_ty.little))
+    let ids_flat: Vec<u64> = ids
+        .items()
+        .map(|item| decode_uint(item, ids_ty.little))
         .collect();
+    let ids_shape = ids.shape;
     let star_catalog_ids: Vec<CatalogId> = match (ids_shape.as_slice(), ids_ty.size) {
         ([n], 2) if *n as usize == num_stars => ids_flat
             .into_iter()
@@ -203,8 +209,8 @@ fn decode_database<R: io::Read + io::Seek>(
         }
     };
 
-    let (props_dtype, _props_shape, props_items) = read_raw(archive, "props_packed")?;
-    let properties = decode_properties(&props_dtype, &props_items, catalog_length)?;
+    let props = read_raw(archive, "props_packed")?;
+    let properties = decode_properties(&props.dtype, props.items().next(), catalog_length)?;
 
     let star_kdtree = build_star_kdtree(&star_table, num_stars);
 
@@ -243,7 +249,7 @@ fn build_star_kdtree(star_table: &[f32], num_stars: usize) -> StarKdTree {
 /// `min_fov <- max_fov`.
 fn decode_properties(
     dtype: &DType,
-    items: &[RawItem],
+    record: Option<&[u8]>,
     catalog_length: usize,
 ) -> Result<DatabaseProperties, LoadError> {
     let fields = match dtype {
@@ -255,10 +261,8 @@ fn decode_properties(
             )))
         }
     };
-    let record = &items
-        .first()
-        .ok_or_else(|| LoadError::Format("props_packed: array has no records".to_string()))?
-        .0;
+    let record = record
+        .ok_or_else(|| LoadError::Format("props_packed: array has no records".to_string()))?;
 
     let mut values: HashMap<&str, FieldValue> = HashMap::new();
     let mut offset = 0usize;
@@ -388,16 +392,20 @@ fn decode_field(dtype: &DType, bytes: &[u8]) -> Result<FieldValue, LoadError> {
     }
 }
 
-/// Read every element of an on-disk array as raw bytes, deferring interpretation.
+/// Read an on-disk array's header and element bytes, deferring interpretation.
 ///
 /// `npyz` parses the `.npy` header (dtype, shape) for us; we decode elements ourselves
 /// because the format uses a `float16` array and a properties record whose field set varies
 /// by database version (see [`decode_properties`]), neither of which `npyz`'s typed readers
 /// support directly.
+///
+/// The data section is read in one call. Reading it element by element costs a call into
+/// the decompressor and a heap allocation per element, millions of each for a real
+/// database, and that was most of the load time.
 fn read_raw<R: io::Read + io::Seek>(
     archive: &mut npyz::npz::NpzArchive<R>,
     name: &str,
-) -> Result<(DType, Vec<u64>, Vec<RawItem>), LoadError> {
+) -> Result<RawArray, LoadError> {
     let npy = archive
         .by_name(name)?
         .ok_or_else(|| LoadError::MissingArray(name.to_string()))?;
@@ -405,35 +413,54 @@ fn read_raw<R: io::Read + io::Seek>(
     // u64 to match npyz::NpyFile::shape()'s element type (the .npy header stores each
     // dimension as a 64-bit count, independent of the array's own element dtype).
     let shape = npy.shape().to_vec();
-    let items = npy.into_vec::<RawItem>()?;
-    Ok((dtype, shape, items))
-}
-
-/// One array element's raw, undecoded bytes.
-struct RawItem(Vec<u8>);
-
-struct RawItemReader {
-    size: usize,
-}
-
-impl TypeRead for RawItemReader {
-    type Value = RawItem;
-
-    fn read_one<R: io::Read>(&self, mut reader: R) -> io::Result<RawItem> {
-        let mut buf = vec![0u8; self.size];
-        reader.read_exact(&mut buf)?;
-        Ok(RawItem(buf))
+    if npy.uses_pickled_array() {
+        return Err(invalid_data(format!(
+            "{name}: pickled (object) arrays are not supported"
+        )));
     }
+    let item_size = dtype
+        .num_bytes()
+        .ok_or_else(|| invalid_data(format!("{name}: variable-size dtypes are not supported")))?;
+    let too_large = || LoadError::Format(format!("{name}: array too large to load"));
+    let num_bytes = usize::try_from(npy.len())
+        .ok()
+        .and_then(|n| n.checked_mul(item_size))
+        .ok_or_else(too_large)?;
+    let mut bytes = Vec::new();
+    bytes
+        .try_reserve_exact(num_bytes)
+        .map_err(|_| too_large())?;
+    bytes.resize(num_bytes, 0);
+    // `NpyFile::new` consumed exactly the header, so the reader now sits at the data.
+    npy.into_inner().read_exact(&mut bytes)?;
+    Ok(RawArray {
+        dtype,
+        shape,
+        item_size,
+        bytes,
+    })
 }
 
-impl Deserialize for RawItem {
-    type TypeReader = RawItemReader;
+fn invalid_data(msg: String) -> LoadError {
+    LoadError::Io(io::Error::new(io::ErrorKind::InvalidData, msg))
+}
 
-    fn reader(dtype: &DType) -> Result<Self::TypeReader, DTypeError> {
-        let size = dtype
-            .num_bytes()
-            .ok_or_else(|| DTypeError::custom("variable-size dtypes are not supported"))?;
-        Ok(RawItemReader { size })
+/// One on-disk array: its header fields and its undecoded element bytes.
+struct RawArray {
+    dtype: DType,
+    shape: Vec<u64>,
+    /// Bytes per element (`dtype.num_bytes()`).
+    item_size: usize,
+    /// Element bytes in storage order.
+    bytes: Vec<u8>,
+}
+
+impl RawArray {
+    /// Each element's bytes, in storage order.
+    fn items(&self) -> std::slice::ChunksExact<'_, u8> {
+        // A zero-size dtype stores no bytes, so this yields nothing; `max` only keeps
+        // `chunks_exact` from panicking on a zero chunk size.
+        self.bytes.chunks_exact(self.item_size.max(1))
     }
 }
 

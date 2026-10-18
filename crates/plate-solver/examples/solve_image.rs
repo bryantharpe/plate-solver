@@ -148,7 +148,7 @@ fn main() {
             args.timeout,
             args.distortion,
             0.002,
-            db.clone(),
+            &db,
         );
         let t_solve = t.elapsed().as_secs_f64() * 1e3;
 

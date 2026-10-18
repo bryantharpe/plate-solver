@@ -1,7 +1,9 @@
 //! Shared status and solution types for the plate solver.
 
+use std::borrow::Borrow;
+
 use math_core::{PinholeCamera, UnitVector};
-use pattern_database::Candidate;
+use pattern_database::{Candidate, PatternDatabase};
 
 /// Final status of a solve attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,9 +83,13 @@ pub struct Solution {
 }
 
 /// Context carried through the solve pipeline.
+///
+/// `D` is how the context holds the pattern database. The solve entry points
+/// borrow it (`SolveContext<&PatternDatabase>`), so a caller that keeps its
+/// database does not copy it per solve; an owned database (the default) works too.
 #[derive(Debug, Clone)]
-pub struct SolveContext {
-    pub db: pattern_database::PatternDatabase,
+pub struct SolveContext<D = PatternDatabase> {
+    pub db: D,
     pub props: pattern_database::DatabaseProperties,
     pub fov_initial: f64,
     /// Caller's FOV estimate in degrees, if one was given. Selects the coarse-FOV
@@ -101,7 +107,14 @@ pub struct SolveContext {
     pub verification_stars_per_fov: usize,
 }
 
-impl SolveContext {
+impl<D: Borrow<PatternDatabase>> SolveContext<D> {
+    /// The pattern database, however this context holds it.
+    pub fn database(&self) -> &PatternDatabase {
+        self.db.borrow()
+    }
+}
+
+impl<D> SolveContext<D> {
     /// Returns true if the caller has requested cancellation.
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(std::sync::atomic::Ordering::Relaxed)

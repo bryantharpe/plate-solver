@@ -90,7 +90,7 @@ or performance, **H** hygiene.
 | # | Sev | Where | What is wrong | Fix |
 |---|---|---|---|---|
 | D1 | B | `load.rs:353` | Properties decoder accepts only `S` strings: cedar/tetra3 databases (`<U64`, plus bool and `(2,)` fields) fail with `unsupported properties field type '<U64'`. The database in use cannot be loaded. | Decode `U`; skip fields not needed. |
-| D2 | P | `load.rs:388`, `load.rs:72` | Every array element is read into its own `Vec<u8>`: the 14.6 MB cedar database peaks at **1.2 GB** RSS (12 M heap allocations), so it cannot load on a 1 GB Pi. `load_mmap` maps the file and then copies everything anyway. | Not in patch: decode arrays in bulk; keep the catalog as `u16`/`u32`. |
+| D2 | P | `load.rs:388`, `load.rs:72` | Every array element is read into its own `Vec<u8>`: the 14.6 MB cedar database peaks at **1.2 GB** RSS (12 M heap allocations), so it cannot load on a 1 GB Pi. `load_mmap` maps the file and then copies everything anyway. | Not in patch: decode arrays in bulk; keep the catalog as `u16`/`u32`. Bulk decode since **fixed**: peak RSS 159 MB, load ≈0.16 s from a local disk (was ≈1.3 s). The catalog is still widened to `usize`. |
 | D3 | B | `catalog.rs:115` | The HIP/TYC parsers expect an invented 6/8-column layout; the real CDS `hip_main.dat` (field 0 = `H`) yields *"star catalog contains no usable entries"*. The fixtures meant to test this, `hip_sample.txt` and `tyc_sample.txt`, are empty files. | Read the CDS layout (fields 1, 5, 8, 9, 12, 13), as cedar does. |
 | D4 | B | `patterns.rs:133` | `breadth_first_combinations` is lexicographic (depth-first): with a budget of 40–50 per lattice field, every pattern pairs the 2–3 brightest stars with ever-fainter ones. The fixed solver solves 16 of 19 with these databases. The unit test uses 5 stars, where both orders coincide. | Cedar's order; databases then solve 19 / 19 with identical IDs. |
 | D5 | P | `cleanup.rs:33` | Magnitude limit by exact count; cedar takes the left edge of the first 100-bin histogram bucket past the count. 10–30°: 69,049 stars to mag 8.67 vs cedar's 42,212 to 8.03. | Not in patch. |
@@ -122,7 +122,7 @@ Exact parity with cedar-detect where it matters most, divergence on three option
 |---|---|---|---|
 | G1 | B | `server.rs:79` | `ExtractCentroids` swaps `x`/`y`: `Star` already has named fields. A star at column 9, row 5 comes back as `x=5.5, y=9.5`. The existing tests use `(4,4)` and `(10,10)`, which can't tell. **Fixed**, with an asymmetric test. |
 | G2 | H | — | No binary starts the server; the crate is a library only. |
-| G3 | P | `server.rs:140,188` | The whole database is cloned per request (≈100 MB+ for 10–30°). The solver should take `&PatternDatabase`. |
+| G3 | P | `server.rs:140,188` | The whole database is cloned per request (≈100 MB+ for 10–30°). The solver should take `&PatternDatabase`. **Fixed**: the solve entry points take `impl Borrow<PatternDatabase>` and the server passes `&*self.db`. |
 | G4 | H | `server.rs:285` | Default timeout 10 s (spec: 5 s); `t_extract_ms` always 0; `hot_pixel_count` always 0; shared memory stubbed. |
 
 ### Spec and process
