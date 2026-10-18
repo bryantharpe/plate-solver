@@ -1,0 +1,4 @@
+# run.sh defaults; override with CARGO_TARGET_DIR, BENCH_VENV and BENCH_OUT.
+/target/
+/.venv/
+/out/

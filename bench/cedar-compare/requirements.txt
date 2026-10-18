@@ -1,0 +1,9 @@
+# Python side of the comparison: the vendored cedar-solve (tetra3) plus its cedar-detect
+# gRPC client. numpy/scipy/pillow match scripts/ci/cedar-requirements.txt (the set that
+# reproduces the e2e goldens); grpcio/protobuf are the versions the 2026-10-18 run used.
+# No hashes here: that file's hashes are x86_64-only, and this also runs on arm64.
+numpy==2.5.3
+scipy==1.18.1
+pillow==12.3.0
+grpcio==1.84.0
+protobuf==5.29.6
