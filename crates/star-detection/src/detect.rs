@@ -4,7 +4,7 @@
 //! noise-estimation, binning, centroiding, and star-type helpers.
 
 use crate::binning::{build_cascade, BinnedImage};
-use crate::centroid::measure_star;
+use crate::centroid::{measure_star, measure_star_scaled};
 use crate::noise::estimate_noise;
 use crate::star::Star;
 
@@ -12,11 +12,12 @@ use crate::star::Star;
 ///
 /// `image` is row-major with `width` columns. `sigma` is the detection
 /// significance threshold, `binning` is one of 1/2/4/8, `normalize_rows`
-/// optionally shifts each row's dark level before binning, and
-/// `detect_hot_pixels` enables hot-pixel rejection against the full-resolution
-/// image.
+/// optionally shifts each row's dark level before binning (ignored when
+/// `binning == 1`, as in cedar-detect), and `detect_hot_pixels` enables
+/// hot-pixel rejection against the full-resolution image.
 ///
-/// Returned stars are sorted by background-subtracted brightness descending.
+/// Returned stars are sorted by background-subtracted brightness descending;
+/// equal brightnesses keep detection order.
 pub fn detect_stars(
     image: &[u8],
     width: usize,
@@ -39,20 +40,24 @@ pub fn detect_stars(
         return Vec::new();
     }
 
-    let (detection, higher_res) = build_cascade(image, width, height, binning, normalize_rows);
+    let (detection, higher_res) =
+        build_cascade(image, width, height, binning, normalize_rows && binning > 1);
 
     // Noise is estimated on the detection (most-binned) image.
     let noise = estimate_noise(&detection.data, detection.width, detection.height);
-    let sigma_noise_2 = (2.0 * sigma * noise).round().max(2.0) as i16;
-    let sigma_noise_3 = (3.0 * sigma * noise).round().max(3.0) as i16;
+    let sigma_noise_2 = ((2.0 * sigma * noise + 0.5) as i16).max(2);
+    let sigma_noise_3 = ((3.0 * sigma * noise + 0.5) as i16).max(3);
 
     // 1-D row scan produces candidates on the detection image.
     let candidates = scan_rows(&detection, sigma_noise_2, sigma_noise_3);
 
-    // Optional hot-pixel rejection against the full-resolution image.
+    // Optional hot-pixel rejection against the full-resolution input image,
+    // un-normalized, at every binning level.
     let mut filtered = candidates;
-    if detect_hot_pixels && binning == 1 {
-        filtered.retain(|c| !all_bright_are_hot(image, width, height, c.x, c.y, sigma_noise_2));
+    if detect_hot_pixels {
+        filtered.retain(|c| {
+            !all_bright_are_hot(image, width, height, c.x, c.y, binning, sigma_noise_2)
+        });
     }
 
     // Form blobs from vertically adjacent candidates.
@@ -73,7 +78,12 @@ pub fn detect_stars(
         }
     }
 
-    stars.sort();
+    // Stable sort on brightness alone, as cedar-detect does: ties keep blob order.
+    stars.sort_by(|a, b| {
+        b.brightness
+            .partial_cmp(&a.brightness)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     stars
 }
 
@@ -102,7 +112,8 @@ fn scan_rows(detection: &BinnedImage, sigma_noise_2: i16, sigma_noise_3: i16) ->
         for i in (0..width).step_by(64) {
             row_min = row_min.min(row[i]);
         }
-        let threshold = row_min.saturating_add((sigma_noise_2 / 2).max(0) as u8);
+        // cedar-detect casts before halving; the two only differ above 255.
+        let threshold = row_min.saturating_add(sigma_noise_2 as u8 / 2);
 
         for x in 3..width - 3 {
             let c = row[x];
@@ -331,7 +342,7 @@ fn gate_and_measure(
     }
 
     // Centroid and brightness.
-    let star = if binning == 1 {
+    if binning == 1 {
         measure_star(
             image,
             width,
@@ -339,22 +350,19 @@ fn gate_and_measure(
             margin_top,
             margin_width,
             margin_height,
-        )?
+        )
     } else {
-        // Centroid on the one-less-binned image, then scale by binning/2.
+        // Centroid on the one-less-binned image. As in cedar-detect, the peak
+        // position is scaled by binning/2 before the 0.5 pixel-center offset
+        // is added.
         let h_width = higher_res.unwrap().width;
         let left = margin_left * 2;
         let top = margin_top * 2;
         let box_width = (left + margin_width * 2).min(h_width) - left;
         let box_height = (top + margin_height * 2).min(higher_res.unwrap().height) - top;
-        let mut s = measure_star(higher, h_width, left, top, box_width, box_height)?;
         let scale = (binning / 2) as f64;
-        s.x *= scale;
-        s.y *= scale;
-        s
-    };
-
-    Some(star)
+        measure_star_scaled(higher, h_width, left, top, box_width, box_height, scale)
+    }
 }
 
 /// Mean of all pixels in a rectangle.
@@ -418,18 +426,11 @@ fn perimeter_mean_excluding_corners(
     let right = left + rect_width - 1;
     let bottom = top + rect_height - 1;
 
-    for x in left..=right {
-        if x == left || x == right {
-            // top/bottom edges: skip corners
-            for y in [top, bottom] {
-                sum += image[y * width + x] as u64;
-                count += 1;
-            }
-        } else {
-            sum += image[top * width + x] as u64;
-            sum += image[bottom * width + x] as u64;
-            count += 2;
-        }
+    // Top and bottom edges, corners skipped.
+    for x in (left + 1)..right {
+        sum += image[top * width + x] as u64;
+        sum += image[bottom * width + x] as u64;
+        count += 2;
     }
     for y in (top + 1)..bottom {
         sum += image[y * width + left] as u64;
@@ -476,45 +477,54 @@ fn perimeter_stats(
     }
 
     let mean = sum as f64 / count as f64;
+    // Accumulate in cedar-detect's perimeter order (top row, side pixels row
+    // by row, bottom row) so the float sum rounds the same way.
     let mut dev2 = 0.0f64;
+    let mut add = |value: u8| {
+        let d = value as f64 - mean;
+        dev2 += d * d;
+    };
     for x in left..=right {
-        let top_val = image[top * width + x] as f64;
-        let bot_val = image[bottom * width + x] as f64;
-        let d1 = top_val - mean;
-        let d2 = bot_val - mean;
-        dev2 += d1 * d1 + d2 * d2;
+        add(image[top * width + x]);
     }
     for y in (top + 1)..bottom {
-        let left_val = image[y * width + left] as f64;
-        let right_val = image[y * width + right] as f64;
-        let d1 = left_val - mean;
-        let d2 = right_val - mean;
-        dev2 += d1 * d1 + d2 * d2;
+        add(image[y * width + left]);
+        add(image[y * width + right]);
+    }
+    for x in left..=right {
+        add(image[bottom * width + x]);
     }
     let stddev = (dev2 / count as f64).sqrt();
 
     (mean, min, max, stddev)
 }
 
-/// Hot-pixel check for a single candidate in full-resolution coordinates.
+/// Hot-pixel check for a candidate at `(x, y)` in detection coordinates.
+///
+/// Returns true when none of the `binning × binning` full-resolution pixels
+/// behind the candidate is a neighbor-supported `Bright` pixel.
 fn all_bright_are_hot(
     image: &[u8],
     width: usize,
     height: usize,
     x: usize,
     y: usize,
+    binning: usize,
     sigma_noise_2: i16,
 ) -> bool {
-    if y >= height || x >= width {
-        return true;
+    for full_y in y * binning..(y + 1) * binning {
+        for full_x in x * binning..(x + 1) * binning {
+            if full_y >= height || full_x < 3 || full_x + 3 >= width {
+                continue;
+            }
+            let row_start = full_y * width;
+            let gate = &image[row_start + full_x - 3..row_start + full_x + 4];
+            if classify_pixel(gate, sigma_noise_2) == PixelType::Bright {
+                return false;
+            }
+        }
     }
-    if x < 3 || x + 3 >= width {
-        return true;
-    }
-
-    let row_start = y * width;
-    let gate = &image[row_start + x - 3..row_start + x + 4];
-    classify_pixel(gate, sigma_noise_2) != PixelType::Bright
+    true
 }
 
 #[derive(Debug, Eq, PartialEq)]

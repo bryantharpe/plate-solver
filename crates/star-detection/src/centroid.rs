@@ -22,6 +22,24 @@ pub fn measure_star(
     box_width: usize,
     box_height: usize,
 ) -> Option<Star> {
+    measure_star_scaled(image, width, box_left, box_top, box_width, box_height, 1.0)
+}
+
+/// [`measure_star`], with the peak position multiplied by `scale` before the
+/// 0.5 pixel-center offset is added.
+///
+/// cedar-detect does this when it centroids a binning-4 or binning-8 star on
+/// the one-less-binned image: peak index `i` there is reported at
+/// `scale * i + 0.5` in input coordinates.
+pub(crate) fn measure_star_scaled(
+    image: &[u8],
+    width: usize,
+    box_left: usize,
+    box_top: usize,
+    box_width: usize,
+    box_height: usize,
+    scale: f64,
+) -> Option<Star> {
     if box_width < 3 || box_height < 3 {
         return None;
     }
@@ -32,12 +50,12 @@ pub fn measure_star(
     }
 
     // Build x and y projections over the box.
-    let mut proj_x = vec![0.0; box_width];
-    let mut proj_y = vec![0.0; box_height];
+    let mut proj_x = vec![0u32; box_width];
+    let mut proj_y = vec![0u32; box_height];
 
     for y in 0..box_height {
         for x in 0..box_width {
-            let value = image[(box_top + y) * width + (box_left + x)] as f64;
+            let value = u32::from(image[(box_top + y) * width + (box_left + x)]);
             proj_x[x] += value;
             proj_y[y] += value;
         }
@@ -75,15 +93,17 @@ pub fn measure_star(
         0.0
     };
 
-    // Sum over inset, peak value, saturated count.
-    let mut inset_sum = 0.0;
+    // Background-subtracted sum over inset, peak value, saturated count. The
+    // background is subtracted pixel by pixel, as cedar-detect does, so the
+    // float sum rounds the same way.
+    let mut brightness = 0.0;
     let mut peak_value = 0u8;
     let mut num_saturated = 0usize;
 
     for y in 0..inset_height {
         for x in 0..inset_width {
             let value = image[(inset_top + y) * width + (inset_left + x)];
-            inset_sum += value as f64;
+            brightness += value as f64 - perimeter_mean;
             if value > peak_value {
                 peak_value = value;
             }
@@ -93,77 +113,60 @@ pub fn measure_star(
         }
     }
 
-    let brightness = (inset_sum - perimeter_mean * (inset_width * inset_height) as f64).max(0.0);
-
     Some(Star::new(
-        box_left as f64 + peak_x + 0.5,
-        box_top as f64 + peak_y + 0.5,
+        (box_left as f64 + peak_x) * scale + 0.5,
+        (box_top as f64 + peak_y) * scale + 0.5,
         peak_value,
         brightness,
         num_saturated,
     ))
 }
 
-/// Find the refined 1-D peak position in a projection.
+/// Find the refined 1-D peak position in a projection, as cedar-detect does.
 ///
-/// Uses quadratic interpolation `p = 0.5 * (a - c) / (a - 2b + c)` around the
-/// peak `b` and its neighbors `a, c`. A run of equal peak values resolves to the
-/// run midpoint. A peak at the projection edge takes the edge index.
+/// The peak `b` is the first maximum. A run of equal values starting at it
+/// resolves to the run midpoint, and a peak at either end of the projection
+/// takes that index. Otherwise the peak is refined by quadratic interpolation
+/// `p = 0.5 * (a - c) / (a - 2b + c)` with its neighbors `a, c`; `b` is
+/// strictly greater than both, so `p` lies in `[-0.5, 0.5]`.
 /// The returned value is the sub-pixel peak index relative to the box origin,
 /// which is then converted to the centroid coordinate by adding 0.5 and the
 /// box offset in the caller.
-fn refine_peak(proj: &[f64]) -> Option<f64> {
+fn refine_peak(proj: &[u32]) -> Option<f64> {
     if proj.is_empty() {
         return None;
     }
-    if proj.len() == 1 {
-        return Some(0.0);
-    }
 
-    // Find the maximum value and the contiguous run of equal maxima.
-    let max_val = proj.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let mut run_start = None;
-    let mut run_end = 0usize;
-
-    for (i, &v) in proj.iter().enumerate() {
-        if (v - max_val).abs() < 1e-12 {
-            if run_start.is_none() {
-                run_start = Some(i);
+    let mut peak_val = 0u32;
+    let mut peak_ind = 0usize;
+    let mut in_run = false;
+    let mut run_length = 0usize;
+    for (ind, &val) in proj.iter().enumerate() {
+        if val > peak_val || ind == 0 {
+            peak_val = val;
+            peak_ind = ind;
+            run_length = 1;
+            in_run = true;
+        } else if val == peak_val {
+            if in_run {
+                run_length += 1;
             }
-            run_end = i;
+        } else {
+            in_run = false;
         }
     }
 
-    let run_start = run_start?;
-    let run_mid = (run_start + run_end) as f64 / 2.0;
-
-    // If the run touches an edge, take the edge index.
-    if run_start == 0 || run_end == proj.len() - 1 {
-        return Some(run_mid);
+    if run_length > 1 {
+        return Some(peak_ind as f64 + (run_length - 1) as f64 / 2.0);
+    }
+    if peak_ind == 0 || peak_ind == proj.len() - 1 {
+        return Some(peak_ind as f64);
     }
 
-    // If the run spans more than one sample, the midpoint is the answer.
-    if run_end > run_start {
-        return Some(run_mid);
-    }
-
-    // Single-sample peak: interpolate around it.
-    let b_idx = run_start;
-    let a = proj[b_idx - 1];
-    let b = proj[b_idx];
-    let c = proj[b_idx + 1];
-
-    let denom = a - 2.0 * b + c;
-    let offset = if denom.abs() < 1e-12 {
-        0.0
-    } else {
-        0.5 * (a - c) / denom
-    };
-
-    // Clamp offset to [-0.5, 0.5].
-    let offset = offset.clamp(-0.5, 0.5);
-
-    Some(b_idx as f64 + offset)
+    let a = proj[peak_ind - 1] as f64;
+    let b = proj[peak_ind] as f64;
+    let c = proj[peak_ind + 1] as f64;
+    Some(peak_ind as f64 + 0.5 * (a - c) / (a - 2.0 * b + c))
 }
 
 #[cfg(test)]

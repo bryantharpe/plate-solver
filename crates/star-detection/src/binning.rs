@@ -46,6 +46,10 @@ impl BinnedImage {
 /// Returns the most-binned detection image and, for `binning > 1`, the
 /// one-level-less-binned higher-resolution image used for centroiding.
 ///
+/// As in cedar-detect, row normalization belongs to the first 2×2 bin: at
+/// `binning == 2` the higher-resolution image is `image` as given, not its
+/// normalized copy.
+///
 /// # Panics
 ///
 /// Panics if `image.len()` is not exactly `width * height`, or if `binning`
@@ -67,41 +71,34 @@ pub fn build_cascade(
         "image length must equal width * height"
     );
 
-    // Build the full cascade from the original resolution up to `binning`.
-    let mut levels: Vec<BinnedImage> = Vec::with_capacity(4);
-    let mut current = if normalize_rows {
-        normalize_rows_to_bias(image, width, height, 2.0)
-    } else {
-        image.to_vec()
+    let level = |data: Vec<u8>, level_width: usize, level_height: usize, level_binning: usize| {
+        BinnedImage {
+            data,
+            width: level_width,
+            height: level_height,
+            binning: level_binning,
+            max_size: max_size(width, level_binning),
+        }
     };
-    let mut current_width = width;
-    let mut current_height = height;
+    let normalized = normalize_rows.then(|| normalize_rows_to_bias(image, width, height, 2.0));
 
-    levels.push(BinnedImage {
-        data: current.clone(),
-        width: current_width,
-        height: current_height,
-        binning: 1,
-        max_size: max_size(width, 1),
-    });
-
-    let mut current_binning = 1usize;
-    while current_binning < binning {
-        (current, current_width, current_height) =
-            bin_by_two(&current, current_width, current_height);
-        current_binning *= 2;
-        levels.push(BinnedImage {
-            data: current.clone(),
-            width: current_width,
-            height: current_height,
-            binning: current_binning,
-            max_size: max_size(width, current_binning),
-        });
+    if binning == 1 {
+        let data = normalized.unwrap_or_else(|| image.to_vec());
+        return (level(data, width, height, 1), None);
     }
 
-    let detection = levels.pop().expect("cascade has at least one level");
-    let higher_res = levels.pop();
-    (detection, higher_res)
+    let (data, binned_width, binned_height) =
+        bin_by_two(normalized.as_deref().unwrap_or(image), width, height);
+    let mut detection = level(data, binned_width, binned_height, 2);
+    let mut higher_res = None;
+    while detection.binning < binning {
+        let (data, binned_width, binned_height) =
+            bin_by_two(&detection.data, detection.width, detection.height);
+        let next = level(data, binned_width, binned_height, detection.binning * 2);
+        higher_res = Some(std::mem::replace(&mut detection, next));
+    }
+    let higher_res = higher_res.unwrap_or_else(|| level(image.to_vec(), width, height, 1));
+    (detection, Some(higher_res))
 }
 
 /// Compute `max_size` for the 2-D gate.
@@ -144,20 +141,52 @@ fn bin_by_two(image: &[u8], width: usize, height: usize) -> (Vec<u8>, usize, usi
 
 /// Shift each row's dark level to a fixed bias.
 ///
-/// The "dark level" of a row is estimated as its minimum pixel value. Every
-/// pixel in the row is shifted by `bias - row_min` and clamped to `[0, 255]`.
-fn normalize_rows_to_bias(image: &[u8], width: usize, height: usize, bias: f64) -> Vec<u8> {
+/// The "dark level" of a row is the mean of its darkest 1% of pixels (see
+/// [`estimate_dark_level`]). Every pixel in the row is shifted by
+/// `round(bias - dark_level)` and clamped to `[0, 255]`, as cedar-detect does.
+fn normalize_rows_to_bias(image: &[u8], width: usize, height: usize, bias: f32) -> Vec<u8> {
     let mut out = Vec::with_capacity(image.len());
     for y in 0..height {
         let row = &image[y * width..(y + 1) * width];
-        let row_min = *row.iter().min().unwrap_or(&0);
-        let shift = bias - f64::from(row_min);
+        let mut histogram = [0u32; 256];
         for &p in row {
-            let shifted = f64::from(p) + shift;
-            out.push(shifted.clamp(0.0, 255.0) as u8);
+            histogram[p as usize] += 1;
+        }
+        let adjust = (bias - estimate_dark_level(&histogram, width)).round() as i16;
+        for &p in row {
+            out.push((i16::from(p) + adjust).clamp(0, 255) as u8);
         }
     }
     out
+}
+
+/// Estimate the dark level of `npoints` pixels from their histogram: the mean
+/// of the darkest 1%, or the lowest occupied bin when 1% rounds to zero.
+///
+/// Uses `f32`, as cedar-detect does, so the rounded row shift matches it.
+fn estimate_dark_level(histogram: &[u32; 256], npoints: usize) -> f32 {
+    let one_percent = (npoints / 100) as u32;
+    if one_percent == 0 {
+        let lowest = histogram.iter().position(|&count| count > 0).unwrap_or(0);
+        return lowest as f32;
+    }
+
+    // First moment of the darkest `one_percent` points.
+    let mut accum = 0u32;
+    let mut remaining = one_percent;
+    for (h, &count) in histogram.iter().enumerate() {
+        if count == 0 {
+            continue;
+        }
+        if count < remaining {
+            accum += h as u32 * count;
+            remaining -= count;
+            continue;
+        }
+        accum += h as u32 * remaining;
+        break;
+    }
+    accum as f32 / one_percent as f32
 }
 
 #[cfg(test)]
