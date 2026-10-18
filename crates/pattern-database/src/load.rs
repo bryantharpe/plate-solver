@@ -361,7 +361,9 @@ fn decode_field(dtype: &DType, bytes: &[u8]) -> Result<FieldValue, LoadError> {
         // numpy unicode (`<U64` in cedar's databases): UCS-4 code units, NUL padded.
         ('U', _) => Ok(FieldValue::Str(
             bytes
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|c| {
                     let a = [c[0], c[1], c[2], c[3]];
                     if ty.little {
