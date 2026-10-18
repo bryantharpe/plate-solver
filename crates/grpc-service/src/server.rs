@@ -133,12 +133,8 @@ impl PlateSolver for PlateSolverServer {
             solve_timeout,
             distortion,
             MATCH_MAX_ERROR,
-            // The solver takes the database by value, so each request pays a
-            // full clone. The database is large and immutable; the fix is for
-            // `plate_solver::solve_*` to accept `&PatternDatabase` (or the
-            // `Arc` itself), which is ps-plate-04's API to change, not this
-            // boundary's. Tracked rather than worked around here.
-            (*self.db).clone(),
+            // Borrow the shared database: no per-request copy.
+            &*self.db,
         );
         let t_solve_ms = elapsed_ms(solve_start);
 
@@ -181,12 +177,8 @@ impl PlateSolver for PlateSolverServer {
             solve_timeout,
             distortion,
             MATCH_MAX_ERROR,
-            // The solver takes the database by value, so each request pays a
-            // full clone. The database is large and immutable; the fix is for
-            // `plate_solver::solve_*` to accept `&PatternDatabase` (or the
-            // `Arc` itself), which is ps-plate-04's API to change, not this
-            // boundary's. Tracked rather than worked around here.
-            (*self.db).clone(),
+            // Borrow the shared database: no per-request copy.
+            &*self.db,
             detect,
         );
         let total_ms = elapsed_ms(solve_start);

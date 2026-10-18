@@ -16,8 +16,8 @@ use math_core::{
 /// 3. Refine FOV (and optionally distortion) from the matched pairs.
 /// 4. Recompute residuals (RMSE/P90E/MAXE) in arcseconds.
 /// 5. Assemble the final `Solution` with camera, matches, and status.
-pub fn refine_solution(
-    ctx: &crate::status::SolveContext,
+pub fn refine_solution<D>(
+    ctx: &crate::status::SolveContext<D>,
     candidate: &pattern_database::Candidate,
     outcome: &VerificationOutcome,
     prep: &crate::preparation::Prepared,
