@@ -78,7 +78,9 @@ def same(a, b):
         return False
     if a["status"] != "MATCH_FOUND":
         return True
-    close = all(math.isclose(a[k], b[k], rel_tol=0, abs_tol=1e-9) for k in ("ra", "dec", "roll", "fov"))
+    # 1e-6 deg (3.6 mas): numpy/scipy round differently across CI runner hardware (up to
+    # 0.65 mas seen), and a tampered golden is off by arcseconds, not milliarcseconds.
+    close = all(math.isclose(a[k], b[k], rel_tol=0, abs_tol=1e-6) for k in ("ra", "dec", "roll", "fov"))
     return close and a["matches"] == b["matches"] and sorted(a["hip"]) == sorted(b["hip"])
 
 
