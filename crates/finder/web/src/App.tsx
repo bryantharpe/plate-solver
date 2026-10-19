@@ -77,9 +77,9 @@ export function App() {
         chart, then the rest. On a wide screen the chart takes the right column and stays
         in view while the left one scrolls.
       */}
-      <main className="page-width grid gap-x-10 gap-y-5 px-4 pt-4 pb-16 sm:px-5 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-8 lg:px-10 lg:pt-8">
+      <main className="page-width grid gap-x-10 gap-y-4 px-4 pt-3 pb-16 sm:gap-y-5 sm:px-5 sm:pt-4 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-8 lg:px-10 lg:pt-8">
         {state.phase !== "idle" && (
-          <div className="space-y-4 lg:col-start-1 lg:row-start-1">
+          <div className="space-y-3 sm:space-y-4 lg:col-start-1 lg:row-start-1">
             {report ? (
               <ChartHeader
                 report={report}

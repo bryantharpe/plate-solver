@@ -46,13 +46,15 @@ describe("the console", () => {
     const pointing = await screen.findByRole("heading", { name: "Orion" });
     expect(calls).toContain("/api/solve");
 
-    const roster = screen.getByText("Alnilam, Alnitak, Mintaka");
+    // The roster under the card and the full list after the chart name the same stars alike.
+    const [roster, listed] = screen.getAllByText("Alnilam, Alnitak, Mintaka") as [HTMLElement, HTMLElement];
     const chart = container.querySelector("figure.chart") as Element;
     const list = screen.getByRole("heading", { name: "In the field" });
     const next = screen.getByRole("heading", { name: "What to look at next" });
     expect(before(pointing, roster)).toBe(true);
     expect(before(roster, chart)).toBe(true);
     expect(before(chart, list)).toBe(true);
+    expect(before(list, listed)).toBe(true);
     expect(before(list, next)).toBe(true);
   });
 });

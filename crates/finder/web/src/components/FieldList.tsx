@@ -11,8 +11,24 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
+/** The matched stars with proper names, brightest first. */
+const namedStars = (report: SolveReport) =>
+  report.stars.filter((s) => s.matched && s.name).sort((a, b) => a.mag - b.mag);
+
+/** Named stars as the chart marks them: a ring, then the names, brightest first. */
+function NamedStars({ names }: { names: string[] }) {
+  return (
+    <span className="inline-flex items-start gap-1.5">
+      <svg viewBox="-8 -8 16 16" width="14" height="14" aria-hidden="true" className="mt-[0.25em] shrink-0">
+        <circle r="5.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
+      </svg>
+      <span>{names.join(", ")}</span>
+    </span>
+  );
+}
+
 export function FieldList({ report, selected, onSelect }: Props) {
-  const named = report.stars.filter((s) => s.matched && s.name);
+  const named = namedStars(report);
   const objects = report.objects;
   return (
     <section aria-labelledby="field-title" className="space-y-2">
@@ -31,18 +47,8 @@ export function FieldList({ report, selected, onSelect }: Props) {
         </ul>
       )}
       {named.length > 0 && (
-        <p className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[0.9375rem]">
-          <span className="font-semibold text-ink-2">Stars</span>
-          {named.map((s, i) => (
-            <span key={s.id}>
-              {s.name}
-              {i < named.length - 1 && (
-                <span className="ml-3 text-ink-2" aria-hidden="true">
-                  ·
-                </span>
-              )}
-            </span>
-          ))}
+        <p className="pt-1 text-[0.9375rem]">
+          <NamedStars names={named.map((s) => s.name ?? "")} />
         </p>
       )}
     </section>
@@ -59,7 +65,7 @@ const ROSTER_STARS = 3;
  */
 export function FieldRoster({ report }: { report: SolveReport }) {
   const objects = report.objects.slice(0, ROSTER_OBJECTS);
-  const named = report.stars.filter((s) => s.matched && s.name).sort((a, b) => a.mag - b.mag);
+  const named = namedStars(report);
   const stars = named.slice(0, ROSTER_STARS);
   const more = report.objects.length - objects.length + named.length - stars.length;
   if (objects.length === 0 && stars.length === 0) {
@@ -75,14 +81,7 @@ export function FieldRoster({ report }: { report: SolveReport }) {
           <span className="font-semibold italic">{o.id}</span>
         </span>
       ))}
-      {stars.length > 0 && (
-        <span className="inline-flex items-center gap-1.5">
-          <svg viewBox="-8 -8 16 16" width="14" height="14" aria-hidden="true">
-            <circle r="5.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
-          </svg>
-          {stars.map((s) => s.name).join(", ")}
-        </span>
-      )}
+      {stars.length > 0 && <NamedStars names={stars.map((s) => s.name ?? "")} />}
       {more > 0 && (
         <a href="#field-title" className="link text-sm">
           {more} more

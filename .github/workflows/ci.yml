@@ -237,6 +237,61 @@ jobs:
           proves: "e2e-eval is not vacuous: ten probes (one golden nudged past one tolerance, or one star ID dropped) and five bugs re-injected from main (docs/audit-e2e-parity.md: S1 twice, S2, G1, S5), each applied alone, turn the e2e tier that owns them red with a recorded failure, and the unmutated tree is green"
           measured: "${{ steps.canary.outputs.measured }}"
 
+  # The finder console's page (crates/finder/web). The binary embeds the committed build
+  # (dist/), so a source change with a stale build ships the old page: rebuild and compare.
+  # Then the real thing: the release binary with the real database and samples, driven in
+  # Chromium (the phone's first screen, night mode's red-only pixels, offline use, the
+  # solve paths). The night check carries its own control, so it cannot pass vacuously.
+  finder-page:
+    name: finder-page
+    needs: detect
+    if: needs.detect.outputs.has_code == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/finder/web
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: crates/finder/web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run format:check
+      - name: Unit and component tests
+        id: unit
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee "$RUNNER_TEMP/vitest.log"
+          echo "tests=$(grep -oE 'Tests +[0-9]+ passed' "$RUNNER_TEMP/vitest.log" | grep -oE '[0-9]+')" >> "$GITHUB_OUTPUT"
+      - name: The committed build is the build of this source
+        run: |
+          npm run build
+          if [ -n "$(git status --porcelain -- dist)" ]; then
+            git status --short -- dist
+            echo "::error::crates/finder/web/dist is stale: run npm run build there and commit dist/"
+            exit 1
+          fi
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with: { shared-key: finder-page }
+      - run: npx playwright install --with-deps chromium
+      - name: End to end in Chromium against the release binary
+        id: e2e
+        run: |
+          set -o pipefail
+          npm run e2e 2>&1 | tee "$RUNNER_TEMP/e2e.log"
+          echo "tests=$(grep -oE '[0-9]+ passed' "$RUNNER_TEMP/e2e.log" | tail -1 | grep -oE '[0-9]+')" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/attest
+        if: always()
+        continue-on-error: true
+        with:
+          gate: finder-page
+          proves: "the finder page typechecks and is Prettier-clean, its unit and component tests pass, the committed dist/ is exactly the build of this source, and in Chromium against the release binary the phone's first screen holds the pointing card, roster, chart and legend, night mode leaves no pixel off the red channel (with a day control), and nothing loads from another host until the survey is asked for"
+          measured: "${{ steps.unit.outputs.tests }} unit/component tests, ${{ steps.e2e.outputs.tests }} end-to-end tests"
+
   docs:
     name: docs
     needs: detect

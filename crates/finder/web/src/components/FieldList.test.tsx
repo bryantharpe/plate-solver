@@ -30,6 +30,7 @@ describe("what is in the field", () => {
     expect(rows[0]?.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(rows[1] as HTMLElement);
     expect(select).toHaveBeenCalledWith("M78");
-    expect(screen.getByText("Alnitak")).toBeTruthy();
+    // Named stars as the roster gives them: brightest first, after a ring.
+    expect(screen.getByText("Alnilam, Alnitak, Mintaka")).toBeTruthy();
   });
 });

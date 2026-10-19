@@ -229,7 +229,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    min-height: 2.5rem;
+    min-height: 2.375rem;
     padding: 0 0.625rem;
     border: 1px solid var(--color-ink);
     font-size: 0.875rem;

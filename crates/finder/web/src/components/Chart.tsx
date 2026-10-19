@@ -187,7 +187,7 @@ export function Chart({ report, imageUrl, label, busy, layers, onLayers }: Props
           </g>
         </svg>
       </div>
-      <figcaption className="mt-3 min-h-11 sm:mx-[30px]">
+      <figcaption className="mt-2.5 min-h-11 sm:mx-[30px] sm:mt-3">
         {picked ? (
           <PickedLine picked={picked} />
         ) : (
@@ -521,16 +521,18 @@ function Legend({
   onLayers: (l: Layers) => void;
 }) {
   const matched = report.stars.filter((s) => s.matched).length;
+  // Matched and Unseen split the catalog stars in the frame; Centroids are what the
+  // detector found, a different set, so its name does not pair with theirs.
   // The deep-sky key shows the symbols actually on this chart, up to three of them.
   const families = [...new Set(report.objects.map((o) => o.family))].slice(0, 3);
   const items: { key: keyof Layers; label: string; count: number }[] = fixed
-    ? [{ key: "detected", label: "Detections", count: report.detected.length }]
+    ? [{ key: "detected", label: "Centroids", count: report.detected.length }]
     : [
         { key: "grid", label: "Grid", count: report.grid.length },
         { key: "matched", label: "Matched", count: matched },
-        { key: "expected", label: "Not detected", count: report.stars.length - matched },
+        { key: "expected", label: "Unseen", count: report.stars.length - matched },
         { key: "objects", label: "Deep sky", count: report.objects.length },
-        { key: "detected", label: "Detections", count: report.detected.length },
+        { key: "detected", label: "Centroids", count: report.detected.length },
       ];
   return (
     <div className="flex flex-wrap gap-1.5 sm:gap-2" role="group" aria-label="Show on the chart">

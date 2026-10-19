@@ -49,21 +49,30 @@ async function offRed(page: Page, png: Buffer): Promise<number> {
   }, png.toString("base64"));
 }
 
+for (const [width, height] of [
+  [412, 915],
+  [390, 844],
+] as const) {
+  test.describe(`on a phone, ${width} × ${height}`, () => {
+    test.use({ viewport: { width, height }, deviceScaleFactor: 2 });
+
+    test("the first screen shows where it points, what is in it, and the whole chart with its legend", async ({
+      page,
+    }) => {
+      await open(page, { frame: "orion2.jpg", site: true });
+      const card = page.getByRole("region", { name: "Orion" });
+      const roster = page.getByText("Alnilam, Alnitak, Mintaka").first();
+      const chart = page.getByRole("img", { name: /^Chart of/ });
+      const legend = page.getByRole("group", { name: "Show on the chart" });
+      for (const l of [card, roster, chart, legend]) await expect(l).toBeInViewport({ ratio: 1 });
+      const tops = await Promise.all([card, roster, chart, legend].map(async (l) => (await box(l)).y));
+      expect(tops).toEqual([...tops].sort((a, b) => a - b));
+    });
+  });
+}
+
 test.describe("on the user's phone, 412 × 915", () => {
   test.use({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2 });
-
-  test("the first screen shows where it points, what is in it, and the whole chart with its legend", async ({
-    page,
-  }) => {
-    await open(page, { frame: "orion2.jpg", site: true });
-    const card = page.getByRole("region", { name: "Orion" });
-    const roster = page.getByText("Alnilam, Alnitak, Mintaka");
-    const chart = page.getByRole("img", { name: /^Chart of/ });
-    const legend = page.getByRole("group", { name: "Show on the chart" });
-    for (const l of [card, roster, chart, legend]) await expect(l).toBeInViewport({ ratio: 1 });
-    const tops = await Promise.all([card, roster, chart, legend].map(async (l) => (await box(l)).y));
-    expect(tops).toEqual([...tops].sort((a, b) => a - b));
-  });
 
   test("night mode puts nothing on screen but red: the chart, the lists, the frame picker", async ({ page }) => {
     // The check can fail: the day edition, with its paper and photographs, is far from red.

@@ -23,9 +23,9 @@ describe("the chart", () => {
     expect(chips()).toEqual([
       ["Grid12", "true"],
       ["Matched30", "true"],
-      ["Not detected25", "true"],
+      ["Unseen25", "true"],
       ["Deep sky3", "true"],
-      ["Detections76", "false"],
+      ["Centroids76", "false"],
     ]);
   });
 
@@ -42,7 +42,7 @@ describe("the chart", () => {
     ).toEqual(["icon-nebula"]);
   });
 
-  it("draws matched and not-detected stars as separate layers, each toggled by its chip", () => {
+  it("draws matched and unseen catalog stars and the centroids as separate layers, each toggled by its chip", () => {
     const { container } = render(<Harness report={ORION2} />);
     const count = (selector: string) => container.querySelectorAll(selector).length;
     expect(count(".mark-matched")).toBe(30);
@@ -53,10 +53,10 @@ describe("the chart", () => {
     expect(count(".mark-matched")).toBe(0);
     expect(count(".mark-expected")).toBe(25);
 
-    fireEvent.click(screen.getByRole("button", { name: /Not detected/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Unseen/ }));
     expect(count(".mark-expected")).toBe(0);
 
-    fireEvent.click(screen.getByRole("button", { name: /Detections/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Centroids/ }));
     expect(count(".mark-detected")).toBe(76);
   });
 
@@ -83,8 +83,8 @@ describe("the chart", () => {
 
   it("shows only the detected stars, fixed on, when a frame does not solve", () => {
     const { container } = render(<Harness report={ROOF} />);
-    expect(chips()).toEqual([["Detections5", "true"]]);
-    expect(screen.getByRole("button", { name: /Detections/ }).hasAttribute("disabled")).toBe(true);
+    expect(chips()).toEqual([["Centroids5", "true"]]);
+    expect(screen.getByRole("button", { name: /Centroids/ }).hasAttribute("disabled")).toBe(true);
     expect(container.querySelectorAll(".mark-detected").length).toBe(5);
     expect(container.querySelector(".grid-line")).toBeNull();
   });
