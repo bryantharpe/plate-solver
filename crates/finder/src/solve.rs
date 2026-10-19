@@ -638,6 +638,8 @@ mod tests {
         let gray = decode_gray(png.get_ref()).unwrap();
         assert_eq!(gray.pixels, [0, pil_luma([10, 200, 30])]);
         assert_eq!(gray.pixels[1], 124);
+        let rec709 = image::DynamicImage::ImageRgb8(img).to_luma8();
+        assert_eq!(rec709.get_pixel(1, 0).0, [147]);
     }
 
     #[test]

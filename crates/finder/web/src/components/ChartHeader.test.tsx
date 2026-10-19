@@ -37,6 +37,7 @@ describe("the chart header", () => {
     const { rerender } = render(<ChartHeader report={ROOF} label="roof.jpg" sigma={8} onRetry={retry} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("No match");
     expect(screen.getByText(ROOF.hint ?? "")).toBeTruthy();
+    expect(screen.getByText(/roof\.jpg: 5 stars detected at 8σ, 5 tried/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Try again at 5σ" }));
     expect(retry).toHaveBeenCalledWith(5);
 

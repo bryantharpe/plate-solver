@@ -33,4 +33,12 @@ describe("what is in the field", () => {
     // Named stars as the roster gives them: brightest first, after a ring.
     expect(screen.getByText("Alnilam, Alnitak, Mintaka")).toBeTruthy();
   });
+
+  it("says which objects sit at the edge of the frame", () => {
+    render(<FieldList report={VIRGO} selected={null} onSelect={() => {}} />);
+    const m100 = screen.getAllByRole("button").find((b) => b.textContent?.startsWith("M100"));
+    expect(m100?.textContent).toContain("at the edge");
+    const m49 = screen.getAllByRole("button").find((b) => b.textContent?.startsWith("M49"));
+    expect(m49?.textContent).not.toContain("at the edge");
+  });
 });

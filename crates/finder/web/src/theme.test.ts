@@ -63,6 +63,13 @@ describe("night edition", () => {
     }
   });
 
+  it("paints the night ground before any script or stylesheet loads", () => {
+    const head = html.slice(0, html.indexOf("</head>"));
+    expect(head).toMatch(/html\[data-theme="night"\] \{\s*background: #000;/);
+    expect(head).toContain('localStorage.getItem("finder.night")');
+    expect(head).toContain('matchMedia("(prefers-color-scheme: dark)")');
+  });
+
   it("filters photographs into the red channel by luminance", () => {
     const matrix = html.match(/<filter id="red-only"[\s\S]*?values="([^"]+)"/)?.[1];
     const values = (matrix ?? "").trim().split(/\s+/).map(Number);

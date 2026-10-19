@@ -71,6 +71,12 @@ describe("the chart", () => {
     expect(caption).toContain("Great Orion Nebula");
     expect(caption).toContain("Nebula with cluster");
     expect(caption).toContain("90′ across");
+
+    const alnitak = ORION2.stars.find((s) => s.name === "Alnitak")!;
+    fireEvent.click(container.querySelector(`[data-star="${alnitak.id}"]`) as Element);
+    const star = container.querySelector("figcaption")?.textContent ?? "";
+    expect(star).toContain(`Alnitak${alnitak.id}`);
+    expect(star).toMatch(/Matched; the solution puts it [\d.]+ px from where it was found/);
   });
 
   it("draws the RA/Dec grid with its labels in the margin", () => {

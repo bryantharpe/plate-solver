@@ -68,9 +68,13 @@ must ground requirements in these and cite the doc number.
 | `docs/07-cedar-detect-service-api.md` | **`grpc-service`** (`feat-06-grpc-service`) |
 | `docs/08-tetra3-vs-cedar-comparison.md` | cross-cutting defaults/decisions (all designs); informs **`mobile-runtime`** |
 | perf notes in docs 04/06/08 | **`mobile-runtime`** (`feat-07-mobile-runtime`) |
+| none: a consumer of the solver, grounded in its code, its tests and the sources in `crates/finder/data/README.md` | **`finder-console`** (`feat-11-finder-console`) |
 
 Feature dependency order (implementation order): `math-core` → `star-detection` → `pattern-database`
-→ `database-generation` → `plate-solver` → `grpc-service` → `mobile-runtime`.
+→ `database-generation` → `plate-solver` → `grpc-service` → `mobile-runtime`. `finder-console`
+sits beside `grpc-service` as a second consumer, over `math-core`, `star-detection`,
+`pattern-database` and `plate-solver`. (`feat-08` to `feat-10` were used by changes that have
+since been removed, so the console takes `feat-11`.)
 
 ## 4. Coordinate & sign conventions (binding across all specs)
 
