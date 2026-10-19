@@ -1,0 +1,469 @@
+@import "tailwindcss";
+@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource-variable/archivo/wdth-italic.css";
+
+/*
+ * Field atlas. Day is a star atlas's desk edition: cool paper, black ink, hairline rules,
+ * and the atlas's object colours (green nebulae, gold clusters, red galaxies) on objects
+ * only. Night is the field edition under a red torch: black ground and red ink in three
+ * brightnesses (ink, ink-2, ink-3), every colour on the red channel alone and none brighter
+ * than ink, so nothing on screen is white and nothing glares.
+ */
+@theme {
+  --font-sans: "Archivo Variable", "Archivo", ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: oklch(98.4% 0.003 250);
+  --color-paper-2: oklch(95.8% 0.005 250);
+  --color-ink: oklch(19% 0.02 262);
+  --color-ink-2: oklch(41% 0.02 262);
+  --color-ink-3: oklch(60% 0.015 262);
+  --color-rule: oklch(86.5% 0.008 262);
+  --color-nebula: oklch(49% 0.12 158);
+  --color-cluster: oklch(57% 0.13 76);
+  --color-galaxy: oklch(53% 0.19 27);
+  --color-alert: oklch(53% 0.19 27);
+
+  /* Ink drawn over the frame, which is always a dark photograph. */
+  --color-photo: oklch(13% 0.01 262);
+  --color-on-photo: oklch(95% 0.012 95);
+  --color-on-photo-2: oklch(80% 0.015 95);
+  --color-grid: oklch(84% 0.03 250 / 0.42);
+  --color-nebula-photo: oklch(81% 0.14 158);
+  --color-cluster-photo: oklch(87% 0.14 88);
+  --color-galaxy-photo: oklch(74% 0.16 27);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="night"] {
+  --color-paper: #000000;
+  --color-paper-2: #140000;
+  --color-ink: #e00000;
+  --color-ink-2: #a80000;
+  --color-ink-3: #760000;
+  --color-rule: #3c0000;
+  --color-nebula: #e00000;
+  --color-cluster: #e00000;
+  --color-galaxy: #e00000;
+  --color-alert: #e00000;
+  --color-photo: #000000;
+  --color-on-photo: #e00000;
+  --color-on-photo-2: #a80000;
+  --color-grid: rgb(168 0 0 / 0.6);
+  --color-nebula-photo: #e00000;
+  --color-cluster-photo: #e00000;
+  --color-galaxy-photo: #e00000;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 100%;
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-color: var(--color-ink-3) var(--color-paper);
+    accent-color: var(--color-ink);
+    caret-color: var(--color-ink);
+  }
+  body {
+    min-height: 100dvh;
+    line-height: 1.45;
+    font-feature-settings: "tnum" 1;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  ::placeholder {
+    color: var(--color-ink-2);
+    opacity: 1;
+  }
+  summary {
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  dialog::backdrop {
+    background: oklch(19% 0.02 262 / 0.42);
+  }
+  [data-theme="night"] dialog::backdrop {
+    background: rgb(0 0 0 / 0.8);
+  }
+  /* Night turns photographs into red by luminance (the #red-only filter in index.html). */
+  [data-theme="night"] .photo {
+    filter: url(#red-only);
+  }
+}
+
+@layer components {
+  /* A chart title: expanded, spaced capitals. */
+  .chart-title {
+    font-stretch: 118%;
+    font-weight: 640;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .section-title {
+    font-size: 1.125rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  .group-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-ink-2);
+  }
+  .quiet {
+    color: var(--color-ink-2);
+    font-size: 0.9375rem;
+  }
+
+  /*
+   * The page's width: on a wide screen, the left column plus the chart at the height the
+   * window allows (--chart-aspect is the frame's width over its height), so the layout is
+   * as wide as what it holds and sits centred.
+   */
+  .page-width {
+    margin-inline: auto;
+    max-width: 90rem;
+  }
+  @media (min-width: 64rem) {
+    .page-width {
+      max-width: min(90rem, calc(30rem + 2.5rem + (100dvh - 11rem) * var(--chart-aspect, 1.3333) + 5rem));
+    }
+  }
+
+  /*
+   * Facts separated by dots that wrap only between facts. The list sits one separator to
+   * the left inside a clipping box, so the separator that would start a line is cut off
+   * and no line starts or ends with a dot.
+   */
+  .clauses {
+    overflow: hidden;
+  }
+  .clauses > span {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: -1.1em;
+  }
+  .clauses > span > span {
+    white-space: nowrap;
+  }
+  .clauses > span > span::before {
+    content: "·" / "";
+    display: inline-block;
+    width: 1.1em;
+    text-align: center;
+    color: var(--color-ink-2);
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border: 1px solid var(--color-ink);
+    font-weight: 560;
+    color: var(--color-ink);
+    background: transparent;
+    transition:
+      background-color 160ms var(--ease-out-expo),
+      color 160ms var(--ease-out-expo);
+  }
+  .button:hover {
+    background: var(--color-paper-2);
+  }
+  .button:active {
+    background: var(--color-rule);
+  }
+  .button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .button-primary {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .button-primary:hover {
+    background: var(--color-ink-2);
+    border-color: var(--color-ink-2);
+  }
+  /* Under the red torch a full-ink block would be the brightest thing on screen. */
+  [data-theme="night"] .button-primary {
+    background: var(--color-rule);
+    color: var(--color-ink);
+  }
+  [data-theme="night"] .button-primary:hover {
+    background: var(--color-paper-2);
+    border-color: var(--color-ink);
+  }
+  .button-quiet {
+    border-color: transparent;
+  }
+  .link {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+    font-weight: 560;
+  }
+
+  /*
+   * A ruled box: the top bar's frame and site controls and the legend's layer toggles,
+   * drawn like the chart's own neatline. A toggle that is off goes to a dashed rule, the
+   * atlas's mark for what is not drawn.
+   */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 520;
+    color: var(--color-ink);
+    background: var(--color-paper);
+    white-space: nowrap;
+    transition:
+      border-color 160ms var(--ease-out-expo),
+      background-color 160ms var(--ease-out-expo);
+  }
+  .chip:hover {
+    background: var(--color-paper-2);
+  }
+  .chip:disabled {
+    cursor: default;
+  }
+  .chip[aria-pressed="false"] {
+    color: var(--color-ink-2);
+    border-color: var(--color-ink-2);
+    border-style: dashed;
+    background: transparent;
+  }
+  .chip[aria-pressed="false"] .swatch {
+    opacity: 0.35;
+  }
+  .chip-count {
+    color: var(--color-ink-2);
+    font-size: 0.8125rem;
+  }
+
+  .switch {
+    position: relative;
+    width: 2.75rem;
+    height: 1.5rem;
+    border: 1px solid var(--color-ink);
+    background: transparent;
+    transition: background-color 200ms var(--ease-out-expo);
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 1rem;
+    height: 1rem;
+    background: var(--color-ink);
+    transition: transform 220ms var(--ease-out-expo);
+  }
+  .switch[aria-checked="true"] {
+    background: var(--color-rule);
+  }
+  .switch[aria-checked="true"]::after {
+    transform: translateX(1.25rem);
+  }
+
+  /* The disclosure mark on a <details> summary: a drawn chevron that turns when open. */
+  .disclosure {
+    transition: transform 200ms var(--ease-out-expo);
+  }
+  details[open] > summary .disclosure {
+    transform: rotate(180deg);
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-paper-2), var(--color-rule), var(--color-paper-2));
+    background-size: 300% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 0.25rem;
+  }
+
+  /* The chart: frame, grid and marks. */
+  .grid-line {
+    fill: none;
+    stroke: var(--color-grid);
+  }
+  .draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 900ms var(--ease-out-expo) forwards;
+  }
+  .ink-in {
+    opacity: 0;
+    animation: ink-in 500ms var(--ease-out-expo) forwards;
+  }
+  .edge-label {
+    fill: var(--color-ink-2);
+    font-stretch: 82%;
+    font-weight: 520;
+  }
+  .mark-detected {
+    fill: none;
+    stroke: var(--color-on-photo-2);
+    opacity: 0.55;
+  }
+  .mark-matched circle.ring {
+    fill: none;
+    stroke: var(--color-on-photo);
+  }
+  .mark-expected circle.ring {
+    fill: none;
+    stroke: var(--color-on-photo-2);
+    stroke-dasharray: 2 3;
+    opacity: 0.7;
+  }
+  .mark-label {
+    fill: var(--color-on-photo);
+    paint-order: stroke;
+    stroke: var(--color-photo);
+    stroke-linejoin: round;
+    font-weight: 560;
+  }
+  .hit {
+    fill: transparent;
+    stroke: none;
+    cursor: pointer;
+  }
+  .object-nebula,
+  .object-planetary_nebula,
+  .object-supernova_remnant {
+    color: var(--color-nebula-photo);
+  }
+  .object-open_cluster,
+  .object-globular_cluster,
+  .object-star {
+    color: var(--color-cluster-photo);
+  }
+  .object-galaxy {
+    color: var(--color-galaxy-photo);
+  }
+  .object-label {
+    fill: currentColor;
+    font-style: italic;
+    font-weight: 620;
+    paint-order: stroke;
+    stroke: var(--color-photo);
+    stroke-linejoin: round;
+  }
+  /* A leader from a mark to a label set off in open sky, with a dark casing like the labels. */
+  .leader {
+    fill: none;
+    stroke-linecap: round;
+  }
+  .leader-casing {
+    fill: none;
+    stroke: var(--color-photo);
+    stroke-linecap: round;
+    opacity: 0.8;
+  }
+  [data-picked="true"] circle.ring,
+  [data-picked="true"] .shape {
+    stroke-width: 2.4;
+  }
+  .furniture {
+    stroke: var(--color-on-photo);
+    fill: var(--color-on-photo);
+  }
+  .furniture text {
+    stroke: none;
+    font-weight: 600;
+  }
+
+  /* Object symbols in lists use the paper colours. */
+  .icon-nebula,
+  .icon-planetary_nebula,
+  .icon-supernova_remnant {
+    color: var(--color-nebula);
+  }
+  .icon-open_cluster,
+  .icon-globular_cluster,
+  .icon-star {
+    color: var(--color-cluster);
+  }
+  .icon-galaxy {
+    color: var(--color-galaxy);
+  }
+
+  .sheet {
+    margin: auto auto 0;
+    width: 100%;
+    max-width: 40rem;
+    max-height: 88dvh;
+    padding: 0;
+    border: 1px solid var(--color-ink);
+    border-bottom: 0;
+    border-radius: 0.75rem 0.75rem 0 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    overscroll-behavior: contain;
+  }
+  .sheet[open] {
+    animation: sheet-up 280ms var(--ease-out-expo);
+  }
+  @media (min-width: 48rem) {
+    .sheet {
+      margin: auto;
+      border-bottom: 1px solid var(--color-ink);
+      border-radius: 0.75rem;
+    }
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes ink-in {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(1.5rem);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draw,
+  .ink-in,
+  .sheet[open],
+  .skeleton {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}

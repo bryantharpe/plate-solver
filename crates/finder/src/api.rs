@@ -1,0 +1,539 @@
+//! The HTTP surface: the JSON API and the embedded page.
+
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+
+use axum::body::Bytes;
+use axum::extract::multipart::{Field, MultipartError};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
+use axum::http::{header, StatusCode, Uri};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, post};
+use axum::{Json, Router};
+use pattern_database::PatternDatabase;
+use rust_embed::RustEmbed;
+use serde::{Deserialize, Serialize};
+use tokio::sync::Semaphore;
+
+use crate::catalog::{self, SimilarReport};
+use crate::samples::{self, SampleInfo, Samples};
+use crate::sky::Observer;
+use crate::solve::{self, DecodeError, SolveOptions, SolveReport};
+
+/// Largest request body `/api/solve` accepts, in bytes.
+pub const SOLVE_BODY_LIMIT: usize = 32 * 1024 * 1024;
+/// Longest solve timeout a request may ask for, in milliseconds.
+const MAX_TIMEOUT_MS: u64 = 30_000;
+/// Longer side of a sample's preview, in pixels.
+const THUMB_SIDE: u32 = 320;
+/// Most suggestions `/api/similar` returns.
+const MAX_SIMILAR: usize = 20;
+
+/// What every handler shares.
+#[derive(Clone)]
+pub struct AppState {
+    db: Arc<PatternDatabase>,
+    samples: Arc<Samples>,
+    /// One heavy decode-and-solve at a time: a burst of requests queues instead of
+    /// running the machine out of memory.
+    solve_gate: Arc<Semaphore>,
+    thumbs: Arc<Mutex<HashMap<String, Bytes>>>,
+}
+
+impl AppState {
+    /// State over a loaded database and a set of samples.
+    pub fn new(db: PatternDatabase, samples: Samples) -> Self {
+        Self::shared(Arc::new(db), samples)
+    }
+
+    /// State over a database another owner keeps too.
+    pub fn shared(db: Arc<PatternDatabase>, samples: Samples) -> Self {
+        Self {
+            db,
+            samples: Arc::new(samples),
+            solve_gate: Arc::new(Semaphore::new(1)),
+            thumbs: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+}
+
+/// The console's routes.
+pub fn router(state: AppState) -> Router {
+    Router::new()
+        .route("/api/health", get(health))
+        .route("/api/samples", get(list_samples))
+        .route("/api/samples/{name}", get(sample_file))
+        .route("/api/samples/{name}/thumb", get(sample_thumb))
+        .route(
+            "/api/solve",
+            post(solve).layer(DefaultBodyLimit::max(SOLVE_BODY_LIMIT)),
+        )
+        .route("/api/similar", get(similar))
+        .route("/api/{*rest}", get(api_not_found))
+        .fallback(get(page))
+        .with_state(state)
+}
+
+/// An error answered as JSON `{"error": "..."}`.
+#[derive(Debug)]
+pub struct ApiError {
+    status: StatusCode,
+    message: String,
+}
+
+impl ApiError {
+    fn new(status: StatusCode, message: impl Into<String>) -> Self {
+        Self {
+            status,
+            message: message.into(),
+        }
+    }
+
+    fn bad_request(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::BAD_REQUEST, message)
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        #[derive(Serialize)]
+        struct Body {
+            error: String,
+        }
+        (
+            self.status,
+            Json(Body {
+                error: self.message,
+            }),
+        )
+            .into_response()
+    }
+}
+
+impl From<MultipartError> for ApiError {
+    fn from(e: MultipartError) -> Self {
+        // `status()` tells a body over the limit (413) from a malformed one (400).
+        Self::new(
+            e.status(),
+            format!("could not read the form: {}", e.body_text()),
+        )
+    }
+}
+
+impl From<DecodeError> for ApiError {
+    fn from(e: DecodeError) -> Self {
+        let status = match e {
+            DecodeError::TooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
+            DecodeError::Unreadable(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        };
+        Self::new(status, e.to_string())
+    }
+}
+
+#[derive(Serialize)]
+struct Health {
+    status: &'static str,
+    version: &'static str,
+    database: DatabaseInfo,
+    samples: usize,
+}
+
+#[derive(Serialize)]
+struct DatabaseInfo {
+    catalog: String,
+    stars: usize,
+    patterns: u32,
+    min_fov: f32,
+    max_fov: f32,
+}
+
+async fn health(State(state): State<AppState>) -> Json<Health> {
+    let p = &state.db.properties;
+    Json(Health {
+        status: "ok",
+        version: env!("CARGO_PKG_VERSION"),
+        database: DatabaseInfo {
+            catalog: p.star_catalog.clone(),
+            stars: state.db.num_stars,
+            patterns: p.num_patterns,
+            min_fov: p.min_fov,
+            max_fov: p.max_fov,
+        },
+        samples: state.samples.len(),
+    })
+}
+
+async fn list_samples(State(state): State<AppState>) -> Json<Vec<SampleInfo>> {
+    Json(state.samples.list())
+}
+
+async fn read_sample(state: &AppState, name: &str) -> Result<Vec<u8>, ApiError> {
+    let path = state
+        .samples
+        .path(name)
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, format!("no sample named {name:?}")))?;
+    tokio::fs::read(&path).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("could not read the sample {name:?}: {e}"),
+        )
+    })
+}
+
+async fn sample_file(State(state): State<AppState>, Path(name): Path<String>) -> Response {
+    match read_sample(&state, &name).await {
+        Ok(bytes) => (
+            [
+                (header::CONTENT_TYPE, samples::content_type(&name)),
+                (header::CACHE_CONTROL, "public, max-age=3600"),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+async fn sample_thumb(State(state): State<AppState>, Path(name): Path<String>) -> Response {
+    let cached = state
+        .thumbs
+        .lock()
+        .expect("thumb cache")
+        .get(&name)
+        .cloned();
+    let jpeg = match cached {
+        Some(jpeg) => jpeg,
+        None => {
+            let bytes = match read_sample(&state, &name).await {
+                Ok(bytes) => bytes,
+                Err(e) => return e.into_response(),
+            };
+            let made =
+                tokio::task::spawn_blocking(move || solve::thumbnail_jpeg(&bytes, THUMB_SIDE))
+                    .await
+                    .map_err(|_| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "preview failed"))
+                    .and_then(|r| r.map_err(ApiError::from));
+            match made {
+                Ok(jpeg) => {
+                    let jpeg = Bytes::from(jpeg);
+                    let mut thumbs = state.thumbs.lock().expect("thumb cache");
+                    thumbs.insert(name, jpeg.clone());
+                    jpeg
+                }
+                Err(e) => return e.into_response(),
+            }
+        }
+    };
+    (
+        [
+            (header::CONTENT_TYPE, "image/jpeg"),
+            (header::CACHE_CONTROL, "public, max-age=3600"),
+        ],
+        jpeg,
+    )
+        .into_response()
+}
+
+/// Where a solve's frame comes from.
+enum Source {
+    Upload {
+        bytes: Vec<u8>,
+        name: Option<String>,
+    },
+    Sample(String),
+}
+
+/// The fields of a `/api/solve` form.
+struct SolveForm {
+    source: Source,
+    options: SolveOptions,
+}
+
+async fn text(field: Field<'_>) -> Result<String, ApiError> {
+    Ok(field.text().await?.trim().to_string())
+}
+
+fn parse<T: std::str::FromStr>(name: &str, value: &str) -> Result<T, ApiError> {
+    value
+        .parse()
+        .map_err(|_| ApiError::bad_request(format!("{name} is not a number: {value:?}")))
+}
+
+impl SolveForm {
+    /// Read and check the form: a frame (`image` file or `sample` name) and options.
+    async fn read(multipart: &mut Multipart) -> Result<Self, ApiError> {
+        let mut source = None;
+        let mut o = SolveOptions::default();
+        while let Some(field) = multipart.next_field().await? {
+            let name = field.name().unwrap_or("").to_string();
+            match name.as_str() {
+                "image" => {
+                    let file_name = field.file_name().map(str::to_string);
+                    let bytes = field.bytes().await?.to_vec();
+                    source = Some(Source::Upload {
+                        bytes,
+                        name: file_name,
+                    });
+                }
+                "sample" => source = Some(Source::Sample(text(field).await?)),
+                "fov" => {
+                    let v = text(field).await?;
+                    o.fov = if v.is_empty() {
+                        None
+                    } else {
+                        Some(parse(&name, &v)?)
+                    };
+                }
+                "fov_max_error" => o.fov_max_error = parse(&name, &text(field).await?)?,
+                "distortion" => o.distortion = parse(&name, &text(field).await?)?,
+                "bin" => o.binning = parse(&name, &text(field).await?)?,
+                "sigma" => o.sigma = parse(&name, &text(field).await?)?,
+                "stars" => o.stars = parse(&name, &text(field).await?)?,
+                "timeout_ms" => o.timeout_ms = parse(&name, &text(field).await?)?,
+                _ => {
+                    field.bytes().await?;
+                }
+            }
+        }
+        let source = source.ok_or_else(|| {
+            ApiError::bad_request("send a frame: an `image` file or a `sample` name")
+        })?;
+        check(&o)?;
+        o.timeout_ms = o.timeout_ms.min(MAX_TIMEOUT_MS);
+        Ok(Self { source, options: o })
+    }
+}
+
+fn check(o: &SolveOptions) -> Result<(), ApiError> {
+    let fail = |m: &str| Err(ApiError::bad_request(m));
+    // A positive, finite number: NaN fails every comparison, so test finiteness first.
+    let positive = |v: f64| v.is_finite() && v > 0.0;
+    if let Some(fov) = o.fov {
+        if !positive(fov) || fov >= 180.0 {
+            return fail("fov must be between 0 and 180 degrees");
+        }
+    }
+    if !positive(o.fov_max_error) {
+        return fail("fov_max_error must be a positive number of degrees");
+    }
+    if !o.distortion.is_finite() || o.distortion.abs() >= 1.0 {
+        return fail("distortion must be between -1 and 1");
+    }
+    if ![1, 2, 4, 8].contains(&o.binning) {
+        return fail("bin must be 1, 2, 4 or 8");
+    }
+    if !positive(o.sigma) {
+        return fail("sigma must be a positive number");
+    }
+    if !(4..=200).contains(&o.stars) {
+        return fail("stars must be between 4 and 200");
+    }
+    if o.timeout_ms == 0 {
+        return fail("timeout_ms must be positive");
+    }
+    Ok(())
+}
+
+async fn solve(
+    State(state): State<AppState>,
+    mut multipart: Multipart,
+) -> Result<Json<SolveReport>, ApiError> {
+    let form = SolveForm::read(&mut multipart).await?;
+    let (bytes, name) = match form.source {
+        Source::Upload { bytes, name } => (bytes, name),
+        Source::Sample(name) => (read_sample(&state, &name).await?, Some(name)),
+    };
+    // Take the gate before decoding: decoding is heavy too.
+    let permit = state
+        .solve_gate
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|_| {
+            ApiError::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "the solver is shutting down",
+            )
+        })?;
+    let db = state.db.clone();
+    let options = form.options;
+    let report = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let t = Instant::now();
+        let image = solve::decode_gray(&bytes)?;
+        let decode = t.elapsed().as_secs_f64() * 1e3;
+        let mut report = solve::solve_frame(&db, &image, &options);
+        report.timing_ms.decode = decode;
+        report.name = name;
+        Ok::<_, DecodeError>(report)
+    })
+    .await
+    .map_err(|_| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "the solver stopped unexpectedly",
+        )
+    })??;
+    Ok(Json(report))
+}
+
+/// `/api/similar` query: an object and, optionally, where and when it is seen from.
+#[derive(Debug, Deserialize)]
+struct SimilarQuery {
+    id: String,
+    lat: Option<f64>,
+    lon: Option<f64>,
+    /// Unix time in seconds; now when absent.
+    time: Option<f64>,
+    limit: Option<usize>,
+}
+
+async fn similar(Query(q): Query<SimilarQuery>) -> Result<Json<SimilarReport>, ApiError> {
+    let reference = catalog::find(&q.id).ok_or_else(|| {
+        ApiError::new(
+            StatusCode::NOT_FOUND,
+            format!("no Messier object {:?}", q.id),
+        )
+    })?;
+    let observer = match (q.lat, q.lon) {
+        (Some(lat), Some(lon)) => {
+            if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
+                return Err(ApiError::bad_request(
+                    "lat must be within ±90 degrees and lon within ±180",
+                ));
+            }
+            let now = || {
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map_or(0.0, |d| d.as_secs_f64())
+            };
+            Some(Observer {
+                lat,
+                lon,
+                time: q.time.unwrap_or_else(now),
+            })
+        }
+        (None, None) => None,
+        _ => return Err(ApiError::bad_request("give both lat and lon, or neither")),
+    };
+    let limit = q.limit.unwrap_or(8).clamp(1, MAX_SIMILAR);
+    Ok(Json(catalog::similar(reference, observer.as_ref(), limit)))
+}
+
+async fn api_not_found(uri: Uri) -> ApiError {
+    ApiError::new(
+        StatusCode::NOT_FOUND,
+        format!("no API route {}", uri.path()),
+    )
+}
+
+/// The page's production build, embedded at compile time (read from disk in debug
+/// builds). Rebuild it with `npm run build` in `web/` after changing the page.
+#[derive(RustEmbed)]
+#[folder = "web/dist"]
+struct Page;
+
+/// The media type of a page file, by extension.
+fn page_type(path: &str) -> &'static str {
+    match path.rsplit('.').next().unwrap_or("") {
+        "html" => "text/html; charset=utf-8",
+        "js" => "text/javascript; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "woff2" => "font/woff2",
+        "json" | "webmanifest" => "application/json",
+        _ => "application/octet-stream",
+    }
+}
+
+/// Serve a page file. Fingerprinted assets cache forever; everything else revalidates.
+/// A path with no file extension is a route inside the page and gets `index.html`.
+async fn page(uri: Uri) -> Response {
+    let path = uri.path().trim_start_matches('/');
+    let path = if path.is_empty() { "index.html" } else { path };
+    let (path, file) = match Page::get(path) {
+        Some(file) => (path, file),
+        None if !path.contains('.') => match Page::get("index.html") {
+            Some(file) => ("index.html", file),
+            None => return StatusCode::NOT_FOUND.into_response(),
+        },
+        None => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let cache = if path.starts_with("assets/") {
+        "public, max-age=31536000, immutable"
+    } else {
+        "no-cache"
+    };
+    (
+        [
+            (header::CONTENT_TYPE, page_type(path)),
+            (header::CACHE_CONTROL, cache),
+        ],
+        file.data,
+    )
+        .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn options_are_checked() {
+        let ok = SolveOptions::default();
+        assert!(check(&ok).is_ok());
+        let bad = [
+            SolveOptions {
+                fov: Some(0.0),
+                ..ok
+            },
+            SolveOptions {
+                fov: Some(f64::NAN),
+                ..ok
+            },
+            SolveOptions {
+                fov_max_error: -1.0,
+                ..ok
+            },
+            SolveOptions {
+                distortion: 1.5,
+                ..ok
+            },
+            SolveOptions { binning: 3, ..ok },
+            SolveOptions { sigma: 0.0, ..ok },
+            SolveOptions { stars: 3, ..ok },
+            SolveOptions {
+                timeout_ms: 0,
+                ..ok
+            },
+        ];
+        for o in bad {
+            let e = check(&o).unwrap_err();
+            assert_eq!(e.status, StatusCode::BAD_REQUEST, "{o:?}");
+        }
+    }
+
+    #[test]
+    fn page_types() {
+        assert_eq!(page_type("index.html"), "text/html; charset=utf-8");
+        assert_eq!(
+            page_type("assets/app-1.js"),
+            "text/javascript; charset=utf-8"
+        );
+        assert_eq!(page_type("assets/app-1.css"), "text/css; charset=utf-8");
+        assert_eq!(page_type("favicon.svg"), "image/svg+xml");
+        assert_eq!(page_type("a.woff2"), "font/woff2");
+        assert_eq!(page_type("manifest.webmanifest"), "application/json");
+        assert_eq!(page_type("blob"), "application/octet-stream");
+    }
+
+    #[test]
+    fn decode_errors_map_to_statuses() {
+        let e: ApiError = DecodeError::TooLarge("x".into()).into();
+        assert_eq!(e.status, StatusCode::PAYLOAD_TOO_LARGE);
+        let e: ApiError = DecodeError::Unreadable("x".into()).into();
+        assert_eq!(e.status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    }
+}

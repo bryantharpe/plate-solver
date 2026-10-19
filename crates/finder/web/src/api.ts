@@ -1,0 +1,187 @@
+// The console's JSON API (crates/finder/src/api.rs). Field names and shapes mirror the
+// Rust types they come from; keep the two in step.
+
+export type Family =
+  "nebula" | "planetary_nebula" | "supernova_remnant" | "open_cluster" | "globular_cluster" | "galaxy" | "star";
+
+export interface Constellation {
+  abbr: string;
+  name: string;
+}
+
+export interface DeepSkyObject {
+  id: string;
+  designation: string | null;
+  name: string | null;
+  code: string;
+  kind: string;
+  family: Family;
+  ra_deg: number;
+  dec_deg: number;
+  constellation: Constellation;
+  major_arcmin: number | null;
+  minor_arcmin: number | null;
+  pa_deg: number | null;
+  mag: number | null;
+}
+
+export interface Pointing {
+  ra_deg: number;
+  dec_deg: number;
+  ra_text: string;
+  dec_text: string;
+  constellation: Constellation;
+  roll_deg: number;
+  north_deg: number;
+  fov_deg: number;
+  fov_vertical_deg: number;
+  arcsec_per_px: number;
+  distortion: number;
+  matched: number;
+  rmse_arcsec: number | null;
+  p90_arcsec: number | null;
+  max_arcsec: number | null;
+  false_alarm: number | null;
+}
+
+export interface StarMark {
+  x: number;
+  y: number;
+  id: string;
+  name: string | null;
+  mag: number;
+  matched: boolean;
+  error_px: number | null;
+}
+
+export interface ObjectMark extends DeepSkyObject {
+  x: number;
+  y: number;
+  radius_px: number;
+  minor_px: number;
+  /** Image direction of the major axis, degrees clockwise from up. */
+  angle_deg: number;
+  separation_deg: number;
+  inside: boolean;
+}
+
+export type Edge = "top" | "right" | "bottom" | "left";
+
+export interface GridLine {
+  kind: "ra" | "dec";
+  value_deg: number;
+  label: string;
+  paths: [number, number][][];
+  ticks: { x: number; y: number; edge: Edge }[];
+}
+
+export interface NearbyMark extends DeepSkyObject {
+  separation_deg: number;
+  direction_deg: number;
+}
+
+export type SolveStatus = "match_found" | "no_match" | "timeout" | "cancelled" | "too_few";
+
+export interface SolveReport {
+  name: string | null;
+  status: SolveStatus;
+  hint: string | null;
+  width: number;
+  height: number;
+  timing_ms: { decode: number; detect: number; solve: number };
+  detected: [number, number][];
+  used: number;
+  pointing: Pointing | null;
+  stars: StarMark[];
+  objects: ObjectMark[];
+  nearby: NearbyMark[];
+  grid: GridLine[];
+}
+
+export interface Observer {
+  lat: number;
+  lon: number;
+  time: number;
+}
+
+export interface Suggestion extends DeepSkyObject {
+  separation_deg: number;
+  alt_deg: number | null;
+  az_deg: number | null;
+  up: boolean | null;
+}
+
+export interface SimilarReport {
+  reference: DeepSkyObject;
+  family: string;
+  observer: Observer | null;
+  suggestions: Suggestion[];
+}
+
+export interface Sample {
+  name: string;
+  label: string;
+}
+
+export interface Health {
+  status: string;
+  version: string;
+  database: { catalog: string; stars: number; patterns: number; min_fov: number; max_fov: number };
+  samples: number;
+}
+
+/** Where a frame to solve comes from. */
+export type FrameSource = { kind: "sample"; name: string } | { kind: "file"; file: File };
+
+export interface SolveSettings {
+  /** Horizontal field of view estimate in degrees, if known. */
+  fov?: number;
+  /** Detection threshold in standard deviations of the noise (the server's default is 8). */
+  sigma?: number;
+}
+
+export class ApiError extends Error {}
+
+async function json<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (body.error) message = body.error;
+    } catch {
+      // Not JSON: keep the status line.
+    }
+    throw new ApiError(message);
+  }
+  return (await response.json()) as T;
+}
+
+export const sampleUrl = (name: string) => `/api/samples/${encodeURIComponent(name)}`;
+export const thumbUrl = (name: string) => `${sampleUrl(name)}/thumb`;
+
+export async function getHealth(): Promise<Health> {
+  return json(await fetch("/api/health"));
+}
+
+export async function getSamples(): Promise<Sample[]> {
+  return json(await fetch("/api/samples"));
+}
+
+export async function solve(source: FrameSource, settings: SolveSettings = {}): Promise<SolveReport> {
+  const body = new FormData();
+  if (source.kind === "sample") body.append("sample", source.name);
+  else body.append("image", source.file, source.file.name);
+  if (settings.fov !== undefined) body.append("fov", String(settings.fov));
+  if (settings.sigma !== undefined) body.append("sigma", String(settings.sigma));
+  return json(await fetch("/api/solve", { method: "POST", body }));
+}
+
+export async function getSimilar(id: string, observer: Omit<Observer, "time"> | null): Promise<SimilarReport> {
+  const query = new URLSearchParams({ id, limit: "6" });
+  if (observer) {
+    query.set("lat", String(observer.lat));
+    query.set("lon", String(observer.lon));
+    query.set("time", String(Date.now() / 1000));
+  }
+  return json(await fetch(`/api/similar?${query}`));
+}

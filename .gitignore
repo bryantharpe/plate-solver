@@ -6,6 +6,10 @@
 !.claude/skills/
 !.claude/agents/
 .claude/skills/impeccable/scripts/bin/
+# Impeccable's working files: review screenshots and decision sketches stay local; the
+# product record (PRODUCT.md), surface briefs and design system (DESIGN.md) are committed.
+.impeccable/review/
+.impeccable/mocks/
 
 # macOS
 .DS_Store
@@ -13,9 +17,10 @@
 # Rust
 /target
 
-# ps-web frontend (NOTE: frontend/dist is committed by design — the Rust
-# binary embeds it via rust-embed so cargo builds never need node)
-ps-web/frontend/node_modules/
+# Finder console page (NOTE: crates/finder/web/dist is committed by design: the Rust
+# binary embeds it via rust-embed, so cargo builds never need node)
+crates/finder/web/node_modules/
+crates/finder/web/*.tsbuildinfo
 
 # Standalone parity-capture helper crate (workspace-excluded; builds its own target)
 tools/parity/_capture_binning/target/
