@@ -1,4 +1,12 @@
-@import "tailwindcss";
+/*
+ * Classes come from the page's source only. Left to itself Tailwind also scans the committed
+ * build in dist/, so each build would depend on the one before it.
+ */
+@import "tailwindcss" source(none);
+@source "./";
+@source not "./**/*.test.ts";
+@source not "./**/*.test.tsx";
+@source not "./test";
 @import "@fontsource-variable/archivo/wdth.css";
 @import "@fontsource-variable/archivo/wdth-italic.css";
 
