@@ -262,6 +262,8 @@ jobs:
       - run: npm run format:check
       - name: Unit and component tests
         id: unit
+        env:
+          NO_COLOR: "1" # Vitest colours its summary on CI; the count below is read from it
         run: |
           set -o pipefail
           npm test 2>&1 | tee "$RUNNER_TEMP/vitest.log"
@@ -289,7 +291,7 @@ jobs:
         continue-on-error: true
         with:
           gate: finder-page
-          proves: "the finder page typechecks and is Prettier-clean, its unit and component tests pass, the committed dist/ is exactly the build of this source, and in Chromium against the release binary the phone's first screen holds the pointing card, roster, chart and legend, night mode leaves no pixel off the red channel (with a day control), and nothing loads from another host until the survey is asked for"
+          proves: "the finder page typechecks and is Prettier-clean, its unit and component tests pass, the committed dist/ is exactly the build of this source, and in Chromium against the release binary the phone's first screen holds the pointing card, roster, chart and legend, night mode leaves no pixel off the red channel or brighter than the night ink (with a day control), and nothing loads from another host until the survey is asked for"
           measured: "${{ steps.unit.outputs.tests }} unit/component tests, ${{ steps.e2e.outputs.tests }} end-to-end tests"
 
   docs:

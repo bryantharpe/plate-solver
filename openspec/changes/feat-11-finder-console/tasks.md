@@ -38,4 +38,4 @@
 - [x] 6.1 Rust unit tests and API tests on the real database and sample frames
 - [x] 6.2 Page unit and component tests (Vitest, jsdom) on reports captured from the server
 - [x] 6.3 End-to-end tests in Chromium against the release binary (Playwright)
-- [ ] 6.4 A `finder-page` CI job: typecheck, format, tests, build freshness and the end-to-end tests
+- [x] 6.4 A `finder-page` CI job: typecheck, format, tests, build freshness and the end-to-end tests
