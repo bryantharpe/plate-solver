@@ -3,17 +3,36 @@
 // named, and deep-sky objects are drawn in the atlas's symbols. Everything is drawn in the
 // frame's own pixel coordinates, so each mark sits where the server put it.
 
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
-import type { Edge, GridLine, ObjectMark, SolveReport, StarMark } from "../api";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import type { Edge, Family, GridLine, ObjectMark, SolveReport, StarMark } from "../api";
 import { mag, objectTitle, scaleBar } from "../format";
+import {
+  galaxyMinor,
+  layoutLabels,
+  measureText,
+  objectRadius,
+  OBJECT_TEXT,
+  ringRadius,
+  STAR_TEXT,
+  type Box,
+  type LabelSpot,
+  type Measure,
+} from "../labels";
 import { FamilyShape } from "./Symbol";
 
+/** What the chart draws; each is a chip in the legend. */
 export interface Layers {
   grid: boolean;
-  catalog: boolean;
+  /** Catalog stars the solve matched to a detected star. */
+  matched: boolean;
+  /** Catalog stars in the frame that were not detected. */
+  expected: boolean;
   objects: boolean;
+  /** Every star the detector found. */
   detected: boolean;
 }
+
+export const DEFAULT_LAYERS: Layers = { grid: true, matched: true, expected: true, objects: true, detected: false };
 
 type Picked = { kind: "star"; star: StarMark } | { kind: "object"; object: ObjectMark } | null;
 
@@ -28,8 +47,22 @@ interface Props {
 
 /** Paper margin around the frame for the grid's labels, in CSS pixels. */
 const MARGIN = 30;
-/** Labels' on-screen size, in CSS pixels. */
-const TEXT = 12;
+
+let measurer: Measure | null = null;
+/** Text widths in the page's font, measured once the font has loaded. */
+function useMeasure(): Measure {
+  // Lay the labels out again once the font has loaded, in its own widths.
+  const [, setLoaded] = useState(false);
+  useEffect(() => {
+    let live = true;
+    document.fonts?.ready.then(() => live && setLoaded(true));
+    return () => {
+      live = false;
+    };
+  }, []);
+  measurer ??= measureText();
+  return measurer;
+}
 
 function useWidth(ref: RefObject<HTMLElement | null>): number {
   const [width, setWidth] = useState(0);
@@ -49,6 +82,7 @@ export function Chart({ report, imageUrl, label, busy, layers, onLayers }: Props
   const width = useWidth(box);
   const [picked, setPicked] = useState<Picked>(null);
   const clip = useId();
+  const measure = useMeasure();
 
   if (!report) {
     return (
@@ -76,7 +110,20 @@ export function Chart({ report, imageUrl, label, busy, layers, onLayers }: Props
   // With nothing solved, the detected stars are the whole story: show them.
   const showDetected = layers.detected || !solved;
   const key = `${report.name}:${report.pointing?.ra_deg ?? "none"}`;
-  const spots = layoutLabels(report, layers, W, H, u);
+  const stars = report.stars.filter((s) => (s.matched ? layers.matched : layers.expected));
+  const objects = layers.objects ? report.objects : [];
+  const detected = showDetected ? report.detected : [];
+  const furniture = solved ? furnitureGeometry(report, u) : null;
+  const spots = layoutLabels({
+    W,
+    H,
+    u,
+    stars,
+    objects,
+    detected,
+    furniture: furniture?.boxes ?? [],
+    measure,
+  });
 
   return (
     <figure
@@ -111,39 +158,36 @@ export function Chart({ report, imageUrl, label, busy, layers, onLayers }: Props
 
           {layers.grid && solved && <Grid lines={report.grid} W={W} H={H} u={u} clip={clip} />}
 
-          <g clipPath={`url(#${clip})`} fontSize={TEXT * u}>
-            {showDetected &&
-              report.detected.map(([x, y], i) => (
-                <circle key={i} cx={x} cy={y} r={3 * u} strokeWidth={u} className="mark-detected" />
-              ))}
-            {layers.objects &&
-              report.objects.map((o, i) => (
-                <ObjectSymbol
-                  key={o.id}
-                  object={o}
-                  u={u}
-                  spot={spots.get(`o:${o.id}`)}
-                  delay={450 + i * 60}
-                  picked={picked?.kind === "object" && picked.object.id === o.id}
-                  onPick={() => setPicked({ kind: "object", object: o })}
-                />
-              ))}
-            {layers.catalog &&
-              report.stars.map((s) => (
-                <StarSymbol
-                  key={s.id}
-                  star={s}
-                  u={u}
-                  spot={spots.get(`s:${s.id}`)}
-                  picked={picked?.kind === "star" && picked.star.id === s.id}
-                  onPick={() => setPicked({ kind: "star", star: s })}
-                />
-              ))}
-            {solved && <Furniture report={report} u={u} />}
+          <g clipPath={`url(#${clip})`} fontSize={STAR_TEXT * u}>
+            {detected.map(([x, y], i) => (
+              <circle key={i} cx={x} cy={y} r={3 * u} strokeWidth={u} className="mark-detected" />
+            ))}
+            {objects.map((o, i) => (
+              <ObjectSymbol
+                key={o.id}
+                object={o}
+                u={u}
+                spot={spots.get(`o:${o.id}`)}
+                delay={450 + i * 60}
+                picked={picked?.kind === "object" && picked.object.id === o.id}
+                onPick={() => setPicked({ kind: "object", object: o })}
+              />
+            ))}
+            {stars.map((s) => (
+              <StarSymbol
+                key={s.id}
+                star={s}
+                u={u}
+                spot={spots.get(`s:${s.id}`)}
+                picked={picked?.kind === "star" && picked.star.id === s.id}
+                onPick={() => setPicked({ kind: "star", star: s })}
+              />
+            ))}
+            {furniture && <Furniture geometry={furniture} u={u} />}
           </g>
         </svg>
       </div>
-      <figcaption className="mx-[30px] mt-3 min-h-11">
+      <figcaption className="mt-3 min-h-11 sm:mx-[30px]">
         {picked ? (
           <PickedLine picked={picked} />
         ) : (
@@ -237,60 +281,17 @@ function placeLabels(lines: GridLine[], W: number, H: number, u: number) {
   return kept;
 }
 
-interface LabelSpot {
-  x: number;
-  y: number;
-  anchor: "start" | "middle" | "end";
-}
-
-/**
- * Where each object and star label goes: the first of eight spots around its mark that
- * stays inside the frame and clear of the labels placed before it (objects first, then
- * stars brightest first) and of the chart's furniture. Objects always get a label; a star
- * whose name has no room goes without.
- */
-function layoutLabels(report: SolveReport, layers: Layers, W: number, H: number, u: number) {
-  type Box = { x0: number; y0: number; x1: number; y1: number };
-  const taken: Box[] = [
-    { x0: W - 72 * u, y0: 0, x1: W, y1: 72 * u }, // north arrow
-    { x0: 0, y0: H - 40 * u, x1: 120 * u, y1: H }, // scale bar
-  ];
-  const spots = new Map<string, LabelSpot>();
-  const clear = (b: Box) => !taken.some((t) => b.x0 < t.x1 && b.x1 > t.x0 && b.y0 < t.y1 && b.y1 > t.y0);
-  const fits = (b: Box) => b.x0 >= 3 * u && b.x1 <= W - 3 * u && b.y0 >= 3 * u && b.y1 <= H - 3 * u;
-  const place = (key: string, text: string, x: number, y: number, r: number, size: number, always: boolean) => {
-    const w = text.length * size * 0.58;
-    const d = r + 4 * u;
-    const e = d * 0.72;
-    const candidates: LabelSpot[] = [
-      { x: x + d, y: y + size * 0.35, anchor: "start" },
-      { x: x - d, y: y + size * 0.35, anchor: "end" },
-      { x, y: y - d, anchor: "middle" },
-      { x, y: y + d + size * 0.8, anchor: "middle" },
-      { x: x + e, y: y - e, anchor: "start" },
-      { x: x - e, y: y - e, anchor: "end" },
-      { x: x + e, y: y + e + size * 0.7, anchor: "start" },
-      { x: x - e, y: y + e + size * 0.7, anchor: "end" },
-    ];
-    const box = (c: LabelSpot): Box => {
-      const x0 = c.anchor === "start" ? c.x : c.anchor === "end" ? c.x - w : c.x - w / 2;
-      return { x0, y0: c.y - size * 0.8, x1: x0 + w, y1: c.y + size * 0.25 };
-    };
-    const spot =
-      candidates.find((c) => fits(box(c)) && clear(box(c))) ??
-      (always ? (candidates.find((c) => fits(box(c))) ?? candidates[0]) : undefined);
-    if (!spot) return;
-    taken.push(box(spot));
-    spots.set(key, spot);
-  };
-  if (layers.objects) {
-    for (const o of report.objects) place(`o:${o.id}`, o.id, o.x, o.y, Math.max(o.radius_px, 9 * u), 13 * u, true);
-  }
-  if (layers.catalog) {
-    const named = report.stars.filter((s) => s.name).sort((a, b) => a.mag - b.mag);
-    for (const s of named) place(`s:${s.id}`, s.name ?? "", s.x, s.y, 7.5 * u, 12 * u, false);
-  }
-  return spots;
+/** A leader from a mark to its label, cased in the photo's dark like the labels. */
+function Leader({ spot, u }: { spot: LabelSpot; u: number }) {
+  if (!spot.leader) return null;
+  const { x1, y1, x2, y2 } = spot.leader;
+  const d = `M${x1} ${y1}L${x2} ${y2}`;
+  return (
+    <>
+      <path d={d} strokeWidth={3 * u} className="leader-casing" />
+      <path d={d} strokeWidth={u} stroke="currentColor" className="leader" />
+    </>
+  );
 }
 
 function ObjectSymbol({
@@ -308,15 +309,27 @@ function ObjectSymbol({
   picked: boolean;
   onPick: () => void;
 }) {
-  const r = Math.max(o.radius_px, 9 * u);
+  const r = objectRadius(o, u);
   const galaxy = o.family === "galaxy";
-  const ry = galaxy ? Math.max(Math.min(o.minor_px, r), 4 * u) : r;
+  // Labels and leaders are laid out in image coordinates; this group sits at the object.
+  const local = spot && {
+    ...spot,
+    x: spot.x - o.x,
+    y: spot.y - o.y,
+    leader: spot.leader && {
+      x1: spot.leader.x1 - o.x,
+      y1: spot.leader.y1 - o.y,
+      x2: spot.leader.x2 - o.x,
+      y2: spot.leader.y2 - o.y,
+    },
+  };
   return (
     <g
       transform={`translate(${o.x} ${o.y})`}
       className={`object-${o.family} ink-in cursor-pointer`}
       style={{ animationDelay: `${delay}ms` }}
       data-picked={picked}
+      data-object={o.id}
       onClick={(e) => {
         e.stopPropagation();
         onPick();
@@ -326,7 +339,7 @@ function ObjectSymbol({
       {galaxy ? (
         <ellipse
           rx={r}
-          ry={ry}
+          ry={galaxyMinor(o, u)}
           transform={`rotate(${o.angle_deg - 90})`}
           fill="none"
           stroke="currentColor"
@@ -340,17 +353,20 @@ function ObjectSymbol({
         </g>
       )}
       <circle r={Math.max(r, 18 * u)} className="hit" />
-      {spot && (
-        <text
-          x={spot.x - o.x}
-          y={spot.y - o.y}
-          textAnchor={spot.anchor}
-          fontSize={13 * u}
-          strokeWidth={3 * u}
-          className="object-label"
-        >
-          {o.id}
-        </text>
+      {local && (
+        <>
+          <Leader spot={local} u={u} />
+          <text
+            x={local.x}
+            y={local.y}
+            textAnchor={local.anchor}
+            fontSize={OBJECT_TEXT * u}
+            strokeWidth={3 * u}
+            className="object-label"
+          >
+            {o.id}
+          </text>
+        </>
       )}
     </g>
   );
@@ -374,78 +390,120 @@ function StarSymbol({
       className={`${s.matched ? "mark-matched" : "mark-expected"} ink-in`}
       style={{ animationDelay: s.matched ? "350ms" : "600ms" }}
       data-picked={picked}
+      data-star={s.id}
       onClick={(e) => {
         e.stopPropagation();
         onPick();
       }}
     >
-      <circle cx={s.x} cy={s.y} r={(s.matched ? 7.5 : 4.5) * u} strokeWidth={1.3 * u} className="ring" />
+      <circle cx={s.x} cy={s.y} r={ringRadius(s) * u} strokeWidth={1.3 * u} className="ring" />
       <circle cx={s.x} cy={s.y} r={16 * u} className="hit" />
       {s.name && spot && (
-        <text x={spot.x} y={spot.y} textAnchor={spot.anchor} strokeWidth={3 * u} className="mark-label">
-          {s.name}
-        </text>
+        <>
+          <Leader spot={spot} u={u} />
+          <text x={spot.x} y={spot.y} textAnchor={spot.anchor} strokeWidth={3 * u} className="mark-label">
+            {s.name}
+          </text>
+        </>
       )}
     </g>
   );
 }
 
-/** The chart's furniture: centre reticle, north and east, and a scale bar. */
-function Furniture({ report, u }: { report: SolveReport; u: number }) {
-  const p = report.pointing;
-  if (!p) return null;
+interface FurnitureGeometry {
+  /** The frame's centre, where the reticle goes. */
+  cx: number;
+  cy: number;
+  /** The compass's centre, its arm length, and where north points. */
+  ax: number;
+  ay: number;
+  arm: number;
+  north: number;
+  /** The scale bar: left end, length, baseline, label. */
+  pad: number;
+  bar: { px: number; label: string };
+  by: number;
+  /** What the furniture covers, for keeping labels off it. */
+  boxes: Box[];
+}
+
+/** Where the chart's furniture goes: compass top right, scale bar bottom left, reticle at the centre. */
+export function furnitureGeometry(report: SolveReport, u: number): FurnitureGeometry {
   const W = report.width;
   const H = report.height;
-  const bar = scaleBar(p.arcsec_per_px, Math.min(W, H) * 0.22);
+  const p = report.pointing;
   const pad = 16 * u;
   const arm = 24 * u;
   const ax = W - pad - arm;
   const ay = pad + arm;
+  const bar = scaleBar(p?.arcsec_per_px ?? 1, Math.min(W, H) * 0.22);
+  const by = H - pad;
+  const reach = arm + 16 * u;
+  const boxes: Box[] = [
+    { x0: ax - reach, y0: ay - reach, x1: ax + reach, y1: ay + reach },
+    { x0: pad - 2 * u, y0: by - 22 * u, x1: pad + Math.max(bar.px, bar.px / 2 + 16 * u) + 2 * u, y1: by + 2 * u },
+    { x0: W / 2 - 12 * u, y0: H / 2 - 12 * u, x1: W / 2 + 12 * u, y1: H / 2 + 12 * u },
+  ];
+  return { cx: W / 2, cy: H / 2, ax, ay, arm, north: p?.north_deg ?? 0, pad, bar, by, boxes };
+}
+
+/** The chart's furniture: centre reticle, north and east, and a scale bar. */
+function Furniture({ geometry: g, u }: { geometry: FurnitureGeometry; u: number }) {
+  const { cx, cy } = g;
   const at = (angle: number, length: number) => {
     const a = (angle * Math.PI) / 180;
-    return [ax + Math.sin(a) * length, ay - Math.cos(a) * length] as const;
+    return [g.ax + Math.sin(a) * length, g.ay - Math.cos(a) * length] as const;
   };
   // On a frame of the sky, east is a quarter turn counterclockwise from north.
-  const east = p.north_deg - 90;
-  const [nx, ny] = at(p.north_deg, arm);
-  const [ex, ey] = at(east, arm * 0.7);
-  const [nlx, nly] = at(p.north_deg, arm + 9 * u);
-  const [elx, ely] = at(east, arm * 0.7 + 9 * u);
-  const cx = W / 2;
-  const cy = H / 2;
-  const by = H - pad;
+  const east = g.north - 90;
+  const [nx, ny] = at(g.north, g.arm);
+  const [ex, ey] = at(east, g.arm * 0.7);
+  const [nlx, nly] = at(g.north, g.arm + 9 * u);
+  const [elx, ely] = at(east, g.arm * 0.7 + 9 * u);
   return (
     <g className="furniture ink-in" strokeWidth={1.3 * u} style={{ animationDelay: "300ms" }}>
       <path
         d={`M${cx - 11 * u} ${cy}H${cx - 4 * u}M${cx + 4 * u} ${cy}H${cx + 11 * u}M${cx} ${cy - 11 * u}V${cy - 4 * u}M${cx} ${cy + 4 * u}V${cy + 11 * u}`}
         fill="none"
       />
-      <path d={`M${ax} ${ay}L${nx} ${ny}M${ax} ${ay}L${ex} ${ey}`} fill="none" />
+      <path d={`M${g.ax} ${g.ay}L${nx} ${ny}M${g.ax} ${g.ay}L${ex} ${ey}`} fill="none" />
       <text x={nlx} y={nly} textAnchor="middle" dominantBaseline="middle" fontSize={11 * u}>
         N
       </text>
       <text x={elx} y={ely} textAnchor="middle" dominantBaseline="middle" fontSize={11 * u}>
         E
       </text>
-      <path d={`M${pad} ${by - 5 * u}V${by}H${pad + bar.px}V${by - 5 * u}`} fill="none" />
-      <text x={pad + bar.px / 2} y={by - 8 * u} textAnchor="middle" fontSize={11 * u}>
-        {bar.label}
+      <path d={`M${g.pad} ${g.by - 5 * u}V${g.by}H${g.pad + g.bar.px}V${g.by - 5 * u}`} fill="none" />
+      <text x={g.pad + g.bar.px / 2} y={g.by - 8 * u} textAnchor="middle" fontSize={11 * u}>
+        {g.bar.label}
       </text>
     </g>
   );
 }
 
-function Swatch({ layer }: { layer: keyof Layers }) {
+/** A legend key drawn like the mark it stands for. */
+function Swatch({ layer, families }: { layer: keyof Layers; families: Family[] }) {
+  if (layer === "objects") {
+    return (
+      <span className="swatch inline-flex gap-0.5" aria-hidden="true">
+        {families.map((f) => (
+          <svg key={f} viewBox="-8 -8 16 16" width="14" height="14" className={`icon-${f}`}>
+            <FamilyShape family={f} r={f === "galaxy" ? 6.5 : 5} />
+          </svg>
+        ))}
+      </span>
+    );
+  }
   return (
     <svg viewBox="-8 -8 16 16" width="14" height="14" aria-hidden="true" className="swatch">
       {layer === "grid" && (
         <path d="M-7 -3H7M-7 3H7M-3 -7V7M3 -7V7" stroke="currentColor" strokeWidth="1.2" fill="none" />
       )}
-      {layer === "catalog" && <circle r="5" stroke="currentColor" strokeWidth="1.4" fill="none" />}
-      {layer === "objects" && (
-        <rect x="-5" y="-5" width="10" height="10" stroke="currentColor" strokeWidth="1.4" fill="none" />
+      {layer === "matched" && <circle r="5.5" stroke="currentColor" strokeWidth="1.4" fill="none" />}
+      {layer === "expected" && (
+        <circle r="4.5" stroke="currentColor" strokeWidth="1.3" strokeDasharray="2 2.2" fill="none" />
       )}
-      {layer === "detected" && <circle r="2.5" fill="currentColor" />}
+      {layer === "detected" && <circle r="3" stroke="currentColor" strokeWidth="1.2" fill="none" />}
     </svg>
   );
 }
@@ -462,14 +520,20 @@ function Legend({
   fixed: boolean;
   onLayers: (l: Layers) => void;
 }) {
-  const items: { key: keyof Layers; label: string; count: number }[] = [
-    { key: "grid", label: "Grid", count: report.grid.length },
-    { key: "catalog", label: "Stars", count: report.stars.length },
-    { key: "objects", label: "Deep sky", count: report.objects.length },
-    { key: "detected", label: "Detected", count: report.detected.length },
-  ];
+  const matched = report.stars.filter((s) => s.matched).length;
+  // The deep-sky key shows the symbols actually on this chart, up to three of them.
+  const families = [...new Set(report.objects.map((o) => o.family))].slice(0, 3);
+  const items: { key: keyof Layers; label: string; count: number }[] = fixed
+    ? [{ key: "detected", label: "Detections", count: report.detected.length }]
+    : [
+        { key: "grid", label: "Grid", count: report.grid.length },
+        { key: "matched", label: "Matched", count: matched },
+        { key: "expected", label: "Not detected", count: report.stars.length - matched },
+        { key: "objects", label: "Deep sky", count: report.objects.length },
+        { key: "detected", label: "Detections", count: report.detected.length },
+      ];
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Show on the chart">
+    <div className="flex flex-wrap gap-1.5 sm:gap-2" role="group" aria-label="Show on the chart">
       {items
         .filter((item) => item.count > 0 || item.key === "detected")
         .map((item) => (
@@ -478,10 +542,10 @@ function Legend({
             type="button"
             className="chip"
             aria-pressed={layers[item.key]}
-            disabled={fixed && item.key === "detected"}
+            disabled={fixed}
             onClick={() => onLayers({ ...layers, [item.key]: !layers[item.key] })}
           >
-            <Swatch layer={item.key} />
+            <Swatch layer={item.key} families={families} />
             {item.label}
             <span className="chip-count">{item.count}</span>
           </button>

@@ -25,11 +25,24 @@ function Coordinate({ text }: { text: string }) {
   );
 }
 
+/** Facts in a line, separated by dots, that wrap only between facts. */
+function Clauses({ items, className = "" }: { items: ReactNode[]; className?: string }) {
+  return (
+    <p className={`clauses ${className}`}>
+      <span>
+        {items.map((item, i) => (
+          <span key={i}>{item}</span>
+        ))}
+      </span>
+    </p>
+  );
+}
+
 function Frame({ children }: { children: ReactNode }) {
   // The atlas's double rule around a chart's title block.
   return (
     <section aria-labelledby="pointing-title" className="border border-ink p-[3px]">
-      <div className="border border-ink px-4 pt-3 pb-4 sm:px-5">{children}</div>
+      <div className="border border-ink px-3.5 pt-2.5 pb-3 sm:px-5 sm:pt-3 sm:pb-4">{children}</div>
     </section>
   );
 }
@@ -77,7 +90,7 @@ export function ChartHeader({ report, label, sigma, onRetry }: HeaderProps) {
         </h1>
         <span className="text-xs font-semibold tracking-[0.18em] text-ink-2">J2000</span>
       </div>
-      <dl className="mt-2 grid grid-cols-[2.6rem_1fr] items-baseline gap-x-2 leading-none">
+      <dl className="mt-1.5 grid sm:mt-2 grid-cols-[2.6rem_1fr] items-baseline gap-x-2 leading-none">
         <dt className="text-sm font-semibold tracking-[0.12em] text-ink-2 uppercase">RA</dt>
         <dd className="text-[2.35rem] font-[680] tracking-[-0.02em] sm:text-[2.75rem]">
           <Coordinate text={p.ra_text} />
@@ -87,16 +100,27 @@ export function ChartHeader({ report, label, sigma, onRetry }: HeaderProps) {
           <Coordinate text={p.dec_text} />
         </dd>
       </dl>
-      <p className="mt-4 border-t border-rule pt-3 text-[0.9375rem]">
-        Field {field(p.fov_deg, p.fov_vertical_deg)} · roll {Math.round(p.roll_deg)}° · {p.arcsec_per_px.toFixed(0)}″/px
-      </p>
-      <p className="mt-1 flex items-center gap-1.5 text-[0.9375rem] text-ink-2">
-        <span className="text-nebula">
+      <Clauses
+        className="mt-3 border-t border-rule pt-2.5 text-[0.9375rem] sm:mt-4 sm:pt-3"
+        items={[
+          `Field ${field(p.fov_deg, p.fov_vertical_deg)}`,
+          `roll ${Math.round(p.roll_deg)}°`,
+          `${p.arcsec_per_px.toFixed(0)}″/px`,
+        ]}
+      />
+      <div className="mt-1 flex items-start gap-1.5 text-[0.9375rem] text-ink-2">
+        <span className="mt-0.5 shrink-0 text-nebula">
           <Check size={18} />
         </span>
-        Solved in {ms(t.detect + t.solve)} · {p.matched} of {report.detected.length} stars matched ·{" "}
-        {arcsec(p.rmse_arcsec)} RMS
-      </p>
+        <Clauses
+          className="min-w-0"
+          items={[
+            `Solved in ${ms(t.detect + t.solve)}`,
+            `${p.matched} of ${report.detected.length} stars matched`,
+            `${arcsec(p.rmse_arcsec)}\u00a0RMS`,
+          ]}
+        />
+      </div>
     </Frame>
   );
 }

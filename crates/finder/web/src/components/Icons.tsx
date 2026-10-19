@@ -76,3 +76,11 @@ export const Survey = (p: P) => (
     <path d="M2.5 10h15M10 2.5c2.2 2.2 3 4.7 3 7.5s-.8 5.3-3 7.5M10 2.5c-2.2 2.2-3 4.7-3 7.5s.8 5.3 3 7.5" />
   </Icon>
 );
+
+/** Below the horizon: the horizon line with the object under it. */
+export const Horizon = (p: P) => (
+  <Icon {...p}>
+    <path d="M2.5 7.5h15" />
+    <path d="M10 10.5v6M7.5 14l2.5 2.5 2.5-2.5" />
+  </Icon>
+);

@@ -228,9 +228,9 @@
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.4rem;
     min-height: 2.5rem;
-    padding: 0 0.75rem;
+    padding: 0 0.625rem;
     border: 1px solid var(--color-ink);
     font-size: 0.875rem;
     font-weight: 520;
@@ -324,6 +324,10 @@
     fill: none;
     stroke: var(--color-on-photo-2);
     opacity: 0.55;
+  }
+  .mark-matched,
+  .mark-expected {
+    color: var(--color-on-photo);
   }
   .mark-matched circle.ring {
     fill: none;

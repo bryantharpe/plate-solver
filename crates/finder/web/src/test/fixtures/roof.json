@@ -1,0 +1,21 @@
+{
+  "name": "roof.jpg",
+  "status": "no_match",
+  "hint": "No star pattern in this frame matched the database. Check that the database covers this camera's field of view, or lower the detection threshold.",
+  "width": 507,
+  "height": 507,
+  "timing_ms": { "decode": 129.74, "detect": 1.968, "solve": 1.717 },
+  "detected": [
+    [228.736, 446.733],
+    [175.364, 444.591],
+    [189.675, 223.0],
+    [226.5, 360.941],
+    [133.177, 135.083]
+  ],
+  "used": 5,
+  "pointing": null,
+  "stars": [],
+  "objects": [],
+  "nearby": [],
+  "grid": []
+}

@@ -44,7 +44,7 @@ function loadAladin(): Promise<AladinGlobal> {
 }
 
 /** The frame's corners on the sky, approximately: a box of the field's size, rotated by roll. */
-function footprint(p: Pointing): [number, number][] {
+export function footprint(p: Pointing): [number, number][] {
   const w = p.fov_deg / 2;
   const h = p.fov_vertical_deg / 2;
   const north = (p.north_deg * Math.PI) / 180;

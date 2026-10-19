@@ -19,7 +19,7 @@ const siteText = (site: Site) => `${Math.abs(site.lat).toFixed(1)}° ${site.lat 
 export function TopBar({ source, label, site, night, onFrame, onSite, onNight }: Props) {
   return (
     <header className="sticky top-0 z-10 border-b border-rule bg-paper">
-      <div className="mx-auto flex h-16 max-w-[90rem] items-center gap-2 px-3 sm:gap-3 sm:px-5">
+      <div className="page-width flex h-16 items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-10">
         <a
           href="/"
           className="mr-auto flex items-center gap-2 font-semibold tracking-[0.02em]"
@@ -36,7 +36,7 @@ export function TopBar({ source, label, site, night, onFrame, onSite, onNight }:
               <Reticle size={14} />
             </span>
           )}
-          <span className="truncate">{label ?? "Choose a frame"}</span>
+          <span className="truncate">{label ?? "Frames"}</span>
           <Chevron size={16} />
         </button>
         <button

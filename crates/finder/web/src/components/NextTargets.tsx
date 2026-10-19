@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { getSimilar, type DeepSkyObject, type Family, type NearbyMark, type SimilarReport } from "../api";
 import { compass, deg, mag, objectTitle } from "../format";
 import type { Site } from "../settings";
+import { Horizon } from "./Icons";
 import { FamilyIcon } from "./Symbol";
 
 interface Props {
@@ -64,14 +65,16 @@ function Row({
   dim?: boolean;
 }) {
   return (
-    <li className={`grid grid-cols-[1.5rem_3.25rem_1fr_auto] items-center gap-x-2 py-2.5 ${dim ? "text-ink-3" : ""}`}>
-      <span className={`justify-self-center ${dim ? "" : `icon-${family}`}`}>
+    // A row for an object that is down keeps its text readable and shows the state in its
+    // symbol, drawn in the faint ink, and in the horizon mark beside "below 15°".
+    <li className={`grid grid-cols-[1.5rem_3.25rem_1fr_auto] items-center gap-x-2 py-2.5 ${dim ? "text-ink-2" : ""}`}>
+      <span className={`justify-self-center ${dim ? "text-ink-3" : `icon-${family}`}`}>
         <FamilyIcon family={family} size={18} />
       </span>
       <span className="font-semibold italic">{id}</span>
       <span className="min-w-0">
         <span className="block truncate">{title}</span>
-        <span className={`block text-sm ${dim ? "" : "text-ink-2"}`}>{detail}</span>
+        <span className="block text-sm text-ink-2">{detail}</span>
       </span>
       <span className="text-right text-sm tabular-nums">{where}</span>
     </li>
@@ -127,11 +130,16 @@ function Similar({
               detail={`${s.kind} · mag ${mag(s.mag)}`}
               dim={s.up === false}
               where={
-                s.alt_deg === null
-                  ? `${deg(s.separation_deg)} away`
-                  : s.up
-                    ? `${Math.round(s.alt_deg)}° up ${compass(s.az_deg ?? 0)}`
-                    : "below 15°"
+                s.alt_deg === null ? (
+                  `${deg(s.separation_deg)} away`
+                ) : s.up ? (
+                  `${Math.round(s.alt_deg)}° up ${compass(s.az_deg ?? 0)}`
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Horizon size={16} />
+                    below 15°
+                  </span>
+                )
               }
             />
           ))}

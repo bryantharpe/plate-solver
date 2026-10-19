@@ -1,4 +1,5 @@
-// What is in the field: the deep-sky objects on the frame, and the named stars matched.
+// What is in the field: the deep-sky objects on the frame, and the named stars matched. The
+// roster says it in a line under the coordinates on a phone; the list says it in full.
 
 import type { ObjectMark, SolveReport } from "../api";
 import { mag, objectTitle } from "../format";
@@ -36,7 +37,7 @@ export function FieldList({ report, selected, onSelect }: Props) {
             <span key={s.id}>
               {s.name}
               {i < named.length - 1 && (
-                <span className="ml-3 text-ink-3" aria-hidden="true">
+                <span className="ml-3 text-ink-2" aria-hidden="true">
                   ·
                 </span>
               )}
@@ -45,6 +46,49 @@ export function FieldList({ report, selected, onSelect }: Props) {
         </p>
       )}
     </section>
+  );
+}
+
+/** Objects and named stars shown in the roster before it points to the full list. */
+const ROSTER_OBJECTS = 6;
+const ROSTER_STARS = 3;
+
+/**
+ * What is in the field in a line or two, for the top of a phone screen: each object's symbol
+ * and designation, then the brightest named stars. The full list follows the chart.
+ */
+export function FieldRoster({ report }: { report: SolveReport }) {
+  const objects = report.objects.slice(0, ROSTER_OBJECTS);
+  const named = report.stars.filter((s) => s.matched && s.name).sort((a, b) => a.mag - b.mag);
+  const stars = named.slice(0, ROSTER_STARS);
+  const more = report.objects.length - objects.length + named.length - stars.length;
+  if (objects.length === 0 && stars.length === 0) {
+    return <p className="quiet lg:hidden">No Messier objects or named stars in the field.</p>;
+  }
+  return (
+    <p className="flex flex-wrap items-center gap-x-4 gap-y-1.5 lg:hidden">
+      {objects.map((o) => (
+        <span key={o.id} className="inline-flex items-center gap-1.5">
+          <span className={`icon-${o.family}`}>
+            <FamilyIcon family={o.family} size={16} />
+          </span>
+          <span className="font-semibold italic">{o.id}</span>
+        </span>
+      ))}
+      {stars.length > 0 && (
+        <span className="inline-flex items-center gap-1.5">
+          <svg viewBox="-8 -8 16 16" width="14" height="14" aria-hidden="true">
+            <circle r="5.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
+          </svg>
+          {stars.map((s) => s.name).join(", ")}
+        </span>
+      )}
+      {more > 0 && (
+        <a href="#field-title" className="link text-sm">
+          {more} more
+        </a>
+      )}
+    </p>
   );
 }
 

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { getHealth, type FrameSource, type Health, type SolveSettings } from "./api";
-import { Chart, type Layers } from "./components/Chart";
+import { Chart, DEFAULT_LAYERS, type Layers } from "./components/Chart";
 import { ChartHeader, ChartHeaderPlaceholder } from "./components/ChartHeader";
-import { FieldList } from "./components/FieldList";
+import { FieldList, FieldRoster } from "./components/FieldList";
 import { FramePicker, SampleGrid } from "./components/FramePicker";
 import { Upload } from "./components/Icons";
 import { NextTargets } from "./components/NextTargets";
@@ -21,7 +21,7 @@ export function App() {
   const { state, run } = useSolve();
   const [picker, setPicker] = useState(false);
   const [siteOpen, setSiteOpen] = useState(false);
-  const [layers, setLayers] = useState<Layers>({ grid: true, catalog: true, objects: true, detected: false });
+  const [layers, setLayers] = useState<Layers>(DEFAULT_LAYERS);
   const [selected, setSelected] = useState<string | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [settings, setSettings] = useState<SolveSettings>({});
@@ -54,8 +54,15 @@ export function App() {
   const label = state.phase === "idle" ? null : state.label;
   const busy = state.phase === "solving";
 
+  // The frame's shape sets how wide the page is on a big screen (see .page-width); keep
+  // the last one while the next frame solves.
+  const [aspect, setAspect] = useState(4 / 3);
+  useEffect(() => {
+    if (report) setAspect(report.width / report.height);
+  }, [report]);
+
   return (
-    <>
+    <div className="contents" style={{ "--chart-aspect": aspect } as CSSProperties}>
       <TopBar
         source={source}
         label={label}
@@ -65,9 +72,14 @@ export function App() {
         onSite={() => setSiteOpen(true)}
         onNight={setNight}
       />
-      <main className="mx-auto grid max-w-[90rem] gap-x-10 gap-y-8 px-4 pt-5 pb-16 sm:px-5 lg:grid-cols-[minmax(22rem,30rem)_1fr] lg:pt-8">
+      {/*
+        One column on a phone, in reading order: where it points and what is in it, the
+        chart, then the rest. On a wide screen the chart takes the right column and stays
+        in view while the left one scrolls.
+      */}
+      <main className="page-width grid gap-x-10 gap-y-5 px-4 pt-4 pb-16 sm:px-5 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-8 lg:px-10 lg:pt-8">
         {state.phase !== "idle" && (
-          <div className="space-y-8 lg:col-start-1">
+          <div className="space-y-4 lg:col-start-1 lg:row-start-1">
             {report ? (
               <ChartHeader
                 report={report}
@@ -82,7 +94,7 @@ export function App() {
             ) : (
               <ChartHeaderPlaceholder busy={busy} label={label} />
             )}
-            {report?.pointing && <FieldList report={report} selected={reference?.id ?? null} onSelect={setSelected} />}
+            {report?.pointing && <FieldRoster report={report} />}
             {state.phase === "error" && (
               <ErrorNote message={state.message} onRetry={() => run(state.source, settings)} />
             )}
@@ -95,9 +107,9 @@ export function App() {
           </div>
         )}
 
-        <div className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
-          <div className="lg:sticky lg:top-24">
-            {state.phase !== "idle" && (
+        {state.phase !== "idle" && (
+          <div className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
+            <div className="lg:sticky lg:top-24">
               <Chart
                 report={report}
                 imageUrl={state.imageUrl}
@@ -106,18 +118,24 @@ export function App() {
                 layers={layers}
                 onLayers={setLayers}
               />
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {report?.pointing && (
-          <div className="space-y-10 lg:col-start-1">
+          <div className="pt-3 lg:col-start-1 lg:row-start-2 lg:pt-0">
+            <FieldList report={report} selected={reference?.id ?? null} onSelect={setSelected} />
+          </div>
+        )}
+
+        {report?.pointing && (
+          <div className="space-y-10 pt-5 lg:col-start-1 lg:row-start-3 lg:pt-0">
             <NextTargets reference={reference} nearby={report.nearby} site={site} onSetSite={() => setSiteOpen(true)} />
             <SurveyView pointing={report.pointing} />
           </div>
         )}
 
-        <footer className="text-sm text-ink-2 lg:col-span-2">
+        <footer className="pt-5 text-sm text-ink-2 lg:col-span-2 lg:row-start-4 lg:pt-0">
           {health
             ? `Database: ${health.database.catalog}, ${health.database.stars.toLocaleString("en-US")} stars, fields ${health.database.min_fov}–${health.database.max_fov}° · finder ${health.version}`
             : "Finder"}
@@ -133,7 +151,7 @@ export function App() {
         onPick={(source) => open(source)}
       />
       <SiteDialog open={siteOpen} site={site} onClose={() => setSiteOpen(false)} onSave={setSite} />
-    </>
+    </div>
   );
 }
 

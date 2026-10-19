@@ -21,6 +21,8 @@
 # binary embeds it via rust-embed, so cargo builds never need node)
 crates/finder/web/node_modules/
 crates/finder/web/*.tsbuildinfo
+crates/finder/web/test-results/
+crates/finder/web/playwright-report/
 
 # Standalone parity-capture helper crate (workspace-excluded; builds its own target)
 tools/parity/_capture_binning/target/
