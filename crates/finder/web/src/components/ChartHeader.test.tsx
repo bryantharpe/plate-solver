@@ -14,7 +14,7 @@ describe("the chart header", () => {
     expect(card.textContent).toContain("Field 10.2° × 10.2°");
     expect(card.textContent).toContain("roll 60°");
     expect(card.textContent).toContain("72″/px");
-    expect(card.textContent).toContain("30 of 76 stars matched");
+    expect(card.textContent).toContain("30 of 67 stars matched");
     // The residual never breaks from its unit.
     expect(card.textContent).toContain("12″ RMS");
   });
@@ -27,7 +27,7 @@ describe("the chart header", () => {
       "roll 60°",
       "72″/px",
       expect.stringMatching(/^Solved in [\d.]+ ms$/),
-      "30 of 76 stars matched",
+      "30 of 67 stars matched",
       "12″ RMS",
     ]);
   });

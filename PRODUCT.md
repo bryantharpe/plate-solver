@@ -67,7 +67,7 @@ None yet. The repository is `plate-solver`; the app is the finder console.
 ## Evidence on Hand
 
 - 21 cedar sample frames in `reference-solutions/cedar-solve/examples/data/medium_fov/`;
-  20 solve, `roof.jpg` does not.
+  20 solve at the default threshold, as they do in cedar; `roof.jpg` solves only at 5σ.
 - Benchmark numbers in `README.md`, from one Snapdragon laptop under WSL2.
 - No frames from the user's own finder camera yet: never imply real-hardware results.
 

@@ -1,0 +1,635 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-19T15:00:49+00:00",
+  "title": "Design System: Finder",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Cool Paper",
+        "canonical": "oklch(98.4% 0.003 250)",
+        "tonalRamp": [
+          "oklch(15% 0.003 250)",
+          "oklch(26% 0.003 250)",
+          "oklch(37% 0.003 250)",
+          "oklch(48% 0.003 250)",
+          "oklch(59% 0.003 250)",
+          "oklch(70% 0.003 250)",
+          "oklch(82% 0.003 250)",
+          "oklch(95% 0.003 250)"
+        ]
+      },
+      "paper-2": {
+        "role": "neutral",
+        "displayName": "Shaded Paper",
+        "canonical": "oklch(95.8% 0.005 250)",
+        "tonalRamp": [
+          "oklch(15% 0.005 250)",
+          "oklch(26% 0.005 250)",
+          "oklch(37% 0.005 250)",
+          "oklch(48% 0.005 250)",
+          "oklch(59% 0.005 250)",
+          "oklch(70% 0.005 250)",
+          "oklch(82% 0.005 250)",
+          "oklch(95% 0.005 250)"
+        ]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Chart Ink",
+        "canonical": "oklch(19% 0.02 262)",
+        "tonalRamp": [
+          "oklch(15% 0.02 262)",
+          "oklch(26% 0.02 262)",
+          "oklch(37% 0.02 262)",
+          "oklch(48% 0.02 262)",
+          "oklch(59% 0.02 262)",
+          "oklch(70% 0.02 262)",
+          "oklch(82% 0.02 262)",
+          "oklch(95% 0.02 262)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Second Ink",
+        "canonical": "oklch(41% 0.02 262)",
+        "tonalRamp": [
+          "oklch(15% 0.02 262)",
+          "oklch(26% 0.02 262)",
+          "oklch(37% 0.02 262)",
+          "oklch(48% 0.02 262)",
+          "oklch(59% 0.02 262)",
+          "oklch(70% 0.02 262)",
+          "oklch(82% 0.02 262)",
+          "oklch(95% 0.02 262)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Third Ink",
+        "canonical": "oklch(60% 0.015 262)",
+        "tonalRamp": [
+          "oklch(15% 0.015 262)",
+          "oklch(26% 0.015 262)",
+          "oklch(37% 0.015 262)",
+          "oklch(48% 0.015 262)",
+          "oklch(59% 0.015 262)",
+          "oklch(70% 0.015 262)",
+          "oklch(82% 0.015 262)",
+          "oklch(95% 0.015 262)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(86.5% 0.008 262)",
+        "tonalRamp": [
+          "oklch(15% 0.008 262)",
+          "oklch(26% 0.008 262)",
+          "oklch(37% 0.008 262)",
+          "oklch(48% 0.008 262)",
+          "oklch(59% 0.008 262)",
+          "oklch(70% 0.008 262)",
+          "oklch(82% 0.008 262)",
+          "oklch(95% 0.008 262)"
+        ]
+      },
+      "nebula": {
+        "role": "secondary",
+        "displayName": "Nebula Green",
+        "canonical": "oklch(49% 0.12 158)",
+        "tonalRamp": [
+          "oklch(15% 0.12 158)",
+          "oklch(26% 0.12 158)",
+          "oklch(37% 0.12 158)",
+          "oklch(48% 0.12 158)",
+          "oklch(59% 0.12 158)",
+          "oklch(70% 0.12 158)",
+          "oklch(82% 0.12 158)",
+          "oklch(95% 0.12 158)"
+        ]
+      },
+      "cluster": {
+        "role": "secondary",
+        "displayName": "Cluster Gold",
+        "canonical": "oklch(57% 0.13 76)",
+        "tonalRamp": [
+          "oklch(15% 0.13 76)",
+          "oklch(26% 0.13 76)",
+          "oklch(37% 0.13 76)",
+          "oklch(48% 0.13 76)",
+          "oklch(59% 0.13 76)",
+          "oklch(70% 0.13 76)",
+          "oklch(82% 0.13 76)",
+          "oklch(95% 0.13 76)"
+        ]
+      },
+      "galaxy": {
+        "role": "secondary",
+        "displayName": "Galaxy Red",
+        "canonical": "oklch(53% 0.19 27)",
+        "tonalRamp": [
+          "oklch(15% 0.19 27)",
+          "oklch(26% 0.19 27)",
+          "oklch(37% 0.19 27)",
+          "oklch(48% 0.19 27)",
+          "oklch(59% 0.19 27)",
+          "oklch(70% 0.19 27)",
+          "oklch(82% 0.19 27)",
+          "oklch(95% 0.19 27)"
+        ]
+      },
+      "alert": {
+        "role": "tertiary",
+        "displayName": "Alert Red",
+        "canonical": "oklch(53% 0.19 27)",
+        "tonalRamp": [
+          "oklch(15% 0.19 27)",
+          "oklch(26% 0.19 27)",
+          "oklch(37% 0.19 27)",
+          "oklch(48% 0.19 27)",
+          "oklch(59% 0.19 27)",
+          "oklch(70% 0.19 27)",
+          "oklch(82% 0.19 27)",
+          "oklch(95% 0.19 27)"
+        ]
+      },
+      "photo": {
+        "role": "neutral",
+        "displayName": "Frame Black",
+        "canonical": "oklch(13% 0.01 262)",
+        "tonalRamp": [
+          "oklch(15% 0.01 262)",
+          "oklch(26% 0.01 262)",
+          "oklch(37% 0.01 262)",
+          "oklch(48% 0.01 262)",
+          "oklch(59% 0.01 262)",
+          "oklch(70% 0.01 262)",
+          "oklch(82% 0.01 262)",
+          "oklch(95% 0.01 262)"
+        ]
+      },
+      "on-photo": {
+        "role": "neutral",
+        "displayName": "Frame Ink",
+        "canonical": "oklch(95% 0.012 95)",
+        "tonalRamp": [
+          "oklch(15% 0.012 95)",
+          "oklch(26% 0.012 95)",
+          "oklch(37% 0.012 95)",
+          "oklch(48% 0.012 95)",
+          "oklch(59% 0.012 95)",
+          "oklch(70% 0.012 95)",
+          "oklch(82% 0.012 95)",
+          "oklch(95% 0.012 95)"
+        ]
+      },
+      "on-photo-2": {
+        "role": "neutral",
+        "displayName": "Frame Ink Second",
+        "canonical": "oklch(80% 0.015 95)",
+        "tonalRamp": [
+          "oklch(15% 0.015 95)",
+          "oklch(26% 0.015 95)",
+          "oklch(37% 0.015 95)",
+          "oklch(48% 0.015 95)",
+          "oklch(59% 0.015 95)",
+          "oklch(70% 0.015 95)",
+          "oklch(82% 0.015 95)",
+          "oklch(95% 0.015 95)"
+        ]
+      },
+      "grid": {
+        "role": "neutral",
+        "displayName": "Graticule",
+        "canonical": "oklch(84% 0.03 250 / 0.42)",
+        "tonalRamp": [
+          "oklch(15% 0.03 250)",
+          "oklch(26% 0.03 250)",
+          "oklch(37% 0.03 250)",
+          "oklch(48% 0.03 250)",
+          "oklch(59% 0.03 250)",
+          "oklch(70% 0.03 250)",
+          "oklch(82% 0.03 250)",
+          "oklch(95% 0.03 250)"
+        ]
+      },
+      "nebula-photo": {
+        "role": "secondary",
+        "displayName": "Nebula Green on Frame",
+        "canonical": "oklch(81% 0.14 158)",
+        "tonalRamp": [
+          "oklch(15% 0.14 158)",
+          "oklch(26% 0.14 158)",
+          "oklch(37% 0.14 158)",
+          "oklch(48% 0.14 158)",
+          "oklch(59% 0.14 158)",
+          "oklch(70% 0.14 158)",
+          "oklch(82% 0.14 158)",
+          "oklch(95% 0.14 158)"
+        ]
+      },
+      "cluster-photo": {
+        "role": "secondary",
+        "displayName": "Cluster Gold on Frame",
+        "canonical": "oklch(87% 0.14 88)",
+        "tonalRamp": [
+          "oklch(15% 0.14 88)",
+          "oklch(26% 0.14 88)",
+          "oklch(37% 0.14 88)",
+          "oklch(48% 0.14 88)",
+          "oklch(59% 0.14 88)",
+          "oklch(70% 0.14 88)",
+          "oklch(82% 0.14 88)",
+          "oklch(95% 0.14 88)"
+        ]
+      },
+      "galaxy-photo": {
+        "role": "secondary",
+        "displayName": "Galaxy Red on Frame",
+        "canonical": "oklch(74% 0.16 27)",
+        "tonalRamp": [
+          "oklch(15% 0.16 27)",
+          "oklch(26% 0.16 27)",
+          "oklch(37% 0.16 27)",
+          "oklch(48% 0.16 27)",
+          "oklch(59% 0.16 27)",
+          "oklch(70% 0.16 27)",
+          "oklch(82% 0.16 27)",
+          "oklch(95% 0.16 27)"
+        ]
+      },
+      "night-ground": {
+        "role": "neutral",
+        "displayName": "Night Ground",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "#2a0000",
+          "#3c0000",
+          "#560000",
+          "#760000",
+          "#a80000",
+          "#c40000",
+          "#e00000",
+          "#e00000"
+        ],
+        "edition": "night"
+      },
+      "night-ground-2": {
+        "role": "neutral",
+        "displayName": "Night Ground 2",
+        "canonical": "#140000",
+        "tonalRamp": [
+          "#2a0000",
+          "#3c0000",
+          "#560000",
+          "#760000",
+          "#a80000",
+          "#c40000",
+          "#e00000",
+          "#e00000"
+        ],
+        "edition": "night"
+      },
+      "night-ink": {
+        "role": "primary",
+        "displayName": "Night Ink",
+        "canonical": "#e00000",
+        "tonalRamp": [
+          "#2a0000",
+          "#3c0000",
+          "#560000",
+          "#760000",
+          "#a80000",
+          "#c40000",
+          "#e00000",
+          "#e00000"
+        ],
+        "edition": "night"
+      },
+      "night-ink-2": {
+        "role": "neutral",
+        "displayName": "Night Ink Second",
+        "canonical": "#a80000",
+        "tonalRamp": [
+          "#2a0000",
+          "#3c0000",
+          "#560000",
+          "#760000",
+          "#a80000",
+          "#c40000",
+          "#e00000",
+          "#e00000"
+        ],
+        "edition": "night"
+      },
+      "night-ink-3": {
+        "role": "neutral",
+        "displayName": "Night Ink Third",
+        "canonical": "#760000",
+        "tonalRamp": [
+          "#2a0000",
+          "#3c0000",
+          "#560000",
+          "#760000",
+          "#a80000",
+          "#c40000",
+          "#e00000",
+          "#e00000"
+        ],
+        "edition": "night"
+      },
+      "night-rule": {
+        "role": "neutral",
+        "displayName": "Night Rule",
+        "canonical": "#3c0000",
+        "tonalRamp": [
+          "#2a0000",
+          "#3c0000",
+          "#560000",
+          "#760000",
+          "#a80000",
+          "#c40000",
+          "#e00000",
+          "#e00000"
+        ],
+        "edition": "night"
+      },
+      "night-grid": {
+        "role": "neutral",
+        "displayName": "Night Graticule",
+        "canonical": "rgb(168 0 0 / 0.6)",
+        "tonalRamp": [
+          "#2a0000",
+          "#3c0000",
+          "#560000",
+          "#760000",
+          "#a80000",
+          "#c40000",
+          "#e00000",
+          "#e00000"
+        ],
+        "edition": "night"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "RA and Dec at the head of the chart; unit marks at 0.5em raised in Second Ink. 2.35rem on phones."
+      },
+      "chart-title": {
+        "displayName": "Chart Title",
+        "purpose": "Constellation name and state titles, expanded and letterspaced uppercase like an atlas chart title. 1.05 to 1.3rem."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section and sheet titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Group titles inside a section, in Second Ink."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "List entries and prose, tabular figures, 60ch prose cap."
+      },
+      "body-quiet": {
+        "displayName": "Body Quiet",
+        "purpose": "Fact lines and quiet notes."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "RA and Dec coordinate labels, uppercase, Second Ink."
+      },
+      "object-label": {
+        "displayName": "Object Label",
+        "purpose": "Italic Messier IDs on the chart, cased in Frame Black; in chart units."
+      },
+      "edge-label": {
+        "displayName": "Edge Label",
+        "purpose": "Condensed graticule values in the chart's paper margin; in chart units."
+      }
+    },
+    "shadows": [],
+    "strokes": [
+      {
+        "name": "double-rule",
+        "value": "1px solid ink, 3px gap, 1px solid ink",
+        "purpose": "Chart header and first-run title block."
+      },
+      {
+        "name": "label-casing",
+        "value": "paint-order: stroke; stroke: var(--color-photo); stroke-width: 3 chart units; stroke-linejoin: round",
+        "purpose": "Lifts chart labels off the photograph instead of a shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "All state transitions and entrances."
+      },
+      {
+        "name": "state",
+        "value": "160ms",
+        "purpose": "Button and chip hover/press fills."
+      },
+      {
+        "name": "switch",
+        "value": "200ms track, 220ms thumb",
+        "purpose": "Night switch."
+      },
+      {
+        "name": "sheet-up",
+        "value": "280ms rise 1.5rem and fade",
+        "purpose": "Dialog sheet entrance."
+      },
+      {
+        "name": "draw",
+        "value": "900ms stroke-dashoffset",
+        "purpose": "Graticule lines drawing on."
+      },
+      {
+        "name": "ink-in",
+        "value": "500ms fade, 250-300ms delay",
+        "purpose": "Chart marks, labels and furniture."
+      },
+      {
+        "name": "shimmer",
+        "value": "1.4s linear infinite",
+        "purpose": "Skeleton bars."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none",
+        "purpose": "All of the above under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wordmark",
+        "value": "400px"
+      },
+      {
+        "name": "sm",
+        "value": "40rem"
+      },
+      {
+        "name": "sheet-centred",
+        "value": "48rem"
+      },
+      {
+        "name": "lg",
+        "value": "64rem"
+      }
+    ],
+    "nightEdition": {
+      "selector": "[data-theme=\"night\"]",
+      "map": {
+        "paper": "night-ground",
+        "paper-2": "night-ground-2",
+        "ink": "night-ink",
+        "ink-2": "night-ink-2",
+        "ink-3": "night-ink-3",
+        "rule": "night-rule",
+        "nebula": "night-ink",
+        "cluster": "night-ink",
+        "galaxy": "night-ink",
+        "alert": "night-ink",
+        "photo": "night-ground",
+        "on-photo": "night-ink",
+        "on-photo-2": "night-ink-2",
+        "grid": "night-grid",
+        "nebula-photo": "night-ink",
+        "cluster-photo": "night-ink",
+        "galaxy-photo": "night-ink"
+      },
+      "photoFilter": "feColorMatrix 0.2126 0.7152 0.0722 into R only (#red-only), applied to .photo",
+      "prePaint": "inline style html[data-theme=night]{background:#000} and a localStorage/prefers-color-scheme script before first paint; theme-color meta #000000 at night"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action in a block: chart a sample, open a frame, save the site. Dim rule fill at night.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Chart the Orion sample</button>",
+      "css": ".ds-btn{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:2.75rem;padding:0 1rem;border:1px solid var(--color-ink,#0f141d);border-radius:0;font-size:1rem;font-weight:560;cursor:pointer;transition:background-color 160ms cubic-bezier(.16,1,.3,1),color 160ms cubic-bezier(.16,1,.3,1)}.ds-btn-primary{background:var(--color-ink,#0f141d);color:var(--color-paper,#f8fafc)}.ds-btn-primary:hover{background:var(--color-ink-2,#444b56);border-color:var(--color-ink-2,#444b56)}.ds-btn:focus-visible{outline:2px solid var(--color-ink,#0f141d);outline-offset:2px}"
+    },
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Ruled default button for secondary actions, with an optional leading icon.",
+      "html": "<button class=\"ds-btn-default\"><svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 13V3M6 7l4-4 4 4M3.5 13v3.5h13V13\"/></svg>Open your own frame</button>",
+      "css": ".ds-btn-default{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);display:inline-flex;align-items:center;gap:.5rem;min-height:2.75rem;padding:0 1rem;border:1px solid var(--color-ink,#0f141d);border-radius:0;background:transparent;color:var(--color-ink,#0f141d);font-size:1rem;font-weight:560;cursor:pointer;transition:background-color 160ms cubic-bezier(.16,1,.3,1)}.ds-btn-default:hover{background:var(--color-paper-2,#eff1f4)}.ds-btn-default:active{background:var(--color-rule,#d0d3d8)}.ds-btn-default:focus-visible{outline:2px solid var(--color-ink,#0f141d);outline-offset:2px}"
+    },
+    {
+      "name": "Legend Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Ruled toggle for a chart layer; dashed when the layer is not drawn.",
+      "html": "<div style=\"display:flex;gap:8px\"><button class=\"ds-chip\" aria-pressed=\"true\"><svg viewBox=\"-8 -8 16 16\" width=\"14\" height=\"14\"><circle r=\"5.5\" stroke=\"currentColor\" stroke-width=\"1.4\" fill=\"none\"/></svg>Matched <span class=\"ds-chip-count\">30</span></button><button class=\"ds-chip\" aria-pressed=\"false\"><svg viewBox=\"-8 -8 16 16\" width=\"14\" height=\"14\" style=\"opacity:.35\"><circle r=\"3\" stroke=\"currentColor\" stroke-width=\"1.2\" fill=\"none\"/></svg>Centroids <span class=\"ds-chip-count\">76</span></button></div>",
+      "css": ".ds-chip{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);display:inline-flex;align-items:center;gap:.4rem;min-height:2.375rem;padding:0 .625rem;border:1px solid var(--color-ink,#0f141d);border-radius:0;background:var(--color-paper,#f8fafc);color:var(--color-ink,#0f141d);font-size:.875rem;font-weight:520;white-space:nowrap;cursor:pointer;transition:border-color 160ms cubic-bezier(.16,1,.3,1),background-color 160ms cubic-bezier(.16,1,.3,1)}.ds-chip:hover{background:var(--color-paper-2,#eff1f4)}.ds-chip[aria-pressed=false]{color:var(--color-ink-2,#444b56);border-color:var(--color-ink-2,#444b56);border-style:dashed;background:transparent}.ds-chip-count{color:var(--color-ink-2,#444b56);font-size:.8125rem}.ds-chip:focus-visible{outline:2px solid var(--color-ink,#0f141d);outline-offset:2px}"
+    },
+    {
+      "name": "Night Switch",
+      "kind": "custom",
+      "refersTo": "switch",
+      "description": "Square ruled switch carrying night mode.",
+      "html": "<label class=\"ds-switch-label\">Night <button class=\"ds-switch\" role=\"switch\" aria-checked=\"true\" aria-label=\"Night mode: red and black\"></button></label>",
+      "css": ".ds-switch-label{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);display:flex;align-items:center;gap:.5rem;font-size:.875rem;font-weight:500;color:var(--color-ink,#0f141d)}.ds-switch{position:relative;width:2.75rem;height:1.5rem;border:1px solid var(--color-ink,#0f141d);background:transparent;border-radius:0;cursor:pointer;transition:background-color 200ms cubic-bezier(.16,1,.3,1)}.ds-switch::after{content:'';position:absolute;top:3px;left:3px;width:1rem;height:1rem;background:var(--color-ink,#0f141d);transition:transform 220ms cubic-bezier(.16,1,.3,1)}.ds-switch[aria-checked=true]{background:var(--color-rule,#d0d3d8)}.ds-switch[aria-checked=true]::after{transform:translateX(1.25rem)}.ds-switch:focus-visible{outline:2px solid var(--color-ink,#0f141d);outline-offset:2px}"
+    },
+    {
+      "name": "Unit Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Ruled numeric field with a trailing unit, label above.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Field of view</span><span class=\"ds-field-box\"><input inputmode=\"decimal\" placeholder=\"Auto\"><span class=\"ds-field-unit\">°</span></span></label>",
+      "css": ".ds-field{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);display:block;max-width:12rem}.ds-field-label{display:block;margin-bottom:.25rem;font-size:.875rem;font-weight:600;color:var(--color-ink-2,#444b56)}.ds-field-box{display:flex;align-items:center;border:1px solid var(--color-ink,#0f141d)}.ds-field-box:focus-within{outline:2px solid var(--color-ink,#0f141d);outline-offset:2px}.ds-field-box input{height:2.75rem;width:100%;min-width:0;padding:0 .75rem;border:0;background:transparent;color:var(--color-ink,#0f141d);font:inherit;outline:none}.ds-field-box input::placeholder{color:var(--color-ink-2,#444b56)}.ds-field-unit{padding-right:.75rem;font-size:.875rem;color:var(--color-ink-2,#444b56)}"
+    },
+    {
+      "name": "Top Bar",
+      "kind": "nav",
+      "refersTo": "chip",
+      "description": "Sticky bar: reticle mark and wordmark, frame chip, site chip, night switch.",
+      "html": "<header class=\"ds-topbar\"><a class=\"ds-mark\" href=\"#\"><svg viewBox=\"0 0 20 20\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><circle cx=\"10\" cy=\"10\" r=\"5.5\"/><path d=\"M10 1.5v4M10 14.5v4M1.5 10h4M14.5 10h4\"/></svg>Finder</a><button class=\"ds-tchip\"><span class=\"ds-thumb\"></span>orion2.jpg</button><button class=\"ds-tchip\">40.0° N</button></header>",
+      "css": ".ds-topbar{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);display:flex;align-items:center;gap:.75rem;height:4rem;padding:0 1.25rem;border-bottom:1px solid var(--color-rule,#d0d3d8);background:var(--color-paper,#f8fafc);color:var(--color-ink,#0f141d)}.ds-mark{margin-right:auto;display:flex;align-items:center;gap:.5rem;font-weight:600;font-size:1.05rem;letter-spacing:.02em;color:inherit;text-decoration:none}.ds-tchip{font:inherit;display:inline-flex;align-items:center;gap:.4rem;min-height:2.375rem;padding:0 .625rem 0 .375rem;border:1px solid var(--color-ink,#0f141d);background:var(--color-paper,#f8fafc);color:inherit;font-size:.875rem;font-weight:520;cursor:pointer}.ds-tchip:hover{background:var(--color-paper-2,#eff1f4)}.ds-thumb{width:1.75rem;height:1.75rem;background:var(--color-photo,#06070b)}"
+    },
+    {
+      "name": "Chart Header",
+      "kind": "card",
+      "refersTo": "display",
+      "description": "The doubled-rule title block: chart title, epoch, RA and Dec at display size, fact lines.",
+      "html": "<section class=\"ds-head\"><div class=\"ds-head-in\"><div class=\"ds-head-top\"><h1 class=\"ds-chart-title\">Orion</h1><span class=\"ds-epoch\">J2000</span></div><dl class=\"ds-coords\"><dt>RA</dt><dd>05<sup>h</sup> 40<sup>m</sup> 46<sup>s</sup></dd><dt>Dec</dt><dd>−04<sup>°</sup> 14<sup>′</sup> 46<sup>″</sup></dd></dl><p class=\"ds-facts\">Field 10.2° × 10.2° · roll 60° · 72″/px</p></div></section>",
+      "css": ".ds-head{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);border:1px solid var(--color-ink,#0f141d);padding:3px;max-width:30rem;color:var(--color-ink,#0f141d);background:var(--color-paper,#f8fafc);font-feature-settings:'tnum' 1}.ds-head-in{border:1px solid var(--color-ink,#0f141d);padding:.75rem 1.25rem 1rem}.ds-head-top{display:flex;align-items:baseline;justify-content:space-between}.ds-chart-title{margin:0;font-size:1.2rem;font-stretch:118%;font-weight:640;letter-spacing:.3em;text-transform:uppercase}.ds-epoch{font-size:.75rem;font-weight:600;letter-spacing:.18em;color:var(--color-ink-2,#444b56)}.ds-coords{display:grid;grid-template-columns:2.6rem 1fr;align-items:baseline;column-gap:.5rem;margin:.5rem 0 0;line-height:1}.ds-coords dt{font-size:.875rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--color-ink-2,#444b56)}.ds-coords dd{margin:0 0 .5rem;font-size:2.75rem;font-weight:680;letter-spacing:-.02em;white-space:nowrap}.ds-coords sup{font-size:.5em;font-weight:500;color:var(--color-ink-2,#444b56)}.ds-facts{margin:.75rem 0 0;padding-top:.75rem;border-top:1px solid var(--color-rule,#d0d3d8);font-size:.9375rem}"
+    },
+    {
+      "name": "Field List Row",
+      "kind": "custom",
+      "refersTo": "list-row",
+      "description": "Hairline-divided object row: atlas symbol in object colour, italic ID, name and kind, magnitude.",
+      "html": "<ul class=\"ds-list\"><li><button class=\"ds-row\" aria-pressed=\"true\"><svg viewBox=\"-12 -12 24 24\" width=\"18\" height=\"18\" class=\"ds-nebula\"><rect x=\"-8\" y=\"-8\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"/></svg><span class=\"ds-id\">M42</span><span><span class=\"ds-name\">Great Orion Nebula</span><span class=\"ds-sub\">Nebula with cluster</span></span><span class=\"ds-mag\">mag <b>4.0</b></span></button></li><li><button class=\"ds-row\" aria-pressed=\"false\"><svg viewBox=\"-12 -12 24 24\" width=\"18\" height=\"18\" class=\"ds-galaxy\"><ellipse rx=\"8\" ry=\"4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"/></svg><span class=\"ds-id\">M49</span><span><span class=\"ds-name\">NGC 4472</span><span class=\"ds-sub\">Galaxy</span></span><span class=\"ds-mag\">mag <b>8.3</b></span></button></li></ul>",
+      "css": ".ds-list{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);list-style:none;margin:0;padding:0;max-width:30rem;border-top:1px solid var(--color-rule,#d0d3d8);border-bottom:1px solid var(--color-rule,#d0d3d8);color:var(--color-ink,#0f141d);font-feature-settings:'tnum' 1}.ds-list li+li{border-top:1px solid var(--color-rule,#d0d3d8)}.ds-row{font:inherit;color:inherit;display:grid;grid-template-columns:1.5rem 3.25rem 1fr auto;align-items:center;column-gap:.5rem;width:100%;padding:.625rem 0;border:0;background:transparent;text-align:left;cursor:pointer;transition:background-color 160ms}.ds-row:hover,.ds-row[aria-pressed=true]{background:var(--color-paper-2,#eff1f4)}.ds-row:focus-visible{outline:2px solid var(--color-ink,#0f141d);outline-offset:2px}.ds-nebula{color:var(--color-nebula,#007445);justify-self:center}.ds-galaxy{color:var(--color-galaxy,#c22826);justify-self:center}.ds-id{font-weight:600;font-style:italic}.ds-name{display:block}.ds-sub{display:block;font-size:.875rem;color:var(--color-ink-2,#444b56)}.ds-mag{font-size:.875rem;color:var(--color-ink-2,#444b56);text-align:right}.ds-mag b{font-size:1rem;font-weight:400;color:var(--color-ink,#0f141d)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Field Atlas",
+    "overview": "The console is an atlas chart of the observer's own frame. The solve proves itself by drawing the sky's RA/Dec graticule and the atlas's deep-sky symbols over the real photograph, labelled at the edges in a paper margin the way a printed star atlas labels a chart. Everything around the chart is set like the atlas's own furniture: a double-ruled title block, hairline rules between entries, square ruled boxes for controls, black ink on cool paper.\n\nThe system ships in two editions of the same chart. The day edition is the desk edition: cool paper, near-black ink in three strengths, hairline rules, and the atlas's object colours (green nebulae, gold clusters, red galaxies) kept to object symbols and labels. The night edition is the field edition read under a red torch: black ground and red ink in three brightnesses, every token on the red channel alone, and photographs passed through a luminance-to-red filter so not one white pixel reaches the screen. Density is that of a reference chart: dense facts, tabular figures, few surfaces, no decoration. The confirmed rejection is the planetarium-app default of navy glass cards, cyan glow and starfield wallpaper.",
+    "keyCharacteristics": [
+      "An RA/Dec graticule and atlas symbols drawn over the real frame are the signature.",
+      "Square ruled boxes in 1px ink; the only rounded thing is the dialog sheet.",
+      "Flat: no shadows anywhere; depth is rule weight and tone.",
+      "One family, Archivo Variable, worked through its width axis and italic.",
+      "Two editions from one token set: day paper and ink, night red on black."
+    ],
+    "rules": [
+      {
+        "name": "The Objects-Only Colour Rule",
+        "body": "Green, gold and red belong to deep-sky objects. Chrome, controls and text stay in ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Red Torch Rule",
+        "body": "At night every pixel is red or black: no white, no other hue, and no token brighter than Night Ink. Anything new, images and embedded views included, must take a night token or the red-only filter before it ships.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dim Primary Rule",
+        "body": "At night the primary button is a Night Rule block with Night Ink text, never a solid Night Ink fill. A full-ink block would be the brightest thing on screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Italic Object Rule",
+        "body": "Deep-sky object identifiers are always italic, on the chart and in lists. Star names stay upright.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "`tnum` is on for the whole body. Coordinates, magnitudes and counts line up in columns.",
+        "section": "typography"
+      },
+      {
+        "name": "The Neatline Rule",
+        "body": "If something needs separation, rule it. Use 1px ink for a box, the doubled rule for the title block, and the hairline between rows. Never a shadow, never a tinted card.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** draw new chart content as atlas furniture: 1px or chart-unit strokes, currentColor, cased labels, edge labels in the paper margin.",
+      "**Do** give every new colour a night value on the red channel no brighter than Night Ink (`#e00000`), and put every new raster or embedded view under the `.photo` red-only filter.",
+      "**Do** separate with rules: a 1px ink box for controls, the doubled 3px-gap rule for a title block, hairlines between rows.",
+      "**Do** set object IDs in italic and keep figures tabular.",
+      "**Do** keep controls square and at least 44px (38px for chips) tall.",
+      "**Do** use the expo-out curve (`cubic-bezier(0.16, 1, 0.3, 1)`) at 160 to 280ms for state changes, with every animation removed under reduced motion."
+    ],
+    "donts": [
+      "**Don't** use navy glass cards, cyan glow or starfield wallpaper.",
+      "**Don't** show a white or non-red pixel in night mode, including in images, previews, embedded views and the first paint.",
+      "**Don't** use the nebula, cluster or galaxy colours on chrome, controls or text that is not an object.",
+      "**Don't** use a box-shadow, or round a control's corners.",
+      "**Don't** fill a night control with solid Night Ink."
+    ]
+  }
+}

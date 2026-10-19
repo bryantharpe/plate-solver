@@ -373,3 +373,115 @@ fn named_stars_match_the_database() {
         );
     }
 }
+
+/// Every sample frame lands where cedar put it (the plate-solver crate's goldens): the same
+/// status, the same pointing and field, and cedar's matched stars matched again, within the
+/// image tier's tolerances (10″, 15″ of field, 90% of cedar's stars). Measured: 19 of the 20
+/// within 0.3″ and every one of cedar's stars; test2_g100_e50ms 4.2″, 9″ of field, 29 of 30.
+/// The console decodes and detects as cedar does, so it shows cedar's answer.
+#[tokio::test]
+async fn every_sample_gives_cedars_answer() {
+    let goldens: Value = serde_json::from_slice(
+        &std::fs::read(repo().join("crates/plate-solver/tests/data/cedar_parity.json")).unwrap(),
+    )
+    .unwrap();
+    let mut solved = 0;
+    for case in goldens["cases"].as_array().unwrap() {
+        let name = format!("{}.jpg", case["image"].as_str().unwrap());
+        let cedar = &case["cedar"];
+        let (status, r) = solve(&[("sample", &name)], None).await;
+        assert_eq!(status, StatusCode::OK, "{name}: {r}");
+        if cedar["status"] != "MATCH_FOUND" {
+            assert_ne!(r["status"], "match_found", "{name} solved; cedar's did not");
+            continue;
+        }
+        assert_eq!(r["status"], "match_found", "{name}: {r}");
+        solved += 1;
+        let p = &r["pointing"];
+        let off = arcsec_between(
+            (
+                p["ra_deg"].as_f64().unwrap(),
+                p["dec_deg"].as_f64().unwrap(),
+            ),
+            (
+                cedar["ra"].as_f64().unwrap(),
+                cedar["dec"].as_f64().unwrap(),
+            ),
+        );
+        assert!(off < 10.0, "{name} points {off:.1}″ from cedar");
+        let fov = (p["fov_deg"].as_f64().unwrap() - cedar["fov"].as_f64().unwrap()).abs() * 3600.0;
+        assert!(fov < 15.0, "{name}'s field is {fov:.1}″ from cedar's");
+        let matched: Vec<String> = r["stars"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|s| s["matched"] == true)
+            .map(|s| s["id"].as_str().unwrap().to_string())
+            .collect();
+        let hip = cedar["hip"].as_array().unwrap();
+        let again = hip
+            .iter()
+            .filter(|h| matched.contains(&format!("HIP {}", h.as_u64().unwrap())))
+            .count();
+        assert!(
+            again * 10 >= hip.len() * 9,
+            "{name}: {again} of cedar's {} stars matched",
+            hip.len()
+        );
+    }
+    assert_eq!(solved, 20, "cedar solves 20 of the 21 samples");
+}
+
+/// Angle between two J2000 positions in degrees, in arcseconds.
+fn arcsec_between((ra1, dec1): (f64, f64), (ra2, dec2): (f64, f64)) -> f64 {
+    let a = math_core::UnitVector::from_radec(ra1.to_radians(), dec1.to_radians());
+    let b = math_core::UnitVector::from_radec(ra2.to_radians(), dec2.to_radians());
+    math_core::angular_distance(a, b).to_degrees() * 3600.0
+}
+
+/// A body over the 32 MiB limit is refused before anything is decoded.
+#[tokio::test]
+async fn oversized_uploads_are_refused() {
+    let big = vec![0u8; finder::api::SOLVE_BODY_LIMIT + 1];
+    let (status, json) = solve(&[], Some(("huge.jpg", &big))).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert!(json["error"].as_str().is_some_and(|e| !e.is_empty()));
+}
+
+/// Two frames posted at once are both answered, each with its own solution: the solve gate
+/// queues one behind the other rather than mixing or dropping them.
+#[tokio::test]
+async fn frames_posted_together_are_each_answered() {
+    let ((s1, orion), (s2, pleiades)) = tokio::join!(
+        solve(&[("sample", "orion2.jpg")], None),
+        solve(&[("sample", "pleiades.jpg")], None),
+    );
+    assert_eq!((s1, s2), (StatusCode::OK, StatusCode::OK));
+    assert_eq!(orion["pointing"]["constellation"]["abbr"], "Ori");
+    assert_eq!(pleiades["pointing"]["constellation"]["abbr"], "Tau");
+}
+
+/// The objects just off the frame: none of them on it, nearest first, at most eight, each
+/// with the way to turn.
+#[tokio::test]
+async fn objects_just_off_the_frame_are_listed_nearest_first() {
+    let (_, r) = solve(&[("sample", "orion2.jpg")], None).await;
+    let nearby = r["nearby"].as_array().unwrap();
+    assert!(!nearby.is_empty() && nearby.len() <= 8, "{}", nearby.len());
+    let on_frame = ids(&r["objects"]);
+    let mut last = 0.0;
+    for o in nearby {
+        assert!(!on_frame.contains(&o["id"].as_str().unwrap().to_string()));
+        let sep = o["separation_deg"].as_f64().unwrap();
+        assert!(sep >= last, "not nearest first");
+        last = sep;
+        let dir = o["direction_deg"].as_f64().unwrap();
+        assert!((0.0..360.0).contains(&dir));
+    }
+    // M79, in Lepus, lies about 20° south of Orion's belt.
+    let m79 = nearby
+        .iter()
+        .find(|o| o["id"] == "M79")
+        .expect("M79 nearby");
+    assert!((15.0..25.0).contains(&m79["separation_deg"].as_f64().unwrap()));
+}

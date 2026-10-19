@@ -31,7 +31,11 @@ const box = async (l: Locator) => {
   return b as NonNullable<typeof b>;
 };
 
-/** Pixels in a screenshot with any green or blue in them. */
+/**
+ * Pixels in a screenshot that break night mode: any green or blue, or red brighter than the
+ * night ink (#e00000, 224). Anti-aliased ink over a bright star can composite one level
+ * over, so two levels of rounding are allowed.
+ */
 async function offRed(page: Page, png: Buffer): Promise<number> {
   return page.evaluate(async (data) => {
     const img = new Image();
@@ -44,7 +48,9 @@ async function offRed(page: Page, png: Buffer): Promise<number> {
     g.drawImage(img, 0, 0);
     const d = g.getImageData(0, 0, canvas.width, canvas.height).data;
     let off = 0;
-    for (let i = 0; i < d.length; i += 4) if ((d[i + 1] ?? 0) > 0 || (d[i + 2] ?? 0) > 0) off++;
+    for (let i = 0; i < d.length; i += 4) {
+      if ((d[i] ?? 0) > 226 || (d[i + 1] ?? 0) > 0 || (d[i + 2] ?? 0) > 0) off++;
+    }
     return off;
   }, png.toString("base64"));
 }
@@ -74,7 +80,9 @@ for (const [width, height] of [
 test.describe("on the user's phone, 412 × 915", () => {
   test.use({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2 });
 
-  test("night mode puts nothing on screen but red: the chart, the lists, the frame picker", async ({ page }) => {
+  test("night mode puts nothing on screen but red, none brighter than the ink: chart, lists, picker", async ({
+    page,
+  }) => {
     // The check can fail: the day edition, with its paper and photographs, is far from red.
     await open(page, { frame: "orion2.jpg" });
     expect(await offRed(page, await page.screenshot())).toBeGreaterThan(100_000);

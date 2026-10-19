@@ -25,6 +25,11 @@ const MAX_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 const MATCH_RADIUS: f64 = 0.01;
 const MATCH_THRESHOLD: f64 = 1e-5;
 const MATCH_MAX_ERROR: f64 = 0.002;
+/// Detection as cedar runs it (and as its goldens were made): each row's offset levelled
+/// before thresholding, and hot pixels rejected.
+pub const NORMALIZE_ROWS: bool = true;
+/// See [`NORMALIZE_ROWS`].
+pub const DETECT_HOT_PIXELS: bool = true;
 /// Detected stars reported, brightest first.
 const MAX_DETECTED: usize = 500;
 /// Unmatched catalog stars drawn as "expected here", brightest first.
@@ -34,7 +39,8 @@ const NEARBY_DEG: f64 = 15.0;
 /// Nearby objects reported, nearest first.
 const MAX_NEARBY: usize = 8;
 
-/// How to detect and solve; the defaults are the `solve_image` example's.
+/// How to detect and solve; the defaults are the `solve_image` example's. Detection itself
+/// runs as cedar's does (see [`NORMALIZE_ROWS`]), so cedar's frames solve to cedar's answers.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SolveOptions {
     /// Horizontal field of view estimate in degrees.
@@ -111,9 +117,31 @@ fn decode(bytes: &[u8]) -> Result<image::DynamicImage, DecodeError> {
     })
 }
 
+/// Gray from color as cedar's reference pipeline makes it: PIL's `convert('L')`, ITU-R 601-2
+/// luma in 16-bit fixed point, rounded.
+fn pil_luma([r, g, b]: [u8; 3]) -> u8 {
+    let l = u32::from(r) * 19_595 + u32::from(g) * 38_470 + u32::from(b) * 7_471 + 0x8000;
+    (l >> 16) as u8
+}
+
+/// A decoded frame in 8-bit gray. Color frames are converted the way cedar converts them,
+/// not with `image`'s Rec. 709 weights: those move faint stars, and then a color frame no
+/// longer solves to cedar's answer.
+fn to_gray(image: &image::DynamicImage) -> image::GrayImage {
+    if !image.color().has_color() {
+        return image.to_luma8();
+    }
+    let (width, height) = (image.width(), image.height());
+    let pixels = match image {
+        image::DynamicImage::ImageRgb8(rgb) => rgb.pixels().map(|p| pil_luma(p.0)).collect(),
+        other => other.to_rgb8().pixels().map(|p| pil_luma(p.0)).collect(),
+    };
+    image::GrayImage::from_raw(width, height, pixels).expect("one gray pixel per pixel")
+}
+
 /// Decode a frame to 8-bit grayscale, refusing oversized or unreadable files.
 pub fn decode_gray(bytes: &[u8]) -> Result<GrayImage, DecodeError> {
-    let gray = decode(bytes)?.to_luma8();
+    let gray = to_gray(&decode(bytes)?);
     let (width, height) = gray.dimensions();
     Ok(GrayImage {
         pixels: gray.into_raw(),
@@ -125,7 +153,7 @@ pub fn decode_gray(bytes: &[u8]) -> Result<GrayImage, DecodeError> {
 /// A JPEG preview of a frame, at most `max_side` pixels on its longer side, stretched so
 /// its stars show at that size.
 pub fn thumbnail_jpeg(bytes: &[u8], max_side: u32) -> Result<Vec<u8>, DecodeError> {
-    let gray = decode(bytes)?.to_luma8();
+    let gray = to_gray(&decode(bytes)?);
     let (width, height) = gray.dimensions();
     // Shrink by keeping each block's brightest pixel: averaging would dim the stars into
     // the sky, which is all a small preview of a star field has to show.
@@ -357,8 +385,8 @@ pub fn solve_frame(db: &PatternDatabase, image: &GrayImage, options: &SolveOptio
         image.height,
         options.sigma,
         options.binning,
-        false,
-        true,
+        NORMALIZE_ROWS,
+        DETECT_HOT_PIXELS,
     );
     let detect = ms(t);
     // The solver speaks (y, x); `Star` names x (column) and y (row).
@@ -593,6 +621,23 @@ mod tests {
         assert!(DecodeError::Unreadable("x".into())
             .to_string()
             .contains("not a readable"));
+    }
+
+    #[test]
+    fn color_turns_gray_as_cedar_turns_it() {
+        // PIL's convert('L') on pure primaries and white.
+        assert_eq!(pil_luma([255, 0, 0]), 76);
+        assert_eq!(pil_luma([0, 255, 0]), 150);
+        assert_eq!(pil_luma([0, 0, 255]), 29);
+        assert_eq!(pil_luma([255, 255, 255]), 255);
+        // A green pixel: `to_luma8`'s Rec. 709 weights make it 147; cedar's frames used 601.
+        let mut img = image::RgbImage::new(2, 1);
+        img.put_pixel(1, 0, image::Rgb([10, 200, 30]));
+        let mut png = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut png, image::ImageFormat::Png).unwrap();
+        let gray = decode_gray(png.get_ref()).unwrap();
+        assert_eq!(gray.pixels, [0, pil_luma([10, 200, 30])]);
+        assert_eq!(gray.pixels[1], 124);
     }
 
     #[test]

@@ -4,7 +4,7 @@ import { isValidSite, useLastSample, useNight, useSite } from "./settings";
 
 beforeEach(() => {
   document.documentElement.dataset.theme = "day";
-  document.head.innerHTML = '<meta name="theme-color" content="#f7f8f9">';
+  document.head.innerHTML = '<meta name="theme-color" content="#f8fafc">';
 });
 afterEach(() => vi.restoreAllMocks());
 

@@ -25,7 +25,7 @@ describe("the chart", () => {
       ["Matched30", "true"],
       ["Unseen25", "true"],
       ["Deep sky3", "true"],
-      ["Centroids76", "false"],
+      ["Centroids67", "false"],
     ]);
   });
 
@@ -57,7 +57,7 @@ describe("the chart", () => {
     expect(count(".mark-expected")).toBe(0);
 
     fireEvent.click(screen.getByRole("button", { name: /Centroids/ }));
-    expect(count(".mark-detected")).toBe(76);
+    expect(count(".mark-detected")).toBe(67);
   });
 
   it("draws each Messier object with a label, and names it when tapped", () => {

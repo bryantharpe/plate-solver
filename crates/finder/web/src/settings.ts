@@ -59,7 +59,7 @@ export function useNight(): [boolean, (on: boolean) => void] {
   const night = stored ?? prefersDark();
   useEffect(() => {
     document.documentElement.dataset.theme = night ? "night" : "day";
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", night ? "#000000" : "#f7f8f9");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", night ? "#000000" : "#f8fafc");
   }, [night]);
   return [night, setStored];
 }

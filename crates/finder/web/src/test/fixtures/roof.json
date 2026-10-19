@@ -4,7 +4,7 @@
   "hint": "No star pattern in this frame matched the database. Check that the database covers this camera's field of view, or lower the detection threshold.",
   "width": 507,
   "height": 507,
-  "timing_ms": { "decode": 129.74, "detect": 1.968, "solve": 1.717 },
+  "timing_ms": { "decode": 111.016, "detect": 6.529, "solve": 1.987 },
   "detected": [
     [228.736, 446.733],
     [175.364, 444.591],

@@ -109,7 +109,7 @@ export function ChartHeader({ report, label, sigma, onRetry }: HeaderProps) {
         ]}
       />
       <div className="mt-1 flex items-start gap-1.5 text-[0.9375rem] text-ink-2">
-        <span className="mt-0.5 shrink-0 text-nebula">
+        <span className="mt-0.5 shrink-0 text-ink">
           <Check size={18} />
         </span>
         <Clauses

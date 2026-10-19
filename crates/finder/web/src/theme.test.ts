@@ -67,9 +67,16 @@ describe("night edition", () => {
     const matrix = html.match(/<filter id="red-only"[\s\S]*?values="([^"]+)"/)?.[1];
     const values = (matrix ?? "").trim().split(/\s+/).map(Number);
     expect(values).toHaveLength(20);
-    // Rows: red, green, blue, alpha. Green and blue are zero; red takes Rec. 709 luminance.
+    // Rows: red, green, blue, alpha. Green and blue are zero; red takes Rec. 709 luminance,
+    // scaled so that white lands just under the night ink and nothing in a photo outshines it.
     expect(values.slice(5, 15).every((v) => v === 0)).toBe(true);
-    expect(values.slice(0, 3).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 3);
+    const [r, g, b] = values as [number, number, number];
+    expect(g / r).toBeCloseTo(0.7152 / 0.2126, 2);
+    expect(b / r).toBeCloseTo(0.0722 / 0.2126, 2);
+    const [ink] = rgb(night.get("--color-ink") ?? "");
+    const white = (r + g + b) * 255;
+    expect(white).toBeLessThan(ink);
+    expect(white).toBeGreaterThan(ink - 2);
     expect(css).toMatch(/\[data-theme="night"\] \.photo \{\s*filter: url\(#red-only\);/);
   });
 });
