@@ -42,6 +42,25 @@ sample frames. (Ref: `src/api.rs` `health`; test: `health_reports_the_database`.
 - **WHEN** the server runs with cedar's default database and samples
 - **THEN** health reports 42,212 stars, a 10–30° field range and 21 samples
 
+### Requirement: Third-party notices
+
+The system SHALL carry, in `THIRD_PARTY_NOTICES.md`, a notice for each third-party work
+compiled into the binary (the page's packages and fonts, and the bundled sky data), with its
+source, version, license and the license's full text. The page's packages SHALL be listed at
+the versions and licenses `web/package-lock.json` pins. `finder --licenses` SHALL print the
+file and exit without loading a database or serving. (Ref: `THIRD_PARTY_NOTICES.md`,
+`src/main.rs` `THIRD_PARTY_NOTICES`; tests: `licenses_prints_the_notices_and_exits`,
+`the_notices_name_the_page_packages_as_locked`.)
+
+#### Scenario: Printing the notices
+- **WHEN** `finder --licenses --db no-such-database.npz` runs
+- **THEN** it prints `THIRD_PARTY_NOTICES.md` exactly and exits successfully
+
+#### Scenario: A package upgrade
+- **WHEN** React, React DOM, scheduler, Tailwind CSS, Vite or the Archivo font is locked at a
+  version or license other than the one its notice names
+- **THEN** the test fails until the notice is updated
+
 ### Requirement: Offer sample frames safely
 
 The system SHALL list the image files (`jpg`, `jpeg`, `png`, `bmp`, `pgm`, `ppm`, `pnm`, any
@@ -99,10 +118,14 @@ The system SHALL refuse a request body over 32 MiB with 413, an image over 20,00
 or over the decoder's 256 MiB budget with 413, bytes that are not a readable PNG, JPEG, BMP or
 PNM image with 415, and an unknown sample name with 404, each with a JSON `error`. It SHALL run
 one decode-and-solve at a time, so that frames posted together queue rather than run the
-machine out of memory, and each is answered with its own solution. (Ref: `src/api.rs`
-`SOLVE_BODY_LIMIT`, `solve_gate`, `From<DecodeError>`, `src/solve.rs` `decode`; tests:
-`oversized_uploads_are_refused`, `decodes_and_refuses`, `decode_errors_map_to_statuses`,
-`bad_requests_are_refused_with_reasons`, `frames_posted_together_are_each_answered`.)
+machine out of memory, and each is answered with its own solution. A request SHALL take its
+turn before its form is read, so a queued upload stays unread on the network rather than in
+memory; a request whose form has not fully arrived 30 s after its turn began SHALL be answered
+408 with a JSON `error`, and the next in the queue SHALL go on. (Ref: `src/api.rs`
+`SOLVE_BODY_LIMIT`, `solve_gate`, `FORM_READ_TIMEOUT`, `AppState::with_form_timeout`,
+`From<DecodeError>`, `src/solve.rs` `decode`; tests: `oversized_uploads_are_refused`,
+`decodes_and_refuses`, `decode_errors_map_to_statuses`, `bad_requests_are_refused_with_reasons`,
+`frames_posted_together_are_each_answered`, `a_stalled_upload_times_out_and_the_queue_moves_on`.)
 
 #### Scenario: Too large to read
 - **WHEN** an upload is one byte over 32 MiB
@@ -116,17 +139,28 @@ machine out of memory, and each is answered with its own solution. (Ref: `src/ap
 - **WHEN** the Orion and Pleiades samples are posted together
 - **THEN** both answer 200, one in Orion and one in Taurus
 
+#### Scenario: An upload that stops
+- **WHEN** a client sends half its form and stops while it has the turn, and another frame is
+  posted behind it (the test shortens the form timeout to 1 s)
+- **THEN** the waiting frame's form is not read while the stopped one has the turn; the stopped
+  one is answered 408 with a JSON `error` when the timeout runs out, and the waiting frame then
+  solves (in Orion)
+
 ### Requirement: Give cedar's answer
 
 The system SHALL decode and detect a frame as cedar's reference pipeline does: color converted
-to 8-bit gray with PIL's `convert('L')` weights (ITU-R 601-2 luma in 16-bit fixed point, rounded),
-rows levelled and hot pixels rejected before detection, and the brightest `stars` centroids
-passed to the solver. On cedar's 21 sample frames it SHALL give cedar's status, and for the 20
-that cedar solves a pointing within 10″ of cedar's, a field within 15″, and at least 90% of
-cedar's matched stars matched again (the image tier's tolerances). (Ref: `src/solve.rs`
-`pil_luma`, `to_gray`, `NORMALIZE_ROWS`, `solve_frame`; goldens:
-`crates/plate-solver/tests/data/cedar_parity.json`; tests: `every_sample_gives_cedars_answer`,
-`color_turns_gray_as_cedar_turns_it`, `a_sample_solves_and_its_overlay_lands_on_its_stars`.)
+to 8-bit gray with PIL's `convert('L')` weights (ITU-R 601-2 luma in 16-bit fixed point, rounded;
+`star_detection::gray`), rows levelled and hot pixels rejected before detection
+(`DetectParams::cedar()`), and the brightest `stars` centroids passed to the solver. Both come
+from the solver crates (this change's `star-detection` and `plate-solver` requirements), so the
+console and the `solve_image` example read a frame the same way. On cedar's 21 sample frames it
+SHALL give cedar's status, and for the 20 that cedar solves a pointing within 10″ of cedar's, a
+field within 15″, and at least 90% of cedar's matched stars matched again (the image tier's
+tolerances). (Ref: `src/solve.rs` `to_gray`, `solve_frame`, `SolveOptions`;
+`crates/star-detection/src/gray.rs` `from_rgb8`; `crates/plate-solver/src/solve.rs`
+`DetectParams::cedar`; goldens: `crates/plate-solver/tests/data/cedar_parity.json`; tests:
+`every_sample_gives_cedars_answer`, `color_turns_gray_as_cedar_turns_it`,
+`a_sample_solves_and_its_overlay_lands_on_its_stars`.)
 
 #### Scenario: Every sample
 - **WHEN** each of the 21 samples is solved with the defaults

@@ -1,16 +1,21 @@
 //! The console's API end to end, on the real database and cedar's sample frames.
 
+use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
+use std::time::Duration;
 
-use axum::body::{to_bytes, Body};
+use axum::body::{to_bytes, Body, Bytes};
 use axum::http::{Request, StatusCode};
+use axum::response::Response;
 use axum::Router;
 use finder::samples::Samples;
 use finder::stars::NAMED_STARS;
 use finder::{router, AppState};
+use futures_util::{stream, StreamExt};
 use pattern_database::{CatalogId, PatternDatabase, StarId};
 use serde_json::Value;
+use tokio::sync::Notify;
 use tower::ServiceExt;
 
 fn repo() -> PathBuf {
@@ -26,15 +31,23 @@ static DB: LazyLock<Arc<PatternDatabase>> = LazyLock::new(|| {
     Arc::new(pattern_database::load_from_path(&path).expect("the vendored cedar database"))
 });
 
-fn app() -> Router {
-    router(AppState::shared(
+fn state() -> AppState {
+    AppState::shared(
         DB.clone(),
         Samples::scan(&samples_dir()).expect("the sample frames"),
-    ))
+    )
+}
+
+fn app() -> Router {
+    router(state())
 }
 
 async fn send(request: Request<Body>) -> (StatusCode, String, Vec<u8>) {
-    let response = app().oneshot(request).await.unwrap();
+    parts(app().oneshot(request).await.unwrap()).await
+}
+
+/// A response's status, content type and body.
+async fn parts(response: Response) -> (StatusCode, String, Vec<u8>) {
     let status = response.status();
     let content_type = response
         .headers()
@@ -59,9 +72,15 @@ type Fields<'a> = &'a [(&'a str, &'a str)];
 /// An uploaded frame, `(file name, bytes)`.
 type Upload<'a> = Option<(&'a str, &'a [u8])>;
 
-/// A `multipart/form-data` body from text fields and at most one file.
+const BOUNDARY: &str = "finder-test-boundary";
+
+/// A `/api/solve` request from text fields and at most one file.
 fn form(fields: Fields, file: Upload) -> Request<Body> {
-    const BOUNDARY: &str = "finder-test-boundary";
+    solve_request(Body::from(form_body(fields, file)))
+}
+
+/// A `multipart/form-data` body from text fields and at most one file.
+fn form_body(fields: Fields, file: Upload) -> Vec<u8> {
     let mut body = Vec::new();
     for (name, value) in fields {
         body.extend(
@@ -83,13 +102,32 @@ fn form(fields: Fields, file: Upload) -> Request<Body> {
         body.extend(b"\r\n");
     }
     body.extend(format!("--{BOUNDARY}--\r\n").bytes());
+    body
+}
+
+/// A `/api/solve` request with a multipart body.
+fn solve_request(body: Body) -> Request<Body> {
     Request::post("/api/solve")
         .header(
             "content-type",
             format!("multipart/form-data; boundary={BOUNDARY}"),
         )
-        .body(Body::from(body))
+        .body(body)
         .unwrap()
+}
+
+/// A request body that hands over `bytes` when the server first reads it and signals `read`;
+/// with `stall`, it then sends nothing more, like a client whose upload has stopped.
+fn watched_body(bytes: Vec<u8>, read: Arc<Notify>, stall: bool) -> Body {
+    let first = stream::once(async move {
+        read.notify_one();
+        Ok::<_, Infallible>(Bytes::from(bytes))
+    });
+    if stall {
+        Body::from_stream(first.chain(stream::pending()))
+    } else {
+        Body::from_stream(first)
+    }
 }
 
 async fn solve(fields: Fields<'_>, file: Upload<'_>) -> (StatusCode, Value) {
@@ -459,6 +497,45 @@ async fn frames_posted_together_are_each_answered() {
     assert_eq!((s1, s2), (StatusCode::OK, StatusCode::OK));
     assert_eq!(orion["pointing"]["constellation"]["abbr"], "Ori");
     assert_eq!(pleiades["pointing"]["constellation"]["abbr"], "Tau");
+}
+
+/// A request takes the solve gate before its form is read, so a queued upload stays on the
+/// network; a client that stops sending while it holds the gate is answered 408 when the
+/// form timeout runs out, and the queue moves on.
+#[tokio::test]
+async fn a_stalled_upload_times_out_and_the_queue_moves_on() {
+    let timeout = Duration::from_secs(1);
+    let app = router(state().with_form_timeout(timeout));
+    let orion = form_body(&[("sample", "orion2.jpg")], None);
+
+    let stalled_read = Arc::new(Notify::new());
+    let half = orion[..orion.len() / 2].to_vec();
+    let stalled = tokio::spawn(app.clone().oneshot(solve_request(watched_body(
+        half,
+        stalled_read.clone(),
+        true,
+    ))));
+    // Its form is being read, so it holds the gate.
+    stalled_read.notified().await;
+
+    let queued_read = Arc::new(Notify::new());
+    let queued = tokio::spawn(app.oneshot(solve_request(watched_body(
+        orion,
+        queued_read.clone(),
+        false,
+    ))));
+    let unread = tokio::time::timeout(timeout / 4, queued_read.notified()).await;
+    assert!(unread.is_err(), "the queued form was read before its turn");
+
+    let (status, _, body) = parts(stalled.await.unwrap().unwrap()).await;
+    assert_eq!(status, StatusCode::REQUEST_TIMEOUT);
+    let json: Value = serde_json::from_slice(&body).expect("JSON body");
+    assert!(json["error"].as_str().is_some_and(|e| !e.is_empty()));
+
+    let (status, _, body) = parts(queued.await.unwrap().unwrap()).await;
+    assert_eq!(status, StatusCode::OK);
+    let json: Value = serde_json::from_slice(&body).expect("JSON body");
+    assert_eq!(json["pointing"]["constellation"]["abbr"], "Ori");
 }
 
 /// The objects just off the frame: none of them on it, nearest first, at most eight, each

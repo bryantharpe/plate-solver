@@ -73,7 +73,9 @@ must ground requirements in these and cite the doc number.
 Feature dependency order (implementation order): `math-core` → `star-detection` → `pattern-database`
 → `database-generation` → `plate-solver` → `grpc-service` → `mobile-runtime`. `finder-console`
 sits beside `grpc-service` as a second consumer, over `math-core`, `star-detection`,
-`pattern-database` and `plate-solver`. (`feat-08` to `feat-10` were used by changes that have
+`pattern-database` and `plate-solver`; it also adds a requirement each to `star-detection`
+(PIL's gray conversion) and `plate-solver` (cedar's detection settings), so the console and
+`solve_image` read frames the same way. (`feat-08` to `feat-10` were used by changes that have
 since been removed, so the console takes `feat-11`.)
 
 ## 4. Coordinate & sign conventions (binding across all specs)

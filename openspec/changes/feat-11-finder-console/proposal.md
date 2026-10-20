@@ -18,6 +18,9 @@ the PRD's seven solver capabilities.
   the matched and expected catalog stars, the Messier objects on and near the frame, and an
   RA/Dec graticule, all placed in the frame's pixels through the solver's own attitude and lens
   model. It also suggests objects like a given one, ranked for an observer's site and time.
+- Add cedar's gray conversion (`star_detection::gray`) and detection settings
+  (`DetectParams::cedar()`) to the solver crates, so the console and the `solve_image` example
+  read a frame the same way.
 - The page shows where the frame points first, then a field-atlas chart of the frame with the
   solution drawn over it, what is in the field, what to look at next, and (online only) the
   same field in a sky survey. It has a night mode in which every pixel is red on black.
@@ -35,16 +38,22 @@ the PRD's seven solver capabilities.
 
 ### Modified Capabilities
 
-(none.)
+- `star-detection`: adds `star_detection::gray`, color to gray as PIL's `convert('L')` makes it.
+- `plate-solver`: adds `DetectParams::cedar()`, the detection settings cedar's goldens were made
+  with. `DetectParams::default()` is unchanged.
 
 ## Impact
 
 - New crate `crates/finder` (binary and library) over `math-core`, `star-detection`,
   `pattern-database` and `plate-solver`, with `axum`, `tokio`, `image`, `rust-embed` and
-  `clap`. It does not touch the solver crates.
+  `clap`. In the solver crates it only adds `star_detection::gray` and
+  `DetectParams::cedar()`; the `solve_image` example now uses both, which changes its answers
+  on color frames to cedar's (the README's sample output is updated).
 - Bundled data: the 110 Messier objects (an OpenNGC extract, CC BY-SA 4.0), the IAU
   constellation boundaries and names (Roman 1987 via Astropy, BSD 3-Clause), and a list of
-  named bright stars by HIP number (`crates/finder/data/README.md`).
+  named bright stars by HIP number (`crates/finder/data/README.md`). The licenses of the data
+  and of the page's packages travel with the binary in `THIRD_PARTY_NOTICES.md`
+  (`finder --licenses`).
 - A Node toolchain for the page (React 19, TypeScript, Vite, Tailwind 4) in
   `crates/finder/web`. Its production build (`dist/`) is committed and embedded, so building
   the crate never needs Node; CI checks that the committed build matches the source.

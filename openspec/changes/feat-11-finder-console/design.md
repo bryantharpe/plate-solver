@@ -43,13 +43,19 @@ contract is `.impeccable/surfaces/crates-finder-web-src-app-tsx.md`.
 - **Decode and detect as cedar does.** Color frames become gray with PIL's `convert('L')`
   weights (ITU-R 601-2), not `image`'s Rec. 709 `to_luma8`, and detection levels rows and
   rejects hot pixels, as cedar's goldens were made. With the `solve_image` example's settings
-  instead, color frames moved faint stars (orion_belt matched 21 of cedar's 24 stars;
-  pleiades' field was 16.6″ off). With cedar's, 19 of the 20 solvable samples land within 0.3″
-  of cedar and the last within 4.2″.
+  of the time instead, color frames moved faint stars (orion_belt matched 21 of cedar's 24
+  stars; pleiades' field was 16.6″ off). With cedar's, 19 of the 20 solvable samples land within
+  0.3″ of cedar and the last within 4.2″. Both live in the solver crates
+  (`star_detection::gray`, `DetectParams::cedar()`) rather than in the console, and
+  `solve_image` uses them too, so the two tools cannot give different answers for one frame.
+  `DetectParams::default()` stays as it was, so no existing caller changes.
 - **Bounded work per request.** One decode-and-solve at a time behind a semaphore, so a burst
-  queues instead of exhausting memory; request bodies up to 32 MiB; decoded images up to
-  20,000 px a side and 256 MiB; solve timeouts clamped to 30 s. Samples resolve by listed name
-  only, so no request reaches another file.
+  queues instead of exhausting memory. A request takes the semaphore before its form is read:
+  a queued upload waits unread on the network, and only one is ever held in memory. The cost
+  is that a slow client holds everyone else up, so the form must arrive within 30 s of its turn
+  or the request is answered 408. Request bodies up to 32 MiB; decoded images up to 20,000 px a
+  side and 256 MiB; solve timeouts clamped to 30 s. Samples resolve by listed name only, so no
+  request reaches another file.
 - **Sky geometry from standard references, tested on their worked examples.** Precession with
   the IAU 1976 angles (Meeus ch. 21), mean sidereal time (Meeus eq. 12.4) and altitude/azimuth
   (Meeus ch. 13), without nutation or refraction: within a few hundredths of a degree, enough
@@ -93,6 +99,12 @@ contract is `.impeccable/surfaces/crates-finder-web-src-app-tsx.md`.
 - [Bundled data licences] → the Messier extract keeps OpenNGC's CC BY-SA 4.0; the boundary and
   name tables keep Astropy's BSD 3-Clause; three misspellings in Astropy's names file are
   corrected and recorded in `crates/finder/data/README.md`.
+- [The page's build strips its packages' notices] → `THIRD_PARTY_NOTICES.md` lists each
+  package, font and data table compiled in, with its full license text, and `finder --licenses`
+  prints it. A test fails when a listed package's locked version or license drifts from its
+  notice; adding a new package to the page still needs its notice added by hand.
+- [A client on a poor connection holds the solve gate] → it is cut off 30 s into its turn, which
+  a 32 MiB upload over a slow phone link could exceed; such a frame should be shrunk first.
 
 ## Migration Plan
 

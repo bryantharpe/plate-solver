@@ -4,6 +4,9 @@
 - [x] 1.2 Health, samples (listing, files, previews) and the page's routes, with samples resolved by listed name only
 - [x] 1.3 Solve endpoint: the multipart form, option checks and defaults, the status codes and limits, one solve at a time
 - [x] 1.4 Decode and detect as cedar does (PIL gray, rows levelled, hot pixels rejected) and check every sample against cedar's goldens
+- [x] 1.5 Move cedar's gray conversion and detection settings into the solver crates (`star_detection::gray`, `DetectParams::cedar()`) and use them from `solve_image` too
+- [x] 1.6 Take the solve gate before reading the form; answer 408 when the form has not arrived 30 s into the request's turn
+- [x] 1.7 Third-party notices for the page and data, printed by `finder --licenses` and checked against the page's lockfile
 
 ## 2. Sky
 

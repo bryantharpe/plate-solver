@@ -25,7 +25,7 @@ use crate::solve::{self, DecodeError, SolveOptions, SolveReport};
 pub const SOLVE_BODY_LIMIT: usize = 32 * 1024 * 1024;
 /// Longest solve timeout a request may ask for, in milliseconds.
 const MAX_TIMEOUT_MS: u64 = 30_000;
-/// How long a request holding the solve gate may take to send its form.
+/// How long a request holding the solve gate may take to send its form, by default.
 const FORM_READ_TIMEOUT: Duration = Duration::from_secs(30);
 /// Longer side of a sample's preview, in pixels.
 const THUMB_SIDE: u32 = 320;
@@ -40,6 +40,8 @@ pub struct AppState {
     /// One solve at a time, upload included: a request takes the gate before its form is
     /// read, so a burst of uploads waits on the network instead of in memory.
     solve_gate: Arc<Semaphore>,
+    /// How long a request holding the gate may take to send its form.
+    form_timeout: Duration,
     thumbs: Arc<Mutex<HashMap<String, Bytes>>>,
 }
 
@@ -55,8 +57,16 @@ impl AppState {
             db,
             samples: Arc::new(samples),
             solve_gate: Arc::new(Semaphore::new(1)),
+            form_timeout: FORM_READ_TIMEOUT,
             thumbs: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// The same state with another limit on how long a request holding the solve gate may
+    /// take to send its form (30 s by default). A request over it is answered 408.
+    pub fn with_form_timeout(mut self, timeout: Duration) -> Self {
+        self.form_timeout = timeout;
+        self
     }
 }
 
@@ -355,7 +365,7 @@ async fn solve(
                 "the solver is shutting down",
             )
         })?;
-    let form = tokio::time::timeout(FORM_READ_TIMEOUT, SolveForm::read(&mut multipart))
+    let form = tokio::time::timeout(state.form_timeout, SolveForm::read(&mut multipart))
         .await
         .map_err(|_| {
             ApiError::new(
