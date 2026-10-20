@@ -29,6 +29,7 @@ cargo run --release -p finder -- --db my_camera.npz --samples ~/frames
 | `--db PATH` | cedar's `default_database.npz` | Pattern database covering your camera's field of view. |
 | `--samples DIR` | cedar's `medium_fov` samples | Folder of frames to offer on the page. |
 | `--listen ADDR` | `127.0.0.1:8080` | Address to serve on. `0.0.0.0:8080` lets other devices connect. |
+| `--licenses` | | Print the third-party notices for the embedded page and data, and exit. |
 
 ### From a phone
 
@@ -72,8 +73,11 @@ eyes dark-adapted. It is a toggle in the top bar and the page remembers it.
   `web/dist/`, is committed and compiled into the binary, so `cargo` and CI never need
   Node.
 
-The data compiled into the binary (the Messier list from OpenNGC, the constellation
-boundaries) keeps its own licenses: see [`data/README.md`](data/README.md).
+The page and data compiled into the binary include third-party works (React, Tailwind CSS,
+the Archivo font, the Messier list from OpenNGC, the constellation boundaries from Astropy),
+each under its own license: see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), which
+`finder --licenses` also prints, and [`data/README.md`](data/README.md) for how the data was
+extracted.
 
 ## Change the page
 

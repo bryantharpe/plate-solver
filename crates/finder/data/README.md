@@ -31,6 +31,7 @@ of a Constellation From a Position", PASP 99, 695 (1987), CDS catalogue
 in degrees, constellation, for the B1875.0 equinox. The names are the IAU's. Both files are
 copied from [Astropy](https://github.com/astropy/astropy) (`astropy/coordinates/data/`),
 Copyright (c) 2011-2026, Astropy Developers, under the
-[BSD 3-Clause license](https://github.com/astropy/astropy/blob/main/LICENSE.rst). The boundary
-table is unchanged; the names file had three misspellings, corrected here to the IAU's
+[BSD 3-Clause license](https://github.com/astropy/astropy/blob/main/LICENSE.rst), whose full
+text is in [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). The boundary table is
+unchanged; the names file had three misspellings, corrected here to the IAU's
 Chamaeleon, Ophiuchus and Piscis Austrinus.

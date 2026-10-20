@@ -27,11 +27,21 @@ struct Args {
     /// Address to listen on. 0.0.0.0:8080 lets a phone on the same network connect.
     #[arg(long, default_value = "127.0.0.1:8080")]
     listen: SocketAddr,
+    /// Print the third-party notices for the embedded page and data, and exit.
+    #[arg(long)]
+    licenses: bool,
 }
+
+/// The licenses of the third-party works compiled into this binary.
+const THIRD_PARTY_NOTICES: &str = include_str!("../THIRD_PARTY_NOTICES.md");
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+    if args.licenses {
+        print!("{THIRD_PARTY_NOTICES}");
+        return Ok(());
+    }
     let t = Instant::now();
     let db = pattern_database::load_from_path(&args.db)
         .map_err(|e| format!("cannot load the database {}: {e}", args.db.display()))?;
