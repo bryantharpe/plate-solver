@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use axum::body::Bytes;
 use axum::extract::multipart::{Field, MultipartError};
@@ -25,6 +25,8 @@ use crate::solve::{self, DecodeError, SolveOptions, SolveReport};
 pub const SOLVE_BODY_LIMIT: usize = 32 * 1024 * 1024;
 /// Longest solve timeout a request may ask for, in milliseconds.
 const MAX_TIMEOUT_MS: u64 = 30_000;
+/// How long a request holding the solve gate may take to send its form.
+const FORM_READ_TIMEOUT: Duration = Duration::from_secs(30);
 /// Longer side of a sample's preview, in pixels.
 const THUMB_SIDE: u32 = 320;
 /// Most suggestions `/api/similar` returns.
@@ -35,8 +37,8 @@ const MAX_SIMILAR: usize = 20;
 pub struct AppState {
     db: Arc<PatternDatabase>,
     samples: Arc<Samples>,
-    /// One heavy decode-and-solve at a time: a burst of requests queues instead of
-    /// running the machine out of memory.
+    /// One solve at a time, upload included: a request takes the gate before its form is
+    /// read, so a burst of uploads waits on the network instead of in memory.
     solve_gate: Arc<Semaphore>,
     thumbs: Arc<Mutex<HashMap<String, Bytes>>>,
 }
@@ -339,12 +341,9 @@ async fn solve(
     State(state): State<AppState>,
     mut multipart: Multipart,
 ) -> Result<Json<SolveReport>, ApiError> {
-    let form = SolveForm::read(&mut multipart).await?;
-    let (bytes, name) = match form.source {
-        Source::Upload { bytes, name } => (bytes, name),
-        Source::Sample(name) => (read_sample(&state, &name).await?, Some(name)),
-    };
-    // Take the gate before decoding: decoding is heavy too.
+    // Take the gate before reading the form. Each upload may be up to SOLVE_BODY_LIMIT, and
+    // reading them first would hold every queued one in memory at once; this way a waiting
+    // request's body stays unread. A client that stalls while holding the gate is cut off.
     let permit = state
         .solve_gate
         .clone()
@@ -356,6 +355,18 @@ async fn solve(
                 "the solver is shutting down",
             )
         })?;
+    let form = tokio::time::timeout(FORM_READ_TIMEOUT, SolveForm::read(&mut multipart))
+        .await
+        .map_err(|_| {
+            ApiError::new(
+                StatusCode::REQUEST_TIMEOUT,
+                "the form took too long to arrive",
+            )
+        })??;
+    let (bytes, name) = match form.source {
+        Source::Upload { bytes, name } => (bytes, name),
+        Source::Sample(name) => (read_sample(&state, &name).await?, Some(name)),
+    };
     let db = state.db.clone();
     let options = form.options;
     let report = tokio::task::spawn_blocking(move || {

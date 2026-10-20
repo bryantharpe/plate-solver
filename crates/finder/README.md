@@ -67,8 +67,10 @@ eyes dark-adapted. It is a toggle in the top bar and the page remembers it.
 - `src/constellation.rs` finds the constellation from the IAU boundaries, after precessing
   to their B1875 equinox. `src/catalog.rs` holds the Messier list and ranks "something like
   this" by kind, then by whether it is up for your site, then by how far you would slew.
-- `src/api.rs` serves the JSON API and the page. One solve runs at a time; uploads are
-  capped at 32 MB and decoded with size limits.
+- `src/api.rs` serves the JSON API and the page. One solve runs at a time, and a request
+  waits for its turn before its upload is read, so queued uploads don't pile up in memory.
+  Uploads are capped at 32 MB, must arrive within 30 seconds, and are decoded with size
+  limits.
 - The page is a React + TypeScript + Vite + Tailwind app in `web/`. Its production build,
   `web/dist/`, is committed and compiled into the binary, so `cargo` and CI never need
   Node.
