@@ -1,11 +1,7 @@
-# Claude Code: local settings and the app's per-session worktrees (.claude/worktrees/)
-# stay local. The project's skills and agents (Impeccable, the UI design skill) are
-# committed so every session has them, cloud sessions included. Impeccable's engine
-# binary is per-platform: its launcher downloads and checksums it on first use.
-.claude/*
-!.claude/skills/
-!.claude/agents/
-.claude/skills/impeccable/scripts/bin/
+# Claude Code: local settings, skills and agents, and the app's per-session worktrees
+# (.claude/worktrees/). Third-party skills such as Impeccable are installed per user, not
+# vendored into this public repo.
+.claude/
 # Impeccable's working files: review screenshots and decision sketches stay local; the
 # product record (PRODUCT.md), surface briefs and design system (DESIGN.md) are committed.
 .impeccable/review/
