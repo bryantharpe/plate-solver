@@ -136,13 +136,18 @@ cargo run --release -p plate-solver --example solve_image -- \
 ```
 
 ```text
-reference-solutions/cedar-solve/examples/data/medium_fov/orion_belt.jpg: MATCH_FOUND  RA 84.0093  Dec -0.7694  Roll 2.56  FOV 10.15 deg  k -0.003  matches 21  RMSE 30"  (22 stars, detect 0 ms, solve 8 ms)
-  sky map: https://aladin.cds.unistra.fr/AladinLite/?target=84.0093%20-0.7694&fov=12
+reference-solutions/cedar-solve/examples/data/medium_fov/orion_belt.jpg: MATCH_FOUND  RA 84.0081  Dec -0.7690  Roll 2.54  FOV 10.15 deg  k -0.003  matches 24  RMSE 34"  (26 stars, detect 1 ms, solve 0 ms)
+  sky map: https://aladin.cds.unistra.fr/AladinLite/?target=84.0081%20-0.7690&fov=12
 ```
 
 RA, Dec, Roll and FOV are in degrees. `k` is the fitted radial distortion (negative is barrel).
 RMSE is the residual over the matched stars, in arcseconds. Pass several images to solve them in
 one run; the database loads once. PNG, JPEG, BMP and PNM files are read.
+
+Frames are read the way cedar reads them, as in the finder console: color turns gray with PIL's
+weights (`star_detection::gray`), and stars are detected with cedar's settings
+(`DetectParams::cedar()`: 2×2 binning, rows levelled, hot pixels rejected). On cedar's 21 sample
+frames that gives cedar's answer to within 4.2″ on all 20 that cedar solves.
 
 The database must cover your camera's field of view. The cedar database used above covers
 10–30°. A finder camera usually sees a narrower field, so build a database for it (below).

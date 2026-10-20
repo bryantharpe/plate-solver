@@ -6,9 +6,9 @@ use std::time::Instant;
 
 use math_core::{angular_distance, distort_centroids};
 use pattern_database::{CatalogId, PatternDatabase, StarId};
-use plate_solver::{solve_from_centroids, Solution, SolveStatus};
+use plate_solver::{solve_from_centroids, DetectParams, Solution, SolveStatus};
 use serde::Serialize;
-use star_detection::detect_stars;
+use star_detection::{detect_stars, gray};
 
 use crate::catalog::{self, DeepSkyObject};
 use crate::constellation::{self, Constellation};
@@ -25,11 +25,6 @@ const MAX_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 const MATCH_RADIUS: f64 = 0.01;
 const MATCH_THRESHOLD: f64 = 1e-5;
 const MATCH_MAX_ERROR: f64 = 0.002;
-/// Detection as cedar runs it (and as its goldens were made): each row's offset levelled
-/// before thresholding, and hot pixels rejected.
-pub const NORMALIZE_ROWS: bool = true;
-/// See [`NORMALIZE_ROWS`].
-pub const DETECT_HOT_PIXELS: bool = true;
 /// Detected stars reported, brightest first.
 const MAX_DETECTED: usize = 500;
 /// Unmatched catalog stars drawn as "expected here", brightest first.
@@ -40,7 +35,7 @@ const NEARBY_DEG: f64 = 15.0;
 const MAX_NEARBY: usize = 8;
 
 /// How to detect and solve; the defaults are the `solve_image` example's. Detection itself
-/// runs as cedar's does (see [`NORMALIZE_ROWS`]), so cedar's frames solve to cedar's answers.
+/// runs as cedar's does ([`DetectParams::cedar`]), so cedar's frames solve to cedar's answers.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SolveOptions {
     /// Horizontal field of view estimate in degrees.
@@ -61,12 +56,13 @@ pub struct SolveOptions {
 
 impl Default for SolveOptions {
     fn default() -> Self {
+        let cedar = DetectParams::cedar();
         Self {
             fov: None,
             fov_max_error: 10.0,
             distortion: 0.0,
-            binning: 2,
-            sigma: 8.0,
+            binning: cedar.binning,
+            sigma: cedar.sigma,
             stars: 30,
             timeout_ms: 5000,
         }
@@ -117,24 +113,17 @@ fn decode(bytes: &[u8]) -> Result<image::DynamicImage, DecodeError> {
     })
 }
 
-/// Gray from color as cedar's reference pipeline makes it: PIL's `convert('L')`, ITU-R 601-2
-/// luma in 16-bit fixed point, rounded.
-fn pil_luma([r, g, b]: [u8; 3]) -> u8 {
-    let l = u32::from(r) * 19_595 + u32::from(g) * 38_470 + u32::from(b) * 7_471 + 0x8000;
-    (l >> 16) as u8
-}
-
-/// A decoded frame in 8-bit gray. Color frames are converted the way cedar converts them,
-/// not with `image`'s Rec. 709 weights: those move faint stars, and then a color frame no
-/// longer solves to cedar's answer.
+/// A decoded frame in 8-bit gray. Color frames are converted the way cedar converts them
+/// ([`star_detection::gray`], PIL's weights), not with `image`'s Rec. 709 weights: those move
+/// faint stars, and then a color frame no longer solves to cedar's answer.
 fn to_gray(image: &image::DynamicImage) -> image::GrayImage {
     if !image.color().has_color() {
         return image.to_luma8();
     }
     let (width, height) = (image.width(), image.height());
     let pixels = match image {
-        image::DynamicImage::ImageRgb8(rgb) => rgb.pixels().map(|p| pil_luma(p.0)).collect(),
-        other => other.to_rgb8().pixels().map(|p| pil_luma(p.0)).collect(),
+        image::DynamicImage::ImageRgb8(rgb) => gray::from_rgb8(rgb.as_raw()),
+        other => gray::from_rgb8(other.to_rgb8().as_raw()),
     };
     image::GrayImage::from_raw(width, height, pixels).expect("one gray pixel per pixel")
 }
@@ -378,6 +367,7 @@ fn ms(since: Instant) -> f64 {
 
 /// Detect, solve, and place what the solution says is on the frame.
 pub fn solve_frame(db: &PatternDatabase, image: &GrayImage, options: &SolveOptions) -> SolveReport {
+    let cedar = DetectParams::cedar();
     let t = Instant::now();
     let detected = detect_stars(
         &image.pixels,
@@ -385,8 +375,8 @@ pub fn solve_frame(db: &PatternDatabase, image: &GrayImage, options: &SolveOptio
         image.height,
         options.sigma,
         options.binning,
-        NORMALIZE_ROWS,
-        DETECT_HOT_PIXELS,
+        cedar.normalize_rows,
+        cedar.detect_hot_pixels,
     );
     let detect = ms(t);
     // The solver speaks (y, x); `Star` names x (column) and y (row).
@@ -625,18 +615,14 @@ mod tests {
 
     #[test]
     fn color_turns_gray_as_cedar_turns_it() {
-        // PIL's convert('L') on pure primaries and white.
-        assert_eq!(pil_luma([255, 0, 0]), 76);
-        assert_eq!(pil_luma([0, 255, 0]), 150);
-        assert_eq!(pil_luma([0, 0, 255]), 29);
-        assert_eq!(pil_luma([255, 255, 255]), 255);
-        // A green pixel: `to_luma8`'s Rec. 709 weights make it 147; cedar's frames used 601.
+        // A green pixel: `to_luma8`'s Rec. 709 weights make it 147; cedar's frames used 601
+        // (`star_detection::gray`, which checks PIL's values itself).
         let mut img = image::RgbImage::new(2, 1);
         img.put_pixel(1, 0, image::Rgb([10, 200, 30]));
         let mut png = std::io::Cursor::new(Vec::new());
         img.write_to(&mut png, image::ImageFormat::Png).unwrap();
         let gray = decode_gray(png.get_ref()).unwrap();
-        assert_eq!(gray.pixels, [0, pil_luma([10, 200, 30])]);
+        assert_eq!(gray.pixels, [0, gray::pil_luma(10, 200, 30)]);
         assert_eq!(gray.pixels[1], 124);
         let rec709 = image::DynamicImage::ImageRgb8(img).to_luma8();
         assert_eq!(rec709.get_pixel(1, 0).0, [147]);

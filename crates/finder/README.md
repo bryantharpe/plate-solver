@@ -59,7 +59,9 @@ eyes dark-adapted. It is a toggle in the top bar and the page remembers it.
 
 - `src/solve.rs` runs one frame as cedar does: color turned to gray with PIL's weights, stars
   detected with cedar-detect's settings (rows levelled, hot pixels rejected), a solve from the
-  brightest 30. A test checks every sample frame against cedar's own answers: 19 of the 20
+  brightest 30. The conversion and the settings come from the library
+  (`star_detection::gray`, `plate_solver::DetectParams::cedar()`), which `solve_image` uses
+  too, so both give the same answer. A test checks every sample frame against cedar's own answers: 19 of the 20
   that solve land within 0.3″ of cedar, and the last within 4.2″. It then places the matched
   stars, the brightest unmatched catalog stars and the Messier objects on the frame, using the
   solver's own attitude and lens model; another test checks that every matched star's catalog
