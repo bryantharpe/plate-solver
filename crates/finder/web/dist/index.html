@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" data-theme="day">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f8fafc" />
+    <meta name="description" content="Finder: plate-solve a frame and see where your telescope points." />
+    <title>Finder</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <style>html[data-theme=night]{--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark;background:#000}</style>
+    <script>
+      try {
+        var stored = localStorage.getItem("finder.night");
+        var night = stored === null ? matchMedia("(prefers-color-scheme: dark)").matches : JSON.parse(stored);
+        if (night) document.documentElement.dataset.theme = "night";
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/assets/index-C6sCSvp5.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DdgTKPDH.css">
+  </head>
+  <body>
+    <!-- Night mode's photo filter: luminance into the red channel only, scaled so white comes
+         out just under the night ink (#e00000, 224/255; scaling a frame can round up one level)
+         and no star is brighter than the ink. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <filter id="red-only" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix" values="0.1860 0.6258 0.0632 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
+      </filter>
+    </svg>
+    <div id="root"></div>
+  </body>
+</html>

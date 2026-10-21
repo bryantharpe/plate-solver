@@ -115,6 +115,18 @@ Please open an issue.
 Everything runs through `cargo` from the repository root. Nothing is installed, and there is no
 gRPC server binary yet: `grpc-service` is a library.
 
+### See it work: the finder console
+
+```sh
+cargo run --release -p finder
+```
+
+Open <http://127.0.0.1:8080>, pick one of cedar's sample frames or open your own, and the
+console charts it: where the frame points, with the RA/Dec grid, the matched catalog stars and
+the Messier objects drawn over the frame, then what is near the field and what to look at next.
+It has a red-and-black night mode for the telescope, and a phone on the same network can use it
+(`--listen 0.0.0.0:8080`). See [`crates/finder`](crates/finder/README.md).
+
 ### Solve an image
 
 ```sh
@@ -124,13 +136,18 @@ cargo run --release -p plate-solver --example solve_image -- \
 ```
 
 ```text
-reference-solutions/cedar-solve/examples/data/medium_fov/orion_belt.jpg: MATCH_FOUND  RA 84.0093  Dec -0.7694  Roll 2.56  FOV 10.15 deg  k -0.003  matches 21  RMSE 30"  (22 stars, detect 0 ms, solve 8 ms)
-  sky map: https://aladin.cds.unistra.fr/AladinLite/?target=84.0093%20-0.7694&fov=12
+reference-solutions/cedar-solve/examples/data/medium_fov/orion_belt.jpg: MATCH_FOUND  RA 84.0081  Dec -0.7690  Roll 2.54  FOV 10.15 deg  k -0.003  matches 24  RMSE 34"  (26 stars, detect 1 ms, solve 0 ms)
+  sky map: https://aladin.cds.unistra.fr/AladinLite/?target=84.0081%20-0.7690&fov=12
 ```
 
 RA, Dec, Roll and FOV are in degrees. `k` is the fitted radial distortion (negative is barrel).
 RMSE is the residual over the matched stars, in arcseconds. Pass several images to solve them in
 one run; the database loads once. PNG, JPEG, BMP and PNM files are read.
+
+Frames are read the way cedar reads them, as in the finder console: color turns gray with PIL's
+weights (`star_detection::gray`), and stars are detected with cedar's settings
+(`DetectParams::cedar()`: 2×2 binning, rows levelled, hot pixels rejected). On cedar's 21 sample
+frames that gives cedar's answer to within 4.2″ on all 20 that cedar solves.
 
 The database must cover your camera's field of view. The cedar database used above covers
 10–30°. A finder camera usually sees a narrower field, so build a database for it (below).
@@ -179,6 +196,7 @@ cargo run --release -p database-generation -- reference-solutions/cedar-solve/te
 | `crates/database-generation` | Builds pattern databases from star catalogs (Hipparcos, Tycho, BSC5). |
 | `crates/plate-solver` | The solver (`solve_from_centroids`, `solve_from_image`) and the `solve_image` example. |
 | `crates/grpc-service` | The `PlateSolver` gRPC service, as a library. |
+| `crates/finder` | The finder console: a local web page that plate-solves a frame and charts it. The page (React, in `web/`) is built into the binary. |
 | `bench/cedar-compare/` | The benchmark against cedar-detect + cedar-solve. |
 | `openspec/` | The specifications: capability specs, PRD and project conventions. Start at `openspec/project.md` and `openspec/PRD.md`. |
 | `proto/` | The gRPC interface contracts (`plate_solver.proto`, `cedar_detect.proto`). |
@@ -197,7 +215,9 @@ define "correct".
 ## Development
 
 Building `grpc-service` needs `protoc` (Debian/Ubuntu: `protobuf-compiler`; if it can't find
-`google/protobuf/duration.proto`, also install `libprotobuf-dev`). CI runs, among other checks:
+`google/protobuf/duration.proto`, also install `libprotobuf-dev`). The finder console's page is
+built with Node in `crates/finder/web`, and its build is committed, so cargo never needs Node.
+CI runs, among other checks:
 
 ```sh
 cargo fmt --all --check

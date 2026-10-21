@@ -36,6 +36,23 @@ impl Default for DetectParams {
     }
 }
 
+impl DetectParams {
+    /// Detection as cedar runs it: cedar-solve's example script calls cedar-detect with
+    /// sigma 8, 2×2 binning, rows levelled and hot pixels rejected. The e2e goldens' star
+    /// lists were made this way, so a frame detected with these settings (and turned gray
+    /// with `star_detection::gray`) solves to cedar's answer.
+    pub fn cedar() -> Self {
+        Self {
+            sigma: 8.0,
+            binning: 2,
+            normalize_rows: true,
+            detect_hot_pixels: true,
+            use_binned_for_star_candidates: true,
+            ..Self::default()
+        }
+    }
+}
+
 /// Solve a lost-in-space plate from pre-extracted centroids.
 ///
 /// This function owns the front of the solve loop: context construction,
@@ -199,5 +216,29 @@ fn stopped_solution(ctx: &SolveContext<&PatternDatabase>) -> Solution {
         status: Some(status),
         fov_used: Some(ctx.fov_initial),
         ..Solution::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DetectParams;
+
+    #[test]
+    fn cedar_detects_as_its_example_script_does() {
+        // cedar-solve's examples/test_tetra3.py: extract_centroids(sigma=8, use_binned=True,
+        // detect_hot_pixels=True, normalize_rows=True); the server bins 2×2 by default.
+        let c = DetectParams::cedar();
+        assert_eq!(
+            (c.sigma, c.binning, c.normalize_rows, c.detect_hot_pixels),
+            (8.0, 2, true, true)
+        );
+        assert!(c.use_binned_for_star_candidates && !c.return_binned);
+        assert_eq!(c.noise_estimate, None);
+        // The library default is unchanged: binning 1, no row levelling, no hot pixels.
+        let d = DetectParams::default();
+        assert_eq!(
+            (d.binning, d.normalize_rows, d.detect_hot_pixels),
+            (1, false, false)
+        );
     }
 }

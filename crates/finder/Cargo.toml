@@ -1,0 +1,27 @@
+[package]
+name = "finder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Finder console: a local web page that plate-solves a frame and shows where it points, what is in the field and what to look at next."
+
+[dependencies]
+math-core = { version = "0.1.0", path = "../math-core" }
+pattern-database = { version = "0.1.0", path = "../pattern-database" }
+plate-solver = { version = "0.1.0", path = "../plate-solver" }
+star-detection = { version = "0.1.0", path = "../star-detection" }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "multipart", "query", "tokio"] }
+clap = { version = "4.6", default-features = false, features = ["std", "help", "usage", "error-context", "derive"] }
+image = { version = "0.25.1", default-features = false, features = ["png", "jpeg", "bmp", "pnm"] }
+# Embeds the page's production build (web/dist, committed) in the binary, so neither cargo
+# nor CI needs Node. Debug builds read the folder from disk instead.
+rust-embed = "8.5"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.53.1", features = ["fs", "macros", "rt-multi-thread", "net", "sync", "time"] }
+
+[dev-dependencies]
+futures-util = { version = "0.3.31", default-features = false }
+serde_json = "1.0"
+tower = { version = "0.5.2", features = ["util"] }

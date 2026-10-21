@@ -16,12 +16,16 @@
 //!   earlier solve of the same lens. Speeds up and steadies wide-field solves.
 //! * `--dark` — dark frame (lens capped, same exposure/gain) subtracted before
 //!   detection. Removes hot pixels, which the binned detector does not reject.
+//!
+//! Frames are read as cedar's pipeline reads them: color turned gray with PIL's weights
+//! (`star_detection::gray`) and stars detected with cedar's settings
+//! (`DetectParams::cedar()`: rows levelled, hot pixels rejected), as the finder console does.
 
 use std::path::Path;
 use std::time::Instant;
 
-use plate_solver::{solve_from_centroids, SolveStatus};
-use star_detection::detect_stars;
+use plate_solver::{solve_from_centroids, DetectParams, SolveStatus};
+use star_detection::{detect_stars, gray};
 
 struct Args {
     db: String,
@@ -38,13 +42,14 @@ struct Args {
 }
 
 fn parse_args() -> Args {
+    let cedar = DetectParams::cedar();
     let mut a = Args {
         db: String::new(),
         fov: None,
         fov_max_error: 10.0,
         distortion: 0.0,
-        binning: 2,
-        sigma: 8.0,
+        binning: cedar.binning,
+        sigma: cedar.sigma,
         stars: 30,
         dark: None,
         timeout: 5000,
@@ -98,10 +103,15 @@ fn load_gray(path: &str) -> (Vec<u8>, usize, usize) {
         .and_then(|r| r.with_guessed_format())
         .unwrap_or_else(|e| usage(&format!("cannot open {path}: {e}")))
         .decode()
-        .unwrap_or_else(|e| usage(&format!("cannot decode {path}: {e}")))
-        .to_luma8();
-    let (w, h) = img.dimensions();
-    (img.into_raw(), w as usize, h as usize)
+        .unwrap_or_else(|e| usage(&format!("cannot decode {path}: {e}")));
+    let (w, h) = (img.width() as usize, img.height() as usize);
+    // Color turns gray as cedar turns it (PIL's weights), not with `to_luma8`'s Rec. 709.
+    let pixels = if img.color().has_color() {
+        gray::from_rgb8(img.to_rgb8().as_raw())
+    } else {
+        img.to_luma8().into_raw()
+    };
+    (pixels, w, h)
 }
 
 fn main() {
@@ -118,6 +128,7 @@ fn main() {
         t.elapsed().as_secs_f64()
     );
     let dark = args.dark.as_deref().map(load_gray);
+    let cedar = DetectParams::cedar();
 
     for path in &args.images {
         let (mut img, w, h) = load_gray(path);
@@ -131,7 +142,15 @@ fn main() {
         }
 
         let t = Instant::now();
-        let stars = detect_stars(&img, w, h, args.sigma, args.binning, false, true);
+        let stars = detect_stars(
+            &img,
+            w,
+            h,
+            args.sigma,
+            args.binning,
+            cedar.normalize_rows,
+            cedar.detect_hot_pixels,
+        );
         let t_detect = t.elapsed().as_secs_f64() * 1e3;
         // The solver wants (y, x); `Star` has named x (column) / y (row).
         let centroids: Vec<(f64, f64)> =
