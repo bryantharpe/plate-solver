@@ -37,14 +37,20 @@ closed-loop GoTo and AI-steered observing rather than stopping at push-to.
 
 ## Operating Context
 
-- At the telescope: dark site, red light only, phone in one hand, glancing between eyepiece
-  and screen. Often no internet (inferred).
+- At the telescope: red light only, phone in one hand, glancing between eyepiece and screen.
+  The telescope stands within reach of the house Wi-Fi (internet over Starlink), so the
+  internet is usually there but never needed.
 - Indoors: desk in normal light, Surface (Windows on ARM, WSL2) or phone browser.
-- The solver runs on the Surface now (a Raspberry Pi later); the phone opens the page over
-  Wi-Fi, and an Android phone could run the solver itself through Termux.
-- Later: SkySafari (6+ Plus/Pro, or 8) connects to the finder as an LX200 telescope, the
-  mount is driven through its SynScan controller, and an AI assistant uses the console's
-  actions as tools.
+- Three devices on the house Wi-Fi (ADR-0001):
+  - the console runs in WSL2 on the Surface: it solves, keeps the pointing model, plans moves
+    and serves the page;
+  - a scope node (a Raspberry Pi 3B riding on the telescope) runs the finder camera (an
+    Arducam on its CSI ribbon, model still unknown) and a USB cable straight to the mount's
+    motor controller; it finds the stars in each frame and carries out axis commands;
+  - the phone and the laptop open the page, and share one observing session.
+- The site is typed once (the Surface has no GPS); time comes from the console's clock.
+- Out of scope for now: SkySafari's link, the AI assistant and the mobile app. They will use
+  the same pointing state when they come.
 
 ## Capabilities and Constraints
 
@@ -58,7 +64,23 @@ closed-loop GoTo and AI-steered observing rather than stopping at push-to.
   Rules today; AI later.
 - Works offline; online extras (Aladin survey imagery) are optional.
 - The default database covers 10–30° fields; frames from other cameras need a matching one.
-- Not yet: live camera, mount control, SkySafari link, AI.
+  The finder camera's field is probably outside it, so it gets its own database at bring-up.
+- Next, in four steps (specified, not yet built; `openspec/project.md` §3):
+  1. Targets and push-to, with no hardware: search OpenNGC (Messier, NGC, IC, common names)
+     for a target, learn whether it is pointable (above the minimum altitude, default 15°,
+     and outside the Sun guard, which is always on), and get "turn clockwise 34° · tilt up
+     12°" from where the last frame points. A Setup page holds the site and minimum altitude.
+  2. Live finder: the scope node streams star lists from the finder camera, the console
+     solves them live, and the aim point (the eyepiece's spot in the finder camera's frame)
+     is set by tapping a centred star.
+  3. GoTo: no star alignment; every solve is a sync, a pointing model is fitted from them,
+     and the console drives the 16-inch Dob's two axes in a closed loop to within 1′.
+  4. Tracking: pointing-model rates corrected by solves every 1–5 s, with the field rotation
+     and longest exposure reported for an imaging camera.
+- A simulated scope node (`finder --simulate`) stands in for the telescope at the desk and in
+  CI.
+- Still out: typed RA/Dec, named stars, the Moon and planets as targets; a horizon that varies
+  by direction; field derotation; SkySafari, AI, the mobile app.
 
 ## Brand Commitments
 

@@ -69,6 +69,10 @@ must ground requirements in these and cite the doc number.
 | `docs/08-tetra3-vs-cedar-comparison.md` | cross-cutting defaults/decisions (all designs); informs **`mobile-runtime`** |
 | perf notes in docs 04/06/08 | **`mobile-runtime`** (`feat-07-mobile-runtime`) |
 | none: a consumer of the solver, grounded in its code, its tests and the sources in `crates/finder/data/README.md` | **`finder-console`** (`feat-11-finder-console`) |
+| Meeus, *Astronomical Algorithms* (2nd ed.), ch. 13 (altitude and azimuth), 15 (rising, transit, setting), 21 (precession) and 25 (the Sun); [OpenNGC](https://github.com/mattiaverga/OpenNGC); `GLOSSARY.md` | **`observing-session`**, **`target-catalog`**, **`sky-ephemeris`**, **`push-to`** (`feat-12-targets-and-push-to`) |
+| [ADR-0001](../docs/adr/0001-console-owns-pointing-scope-node-drives-axes.md); `docs/research/2026-10-21-scope-node-runtime.md`; Cedar's and PiFinder's aim-point calibration (`docs/research/2026-10-21-pointing-model-and-tracking.md` §2); RFC 5905 (NTP's offset and delay) | **`scope-link`**, **`scope-node`**, **`simulator`**, **`live-finder`** (`feat-13-live-finder`) |
+| Sky-Watcher's motor-controller command set and `docs/research/2026-10-21-synscan-mount-control.md`; the TPoint manual v18.20 §7.2 and Taki (1989), via `docs/research/2026-10-21-pointing-model-and-tracking.md` §1–2; Meeus ch. 16 (refraction) | **`pointing-model`**, **`goto`** (`feat-14-goto`) |
+| Meeus ch. 13 and 14 (parallactic angle); `docs/research/2026-10-21-pointing-model-and-tracking.md` §3 (rates, zenith keyhole, field rotation, closed loop) | **`tracking`** (`feat-15-tracking`) |
 
 Feature dependency order (implementation order): `math-core` → `star-detection` → `pattern-database`
 → `database-generation` → `plate-solver` → `grpc-service` → `mobile-runtime`. `finder-console`
@@ -77,6 +81,15 @@ sits beside `grpc-service` as a second consumer, over `math-core`, `star-detecti
 (PIL's gray conversion) and `plate-solver` (cedar's detection settings), so the console and
 `solve_image` read frames the same way. (`feat-08` to `feat-10` were used by changes that have
 since been removed, so the console takes `feat-11`.)
+
+The console then grows in four changes, in this order, each over the capabilities of the ones
+before it: `feat-12-targets-and-push-to` (choose a target, learn whether it is pointable, get
+push-to directions; no hardware), `feat-13-live-finder` (the scope node streams star frames from
+the finder camera and the console solves them live), `feat-14-goto` (the console drives the
+mount's two axes to the target through a pointing model fitted from syncs) and
+`feat-15-tracking` (the mount follows the target). Per ADR-0001 the console owns pointing and
+reaches hardware only through the mount port and camera port. SkySafari, the AI and the mobile
+app are out of scope for these four. None of them touches `math-core`, the parity path.
 
 ## 4. Coordinate & sign conventions (binding across all specs)
 
@@ -132,24 +145,8 @@ identical matched catalog IDs).
 
 ## 6. Glossary
 
-- **Centroid** — sub-pixel `(y,x)` location of a detected star.
-- **Pattern** — a group of 4 stars used as a matching unit.
-- **Pattern key / geometric hash** — the 5 sorted, quantized, normalized edge ratios of a pattern;
-  the content-addressable, rotation- and scale-invariant fingerprint.
-- **Edge** — angular distance between a pair of pattern stars (6 per pattern).
-- **Largest edge** — max of the 6 edges; the normalizer and an angular-size (→FOV) proxy.
-- **Hash table / pattern catalog** — open-addressed array mapping pattern-key hash → pattern.
-- **Probing** — open-addressing collision resolution: quadratic (`hash+c²`) or linear (`hash+c`).
-- **Verification star** — a catalog star kept densely for Stage-B match counting.
-- **Attitude / rotation matrix** — 3-axis orientation relating camera and sky frames.
-- **Boresight** — the camera optical axis direction (image center).
-- **Roll** — rotation about the boresight relative to celestial north.
-- **FOV** — field of view (horizontal unless stated); **diagonal FOV** = `fov·√(w²+h²)/w`.
-- **Proper motion** — slow apparent stellar motion; catalogs give epoch position + annual rate.
-- **Lost-in-space** — solving with no prior attitude (the mode implemented here).
-- **Hot pixel** — defective sensor pixel bright in isolation; must not be mistaken for a star.
-- **Cluster-buster** — density thinning so dense clusters (e.g. Pleiades) don't monopolize
-  pattern generation/selection.
+The project's vocabulary, solver and observing terms alike, lives in the root
+[`GLOSSARY.md`](../GLOSSARY.md). Specs use its terms.
 
 ## 7. Conventions for authoring changes
 
@@ -160,4 +157,39 @@ identical matched catalog IDs).
 - Each change must pass `openspec validate <change> --strict` and reach 4/4 in
   `openspec status --change <change>`.
 - Cite the reference doc number behind each requirement; do not invent behavior not grounded in
-  `reference-solutions/`.
+  `reference-solutions/`. The console's changes (feat-11 on) are consumers of the solver: they
+  cite the sources in §3 instead (Meeus, vendor documents, ADRs and the `docs/research/` notes).
+
+### Conventions for the console's changes (feat-12 on)
+
+These were checked against the OpenSpec 1.14.3 validator, which `--strict` enforces.
+
+- **Statement:** a requirement's text is at most 500 characters (aim for about 300), states one
+  behaviour with SHALL or MUST in its first sentence, and uses `GLOSSARY.md`'s terms exactly.
+- **References:** one physical line right after the statement, such as
+  `**Refs**: Meeus ex. 15.a; ADR-0001`. No code paths and no HTML comments in requirements
+  (archive drops comments).
+- **Scenarios:** WHEN/THEN, each naming its oracle (a worked example, a fixture, the simulator's
+  truth, a saved capture) and an explicit tolerance.
+- **A new capability's delta** opens with `## Purpose` (at least 50 characters) and only ADDs.
+- **Later changes in a set only ADD** to a capability an earlier change in the same set
+  introduced: MODIFIED validates, but archive refuses it until the base is archived. So state
+  requirements open-endedly ("at least", never "only").
+- **MODIFIED** copies the whole existing requirement and keeps every scenario's name.
+- **Proposal and tasks:** the Why section is 50–1000 characters; `tasks.md` uses `## N.` groups
+  of `- [ ] N.M` items, each saying how it is checked, with each group landing its own tests.
+- **The oracle rule:** no spec may require editing an existing test, golden, `scripts/ci/`,
+  `.github/workflows/ci.yml` or `CODEOWNERS`. Prefer designs that keep existing tests valid.
+  Where a decided change supersedes tested behaviour or changes CI, name it (as a MODIFIED or
+  REMOVED delta, in Impact and in tasks) for the owner's explicit approval.
+- **Injectable clocks:** every time-dependent behaviour takes its clock from outside. A virtual
+  clock is allowed only in tests and `finder --simulate`; anywhere else it would be a way round
+  the Sun guard.
+- **CI realities:** clippy, coverage and docs build `--all-features` on x86_64, and the coverage
+  floor counts Rust only, so hardware shells stay tiny and everything else is tested through
+  the ports, protocol emulators, saved fixtures and the simulator. New dependencies build on
+  Rust 1.96 and pass cargo-deny; the page adds no npm packages; test tokens have low entropy;
+  proto comments hold no `[...]`.
+- **UI:** each change with UI follows `DESIGN.md` (field atlas, square ruled boxes, red-only
+  night mode, every new view in the night pixel check) and ends with an Impeccable pass and a
+  `DESIGN.md` update.
