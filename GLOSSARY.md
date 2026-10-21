@@ -1,0 +1,167 @@
+# plate-solver
+
+The vocabulary of plate-solver: the solver that works out where a camera points from the stars in its frame, and the finder console that uses it to find, reach and follow objects with a telescope.
+
+## Language
+
+### Observing
+
+**Target**:
+The one object the observer has chosen to go to next. Objects the console proposes are suggestions until one is chosen.
+_Avoid_: desired object, goal
+
+**Site**:
+Where the telescope stands on Earth, as latitude and longitude (east positive).
+_Avoid_: location, observer
+
+**Observing session**:
+One night's shared state at the telescope (the site, the target, and later the camera, mount and calibration), the same for every phone and laptop connected to the console.
+_Avoid_: settings, per-device state
+
+**Pointable**:
+Of a target: above the minimum altitude and outside the Sun guard right now, so the console will point the telescope at it.
+_Avoid_: reachable, visible
+
+**Minimum altitude**:
+The lowest altitude the observer will point at, one number for the whole sky (default 15°). Below it a target is too low; below 0° it is below the horizon.
+_Avoid_: altitude limit, horizon limit
+
+**Sun guard**:
+The console's standing refusal to point at the Sun or move the telescope near it. Always on, with no override from the page.
+_Avoid_: sun warning
+
+**Push-to**:
+Moving the telescope by hand, following the console's directions from where it points to the target.
+_Avoid_: manual slew
+
+**Turn**:
+A direction of motion in azimuth: clockwise or anticlockwise, as seen from above.
+_Avoid_: left, right, pan
+
+**Tilt**:
+A direction of motion in altitude: up or down.
+_Avoid_: raise, lower
+
+**GoTo**:
+The console bringing the target to the aim point with the mount's motors: slew, solve, correct, until the target is within tolerance.
+_Avoid_: slew (a GoTo usually takes several)
+
+**Slew**:
+One motorised move of the mount toward a position.
+_Avoid_: GoTo (the whole closed-loop procedure)
+
+**Sync**:
+Tying the mount to the sky with one plate solve: a solved frame together with the mount's axis positions at that moment. Every solve while the mount is connected is a sync.
+_Avoid_: align, alignment
+
+**Pointing model**:
+The fitted relation between the mount's axis positions and where the telescope points on the sky. Every sync refines it, and it replaces the hand controller's star alignment.
+_Avoid_: star alignment, mount model, alignment
+
+**Tracking**:
+The mount following the target across the sky so that it stays at the aim point.
+_Avoid_: tracking mode (that is the solver's hinted solving)
+
+**Aim point**:
+The spot in the finder camera's frame on which the main telescope's eyepiece is centred. Moves bring the aim point, not the boresight, onto the target.
+_Avoid_: telescope boresight, frame centre
+
+### Equipment
+
+**Finder console**:
+This project's app: it shows where the telescope points and what is there, and moves it to targets. "The console" for short.
+_Avoid_: Finder (alone), the app, the server
+
+**Finder camera**:
+The camera that gives the console its view of the sky, attached to the scope node, whether it looks through the finder scope or through its own lens.
+_Avoid_: guide camera, finder (alone)
+
+**Finder scope**:
+The small optical scope on the telescope tube. Named only when the optics matter.
+_Avoid_: finder (alone)
+
+**Imaging camera**:
+A camera at the main telescope's focuser, used for photographs. The console only needs its sensor's size and pixel pitch, to report field rotation and exposure limits.
+_Avoid_: main camera
+
+**Scope node**:
+The small computer riding on the telescope that runs the finder camera and the mount link: it finds the stars in each frame and carries out the console's axis commands.
+_Avoid_: the Pi (that is just today's hardware), agent, rig
+
+**Simulator**:
+A stand-in scope node, for a desk or CI: a simulated mount, deliberately off level and with an aim-point offset, and star fields drawn from the catalog for wherever it points.
+_Avoid_: mock, emulator
+
+**Mount port**:
+The hardware-neutral way the console moves a mount: two axes, each able to report its position and capabilities, go to a position, move at a rate and stop.
+_Avoid_: driver, mount API
+
+**Mount adapter**:
+The part that speaks one mount's own protocol behind the mount port, such as Sky-Watcher's motor-controller protocol or the simulator's.
+_Avoid_: driver
+
+**Camera port**:
+The hardware-neutral way the scope node takes frames from a camera.
+_Avoid_: driver
+
+**Camera adapter**:
+The part that speaks one camera's own interface behind the camera port, such as the Arducam's or the simulator's.
+_Avoid_: driver
+
+**Axis position**:
+An axis's own reading of where it is, in the mount's frame rather than the sky's. The pointing model turns axis positions into a direction on the sky.
+_Avoid_: mount alt/az, encoder alt/az
+
+### Solving
+
+**Centroid**:
+Sub-pixel `(y,x)` location of a detected star.
+
+**Pattern**:
+A group of 4 stars used as a matching unit.
+
+**Pattern key / geometric hash**:
+The 5 sorted, quantized, normalized edge ratios of a pattern; the content-addressable, rotation- and scale-invariant fingerprint.
+
+**Edge**:
+Angular distance between a pair of pattern stars (6 per pattern).
+
+**Largest edge**:
+Max of the 6 edges; the normalizer and an angular-size (→FOV) proxy.
+
+**Hash table / pattern catalog**:
+Open-addressed array mapping pattern-key hash → pattern.
+
+**Probing**:
+Open-addressing collision resolution: quadratic (`hash+c²`) or linear (`hash+c`).
+
+**Verification star**:
+A catalog star kept densely for Stage-B match counting.
+
+**Attitude / rotation matrix**:
+3-axis orientation relating camera and sky frames.
+
+**Boresight**:
+The camera optical axis direction (image center). The eyepiece's centre is the aim point, not the boresight.
+
+**Roll**:
+Rotation about the boresight relative to celestial north.
+
+**FOV**:
+Field of view (horizontal unless stated); **diagonal FOV** = `fov·√(w²+h²)/w`.
+
+**Proper motion**:
+Slow apparent stellar motion; catalogs give epoch position + annual rate.
+
+**Lost-in-space**:
+Solving with no prior attitude (the mode implemented here).
+
+**Hinted solving**:
+Solving a frame with a prior estimate of where it points, such as the previous frame's attitude; the opposite of lost-in-space.
+_Avoid_: tracking mode
+
+**Hot pixel**:
+Defective sensor pixel bright in isolation; must not be mistaken for a star.
+
+**Cluster-buster**:
+Density thinning so dense clusters (e.g. Pleiades) don't monopolize pattern generation/selection.

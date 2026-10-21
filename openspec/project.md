@@ -132,24 +132,8 @@ identical matched catalog IDs).
 
 ## 6. Glossary
 
-- **Centroid** — sub-pixel `(y,x)` location of a detected star.
-- **Pattern** — a group of 4 stars used as a matching unit.
-- **Pattern key / geometric hash** — the 5 sorted, quantized, normalized edge ratios of a pattern;
-  the content-addressable, rotation- and scale-invariant fingerprint.
-- **Edge** — angular distance between a pair of pattern stars (6 per pattern).
-- **Largest edge** — max of the 6 edges; the normalizer and an angular-size (→FOV) proxy.
-- **Hash table / pattern catalog** — open-addressed array mapping pattern-key hash → pattern.
-- **Probing** — open-addressing collision resolution: quadratic (`hash+c²`) or linear (`hash+c`).
-- **Verification star** — a catalog star kept densely for Stage-B match counting.
-- **Attitude / rotation matrix** — 3-axis orientation relating camera and sky frames.
-- **Boresight** — the camera optical axis direction (image center).
-- **Roll** — rotation about the boresight relative to celestial north.
-- **FOV** — field of view (horizontal unless stated); **diagonal FOV** = `fov·√(w²+h²)/w`.
-- **Proper motion** — slow apparent stellar motion; catalogs give epoch position + annual rate.
-- **Lost-in-space** — solving with no prior attitude (the mode implemented here).
-- **Hot pixel** — defective sensor pixel bright in isolation; must not be mistaken for a star.
-- **Cluster-buster** — density thinning so dense clusters (e.g. Pleiades) don't monopolize
-  pattern generation/selection.
+The project's vocabulary, solver and observing terms alike, lives in the root
+[`GLOSSARY.md`](../GLOSSARY.md). Specs use its terms.
 
 ## 7. Conventions for authoring changes
 
