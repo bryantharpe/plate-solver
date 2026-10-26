@@ -24,7 +24,8 @@ console's guards, so an AI can never point the 16-inch aperture at the Sun.
 - **Safety is not passed through.** Every tool that can move the telescope goes through the
   page's guards: the Sun guard, the minimum altitude, the horizon, feat-14's motion and path
   checks, the cable rule, Stop wins and the watchdog. A rate move has a duration and stops at its
-  end. Stop and stop all are always listed and never refused.
+  end, and moving tools share a rate limit of 2 calls a second. Stop and stop all are always
+  listed, never limited and never refused.
 - The session records whether the current motion came from the page or an MCP client; the page
   says so, and Setup shows the MCP address.
 - **No MCP on the scope node.** The Pi is controlled only over the existing `scope_node.v1` link,

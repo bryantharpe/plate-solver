@@ -168,6 +168,13 @@ of their own, built from the same pieces:
 *Alternative:* pass the raw calls through and trust the node's watchdog. Rejected: the watchdog
 catches a silent console, not a bad direction.
 
+### A rate limit on moves
+
+The tools page says servers MUST rate limit tool invocations. Moving tools share one limit of 2
+calls a second across all clients; a call over it is refused with `isError: true` and moves
+nothing. Reads, `stop` and `stop_all` are never limited. That stops a looping client from
+flooding the scope link's queue, and leaves Stop untouched.
+
 ### Who moved it
 
 The session gains `motion: {by, tool, since}`, set when a GoTo, axis move or tracking starts
@@ -220,7 +227,9 @@ the true eyepiece direction sampled every 0.1 s as the oracle. One Playwright fl
    can't be checked.
 5. **`move_axis` takes a duration of at most 30 s** and stops at its end. Recommended: 30 s.
 6. **MCP is on by default**, with `finder --no-mcp` to turn it off. Recommended: on.
-7. **No confirmation on the page** for an MCP motion, as decided; the page shows "Moved by an
+7. **A rate limit of 2 moving calls a second**, across all clients, with reads and Stop
+   unlimited. Recommended: 2 per second.
+8. **No confirmation on the page** for an MCP motion, as decided; the page shows "Moved by an
    MCP client". Recommended: keep the note.
 
 ## Open Questions

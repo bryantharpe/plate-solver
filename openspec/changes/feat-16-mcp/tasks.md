@@ -25,6 +25,7 @@
 - [ ] 4.6 Add `move_axis` with the 30 s cap, the forecast stop and the end-of-duration stop; verified by the "A rate toward the Sun", "The duration ends" and "Too long" tests, sampling the simulator every 0.1 s of virtual time
 - [ ] 4.7 Log every moving or stopping MCP call to stderr with tool, arguments and result; verified by a test that captures the log for one `goto_target` and one `stop_all`
 - [ ] 4.8 Check that the scope node's token never leaves the console; verified by the "The token stays home" test, with a low-entropy test token
+- [ ] 4.9 Add the shared rate limit on moving tools, leaving reads and Stop unlimited; verified by the "A burst of moves" test against the simulator's command log
 
 ## 5. Tracking tools (after feat-15)
 

@@ -46,7 +46,9 @@ From the [tools page](https://modelcontextprotocol.io/specification/2025-06-18/s
 - Each tool has a `name`, a `description`, an `inputSchema` (JSON Schema) and, since 2025-06-18, an optional `outputSchema` with `structuredContent` in the result. Servers that return structured content should also return it as text for older clients.
 - **Errors.** A failure inside a tool (a refusal, a bad argument the model can fix) is a result with `isError: true` and a message, so the model sees it. JSON-RPC errors are for protocol problems such as an unknown tool.
 - **Annotations** are hints, not guarantees: `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`. Clients must not rely on them for safety, so the console's guards cannot depend on a client honouring them.
-- The specification says hosts SHOULD keep a human in the loop for tool calls. The owner has decided against a confirmation on the page (2026-10-25); a client may still ask its own user.
+- **Human in the loop.** "For trust & safety and security, there **SHOULD** always be a human in the loop with the ability to deny tool invocations"; applications SHOULD show which tools are exposed, show when they are invoked, and present confirmation prompts. The owner has decided against a confirmation on the page (2026-10-25); a client may still ask its own user, and the page shows when an MCP client is moving the telescope.
+- **Server duties** (§Security Considerations): servers MUST validate all tool inputs, implement proper access controls, rate limit tool invocations and sanitise tool outputs. Clients SHOULD time out tool calls and log tool usage.
+- Annotations: "clients **MUST** consider tool annotations to be untrusted unless they come from trusted servers." (All checked against the [2025-06-18 tools page](https://modelcontextprotocol.io/specification/2025-06-18/server/tools), 2026-10-25.)
 
 ## 5. The Rust SDK: `rmcp`
 

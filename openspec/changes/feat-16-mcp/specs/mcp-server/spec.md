@@ -207,6 +207,18 @@ within 1 s, or on Stop.
 - **WHEN** `move_axis` is called with a duration of 60 s
 - **THEN** the result has `isError: true` and no axis moves
 
+### Requirement: A rate limit on moving tools
+
+The endpoint SHALL accept at most 2 calls a second to the tools that can move the telescope,
+across all MCP clients, refusing the excess with `isError: true` and moving nothing for them.
+Reads, `stop` and `stop_all` SHALL NOT be limited.
+**Refs**: MCP specification 2025-06-18, Tools (Security Considerations: rate limit tool invocations); docs/research/2026-10-25-mcp-server.md §4
+
+#### Scenario: A burst of moves
+- **WHEN** ten `move_axis` calls arrive within 1 s of virtual time, followed by `stop_all`
+- **THEN** at most 2 are carried out, the rest have `isError: true` saying the rate limit was
+  reached, and `stop_all` stops both axes (oracle: the simulator's command log, exact count)
+
 ### Requirement: Stop is always there
 
 `stop` and `stop_all` SHALL be listed in every state once the mount tools have landed, SHALL never
