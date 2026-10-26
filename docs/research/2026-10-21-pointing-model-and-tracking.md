@@ -111,7 +111,7 @@ E_true = E_enc + IE − AN·cos A + AW·sin A − TF·cos E                     
 ```
 dh/dt = ω cos φ sin A = −ω cos φ cos δ sin H / cos h
 dA/dt = ω (sin φ − cos φ cos A tan h) = ω (sin φ − sin δ sin h) / cos²h
-dq/dt (field rotation) = ω cos φ cos A / cos h
+dq/dt (field rotation) = −ω cos φ cos A / cos h   (A north through east; Meeus measures A from the south)
 ```
 
 **Worked values**, checked by hand on 2026-10-21, at φ 40°, δ 20°:
