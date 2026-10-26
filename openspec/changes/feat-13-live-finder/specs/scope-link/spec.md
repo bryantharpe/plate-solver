@@ -59,8 +59,9 @@ frame after the console asks.
 
 The console and node SHALL exchange heartbeats at least every 250 ms, each recording t0 (console
 sends), t1 (node receives), t2 (node replies) and t3 (console receives). The console SHALL map
-node time to its own with the offset ((t1 − t0) + (t2 − t3)) / 2 of the recent exchange with the
-least delay (t3 − t0) − (t2 − t1).
+node time to its own with the offset ((t1 − t0) + (t2 − t3)) / 2 of the exchange with the least
+delay (t3 − t0) − (t2 − t1) among those of the last 8 s, so that node time T is T − offset on
+the console's clock.
 **Refs**: RFC 5905 §8 (NTP's offset and delay); docs/research/2026-10-21-pointing-model-and-tracking.md §4 (1 s is 15″)
 
 #### Scenario: A worked exchange
@@ -68,6 +69,11 @@ least delay (t3 − t0) − (t2 − t1).
   has t0 101.000, t1 101.150, t2 101.151 and t3 101.121 s
 - **THEN** A's delay is 0.040 s and B's 0.120 s, and the offset used is A's, +0.050 s (within
   1 µs)
+
+#### Scenario: An old best exchange
+- **WHEN** the least-delay exchange (delay 0.010 s, offset +0.020 s) is 9 s old and every
+  exchange of the last 8 s has delay 0.040 s and offset +0.050 s
+- **THEN** the offset used is +0.050 s (within 1 µs), and node time 200.100 s maps to 200.050 s
 
 #### Scenario: Often enough
 - **WHEN** a link runs for 10 s of virtual time
@@ -83,7 +89,7 @@ report the link's state, the latest frame's age and the clock offset.
 #### Scenario: The node goes away and comes back
 - **WHEN** the simulator's node stops answering for 3 s of virtual time and then answers again
 - **THEN** the console reports it disconnected 1 s (±0.1 s) after the last heartbeat, and
-  connected again within 5 s of its return
+  connected again within 5.5 s of its return
 
 ### Requirement: Settings from the console
 

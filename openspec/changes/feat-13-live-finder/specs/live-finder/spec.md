@@ -31,9 +31,9 @@ as the estimate for the next solve, dropping the estimate after three solves in 
 
 ### Requirement: Timed at mid-exposure
 
-Each live pointing SHALL be timed at its frame's mid-exposure, mapped from the node's clock to the
-console's with the link's clock offset, and its altitude and azimuth SHALL be computed for that
-time.
+Each live pointing's frame time (observing-session "The latest pointing") SHALL be its frame's
+mid-exposure, mapped from the node's clock to the console's with the link's clock offset, and
+its altitude and azimuth SHALL be computed for that time.
 **Refs**: scope-link "Clock mapping"; docs/research/2026-10-21-pointing-model-and-tracking.md §4 (1 s of clock is 15″)
 
 #### Scenario: A worked timing
@@ -44,15 +44,16 @@ time.
 ### Requirement: The live chart
 
 While a scope node is connected, the page SHALL update its chart with each live solve over a
-server-sent event stream, show the node's previews under the frame through night mode's
-red-only filter, and say when the newest pointing is older than 5 s. With no node connected the
-page SHALL open no stream and behave as it did before.
+server-sent event stream and show the node's previews under the frame through night mode's
+red-only filter. With no node connected the page SHALL open no stream and behave as it did
+before.
 **Refs**: finder-console "Night mode is red on black", "Works offline"; DESIGN.md (the Red Torch Rule)
 
 #### Scenario: Live from the simulator
 - **WHEN** the page is open on `finder --simulate` and the simulated telescope is pushed
 - **THEN** within 2 s the chart shows a pointing within 30″ of the simulator's new true
-  direction, and the preview appears under the frame
+  direction, and within 5.5 s a preview of a frame exposed after the push appears under the
+  frame
 
 #### Scenario: No node, no stream
 - **WHEN** the page is open on a console with no scope node
@@ -62,6 +63,17 @@ page SHALL open no stream and behave as it did before.
 - **WHEN** the live chart with a preview is shown in night mode
 - **THEN** the night pixel check finds no pixel with any green or blue, and none redder than the
   ink beyond two levels of compositing rounding
+
+### Requirement: A stale pointing on the page
+
+While a scope node is connected, the page SHALL stop showing a turn and tilt, and say that the
+pointing is stale, within 1 s of the newest live pointing passing 5 s old.
+**Refs**: live-finder "Fresh pointings only"; finder-console "The guidance block"
+
+#### Scenario: Frames stop on the simulator
+- **WHEN** M78 is the target on `finder --simulate` and the simulator's frames stop
+- **THEN** within 6 s of the last frame's mid-exposure, by the virtual clock, the guidance block
+  and the chart say the pointing is stale and show no turn or tilt
 
 ### Requirement: Calibrating the aim point
 

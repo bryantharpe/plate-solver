@@ -66,3 +66,18 @@ never connect to a real scope node, whatever address the session holds.
 - **WHEN** the session holds the address of a listening test server and `finder --simulate` runs
   for 5 s
 - **THEN** that server receives no connection
+
+#### Scenario: No virtual clock without the simulator
+- **WHEN** `finder --sim-start 2026-01-16T02:00:00Z` is run without `--simulate`
+- **THEN** it exits nonzero with a message naming `--sim-start`, and serves nothing
+
+### Requirement: The simulator's own state
+
+`finder --simulate` SHALL keep its session in its own state file, under a `simulate` folder
+within the default state folder unless `--state` is given, and SHALL never write the default
+state file.
+**Refs**: observing-session "Kept across restarts", "The aim point in the session"
+
+#### Scenario: A desk session leaves the night's alone
+- **WHEN** `finder --simulate` runs without `--state` and the aim point and node address are set
+- **THEN** the default (non-simulate) state file is unchanged byte for byte

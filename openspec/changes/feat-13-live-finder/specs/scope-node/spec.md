@@ -60,9 +60,9 @@ same frame and the same detection settings the node's centroids equal the consol
 
 ### Requirement: Auto-exposure
 
-Unless the console has set the exposure and gain, the scope node SHALL adjust them so frames hold
-25 to 40 detected stars, aiming at 30. Exposure and gain the console has set SHALL be held as
-set.
+The scope node SHALL adjust whichever of exposure and gain the console has left automatic so
+frames hold 25 to 40 detected stars, aiming at 30. Exposure and gain the console has set SHALL be
+held as set.
 **Refs**: docs/research/2026-10-21-pointing-model-and-tracking.md §2 (Cedar and PiFinder solve 10–30 times a second); plate-solver "Solve inputs and defaults"
 
 #### Scenario: From too few stars
@@ -73,6 +73,12 @@ set.
 #### Scenario: Manual settings
 - **WHEN** the console sets 200 ms and gain 4 and the field changes to one that gives 5 stars
 - **THEN** every later frame is still at 200 ms and gain 4
+
+#### Scenario: Exposure set, gain automatic
+- **WHEN** the console sets 200 ms with gain automatic and the field changes to one that gives
+  5 stars on the simulated camera
+- **THEN** every later frame is at 200 ms, and within 6 frames the gain has moved the star count
+  to between 25 and 40
 
 ### Requirement: A configured service
 

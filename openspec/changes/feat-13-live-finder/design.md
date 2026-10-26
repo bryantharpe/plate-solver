@@ -169,7 +169,9 @@ comes from the parallactic angle.
 Both exercise every call a real node gets.
 
 **State.** `--simulate` defaults `--state` to a `simulate` subfolder, so a desk session never
-overwrites the night's real site, target or node address.
+overwrites the night's real site, target, node address or aim point (simulator "The
+simulator's own state"). `--sim-start` without `--simulate` is refused, so a virtual clock never
+reaches a real node.
 
 **Pushed by hand.** `POST /api/sim/telescope` (altitude/azimuth, or a turn and tilt) is routed
 only under `--simulate`, behind the same-origin check.
@@ -227,7 +229,9 @@ It is parsed with serde's `deny_unknown_fields`. `--check-config` prints it with
 `****`.
 
 **Build.** A static `aarch64-unknown-linux-musl` binary from WSL, because Pi OS's glibc is older
-than Ubuntu 26.04's. `crates/scope-node/README.md` documents:
+than Ubuntu 26.04's. The musl build takes its target and flags on the command line (or from the
+user's own `~/.cargo/config.toml`); the repository gets no `.cargo/config.toml`, which
+`scripts/ci/e2e-eval.sh` refuses. `crates/scope-node/README.md` documents:
 - the systemd unit (`Restart=always`, a dedicated user in the `video` group);
 - that the config file is mode 0600.
 

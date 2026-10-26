@@ -37,6 +37,23 @@ them across restarts, and send them to the scope node when they change and when 
 - **WHEN** an exposure longer than the connected camera's range is put
 - **THEN** the answer is 400 with a JSON `error` naming the range, and nothing changes
 
+#### Scenario: Camera settings kept
+- **WHEN** an exposure of 200 ms, gain 4 and a threshold of 5σ are set and the binary restarts on
+  the same `--state` folder
+- **THEN** all three are exactly as set
+
+### Requirement: Stored settings a camera can't take
+
+When a scope node connects whose camera's range excludes a stored exposure or gain, the console
+SHALL send automatic for that setting, keeping the stored value, and Setup SHALL say so.
+**Refs**: observing-session "Camera settings in the session"; scope-node "Auto-exposure"
+
+#### Scenario: A smaller range
+- **WHEN** an exposure of 2000 ms is stored and the simulator connects with its camera's range
+  set to at most 1000 ms
+- **THEN** the simulator's frames report automatic exposure from the second frame after
+  connecting, and Setup says the stored 2000 ms is outside the camera's range
+
 ### Requirement: The aim point in the session
 
 The session SHALL hold the aim point as a pixel position in the finder camera's frame, kept

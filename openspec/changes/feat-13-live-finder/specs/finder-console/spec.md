@@ -33,7 +33,7 @@ least 10 stars have not solved for 30 s.
 - **THEN** Setup shows it with the warning
 
 #### Scenario: Frames that never solve
-- **WHEN** the simulator's camera is set to an 8° field and streams frames of 25 or more stars for
-  30 s of virtual time, none of which solves
+- **WHEN** the simulator streams frames of 25 or more stars for 30 s of virtual time and every
+  solve fails (an injected failing solver, the seam "A slow solver" uses)
 - **THEN** Setup warns that the camera's field may be outside the database's 10–30° range and that
   a matching database may be needed
