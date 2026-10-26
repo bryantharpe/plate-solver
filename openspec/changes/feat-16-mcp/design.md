@@ -84,21 +84,22 @@ so it reaches the LAN only when the page does: the console's default `--listen` 
 - The phone reaches `http://<surface>:<port>/mcp` through whatever the owner set up for the
   page: mirrored mode with a Hyper-V firewall rule (what the finder README documents), or
   `netsh interface portproxy` and a Windows firewall rule under NAT.
-- Setup lists the URLs the console can see for itself (localhost and each non-loopback address
-  of the host), so the owner can paste one into a client. Under NAT the WSL address it sees is
-  not the Surface's LAN address; Setup says so and names the README's section.
+- Setup lists the URLs the listen address serves: only `localhost` under the default, and
+  otherwise localhost and each non-loopback address of the host, so the owner can paste one
+  into a client. Under NAT the WSL address it sees is not the Surface's LAN address; Setup says
+  so and names the README's section.
 
 ### Open, with `Origin`, `Host` and the peer checked
 
 The MCP specification says servers MUST validate `Origin` against DNS rebinding, SHOULD bind to
-localhost, and SHOULD authenticate. The console keeps the MUST and, by the owner's decision,
-not the two SHOULDs: it listens where the page listens, and asks for no token.
+localhost, and SHOULD authenticate. The console keeps the MUST. It binds to localhost by
+default, and the owner opens it to the LAN with `--listen` as for the page; by the owner's
+decision it asks for no token.
 
 **What it checks, before running anything:**
 1. `Origin`, if present, must name the origin the request was sent to (feat-12's rule).
 2. The host in `Host`, and in `Origin` when present, must be an IP literal, `localhost`, or a
    name given with `--mcp-allow-host` (repeatable; for example the Surface's `.local` name).
-
 3. The peer address must be loopback, private (RFC 1918), link-local, or an IPv6 unique local
    address (`fc00::/7`).
 
@@ -120,6 +121,11 @@ a stop; if it is not, nothing in it runs. From a JSON-RPC batch (allowed by revi
 2025-06-18) that fails a check, only the stops run, so a move can't ride in on a stop. A stop
 is also carried out when the answer must be an error for another reason, such as an unsupported
 `MCP-Protocol-Version`: the 400 still goes back, after the stop.
+
+To make that hold whatever `rmcp` does, the console's layer carries out a stop itself, calling
+the same Stop function as `POST /api/stop`, before the request reaches `rmcp`. Nothing in the
+SDK (its `Accept` and protocol-version checks, a missing `initialize`, a future default) can
+then stand in front of a stop; `rmcp` still builds the answer.
 
 *Alternative:* a token, as the scope link has. Rejected by the owner: clients on the house LAN
 are trusted. Listed below to confirm.

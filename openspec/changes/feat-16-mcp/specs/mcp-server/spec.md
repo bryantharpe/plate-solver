@@ -217,8 +217,8 @@ when the night has no sync, because the console cannot then tell where it would 
 - **THEN** the result has `isError: true` saying the position is too low, and no axis moves
 
 #### Scenario: Climbing from low down
-- **WHEN** the telescope points 3° up with a minimum altitude of 15°, and `move_axis` turns the
-  altitude axis up at 1°/s for 20 s
+- **WHEN** at night, after a sync, the telescope points 3° up with a minimum altitude of 15°,
+  and `move_axis` turns the altitude axis up at 1°/s for 20 s
 - **THEN** the move is carried out and the axis is commanded to stop 20.0 ± 0.1 s of virtual
   time after the call (oracle: the simulator's command log)
 
@@ -240,8 +240,8 @@ while it runs (the Sun rising, a new minimum altitude) brings into its path.
 **Refs**: scope-link "Mount calls"; goto "Halts"; scope-node "Stop wins, and a watchdog"; design.md (direct axis moves)
 
 #### Scenario: The duration ends
-- **WHEN** `move_axis` turns the altitude axis at 0.5°/s for 10 s on the simulator, clear of
-  every limit
+- **WHEN** at night, after a sync, `move_axis` turns the altitude axis at 0.5°/s for 10 s on the
+  simulator, clear of every limit
 - **THEN** the axis is commanded to stop 10.0 ± 0.1 s of virtual time after the call, and has
   moved 5.0° less the simulated mount's acceleration ramp (oracle: the simulator's motion model,
   within 0.1°)
@@ -251,8 +251,8 @@ while it runs (the Sun rising, a new minimum altitude) brings into its path.
 - **THEN** the result has `isError: true` and no axis moves
 
 #### Scenario: The client goes away
-- **WHEN** `move_axis` turns the azimuth axis for 20 s, and the MCP client then closes its
-  connection and sends nothing more
+- **WHEN** at night, after a sync, `move_axis` turns the azimuth axis for 20 s clear of every
+  limit, and the MCP client then closes its connection and sends nothing more
 - **THEN** the axis is commanded to stop 20.0 ± 0.1 s of virtual time after the call, and the
   console's heartbeats to the node carry on throughout (oracle: the simulator's command and
   heartbeat logs)
@@ -271,7 +271,8 @@ Reads, `stop` and `stop_all` SHALL NOT be limited.
 **Refs**: MCP specification 2025-06-18, Tools (Security Considerations: rate limit tool invocations); docs/research/2026-10-25-mcp-server.md §4
 
 #### Scenario: A burst of moves
-- **WHEN** ten `move_axis` calls arrive within 1 s of virtual time, followed by `stop_all`
+- **WHEN** at night, after a sync, ten `move_axis` calls clear of every limit arrive within 1 s
+  of virtual time, followed by `stop_all`
 - **THEN** at most 2 are carried out, the rest have `isError: true` saying the rate limit was
   reached, and `stop_all` stops both axes (oracle: the simulator's command log, exact count)
 
@@ -294,6 +295,12 @@ all. A stop SHALL be carried out even when the answer must be an error.
   simulator
 - **THEN** the answer is 400, and both axes are still commanded to stop within 0.1 s of virtual
   time
+
+#### Scenario: A bare stop
+- **WHEN** a `tools/call` of `stop_all` is posted with no `initialize` before it, no `Accept`
+  header and no `MCP-Protocol-Version`, while a GoTo runs on the simulator
+- **THEN** both axes are commanded to stop within 0.1 s of virtual time and the GoTo is halted
+  with the reason Stop, whatever the answer's status (oracle: the simulator's command log)
 
 #### Scenario: Stop with nothing moving
 - **WHEN** `stop` is called with no mount connected
