@@ -64,7 +64,7 @@ matched stars.*
 ## Functional Scope (the 7 feature capabilities)
 
 In dependency order. Capabilities 1–6 are specified in `openspec/specs/`; `mobile-runtime` is
-still an open change under `openspec/changes/`.
+deferred: its change was archived unapplied on 2026-10-25, under `openspec/changes/archive/`.
 
 1. **`math-core`** — coordinate/vector math, `2·arcsin(d/2)` angles, pinhole projection,
    distortion, Wahba/SVD attitude + RA/Dec/Roll, edge-ratio pattern key + 64-bit hash + table

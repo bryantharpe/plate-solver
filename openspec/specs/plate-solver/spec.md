@@ -38,9 +38,10 @@ the system SHALL start from the database FOV-range midpoint. (Ref: doc 06 §1–
 
 ### Requirement: Noise estimated from the image when not supplied
 
-`noise_estimate` SHALL be optional; when the caller does not supply one, the system SHALL estimate
-noise **from the input image** — the same estimation the centroid-extraction path performs — and
-SHALL NOT substitute a constant.
+`solve_from_image`'s `noise_estimate` (in `DetectParams`) SHALL be optional; when the caller does
+not supply one, the system SHALL estimate noise **from the input image** — the same estimation the
+centroid-extraction path performs — and SHALL NOT substitute a constant. (Ref: doc 06 §1–2; doc 08
+§2; doc 04 §noise estimation.)
 
 #### Scenario: Noise estimated from the image, never a constant
 - **WHEN** `solve_from_image` runs without an explicit `noise_estimate`
