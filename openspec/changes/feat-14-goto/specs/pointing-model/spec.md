@@ -11,7 +11,8 @@ sync, so the console can turn a target into axis positions.
 The console SHALL take as a sync each solved star frame from the scope node that carries axis
 positions, when both axes moved at no more than 0.2°/s during its exposure: the apparent
 altitude and azimuth at the aim point at mid-exposure, with the axis positions interpolated to
-the same moment. Syncs SHALL be thinned to one per 2° of sky per 2 minutes.
+the same moment. Syncs SHALL be thinned to one per 2° of sky per 2 minutes, and corrected or
+held back where another requirement says so.
 **Refs**: GLOSSARY.md (sync, axis position); docs/research/2026-10-21-pointing-model-and-tracking.md §1–2
 
 #### Scenario: A still telescope

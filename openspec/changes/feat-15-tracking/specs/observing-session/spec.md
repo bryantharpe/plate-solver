@@ -17,11 +17,27 @@ down and the target is pointable.
 - **WHEN** Track is turned on with M8 below the horizon as the target
 - **THEN** the answer is 409 saying why, and nothing moves
 
+### Requirement: Turning Track on and off
+
+Turning Track on with the target more than 1′ from the aim point and no GoTo running SHALL start
+a GoTo first; turning it off SHALL stop tracking and both axes, leaving the telescope where it
+is.
+**Refs**: design.md (Track and GoTo together); goto "Halts"
+
+#### Scenario: Track on starts a GoTo
+- **WHEN** Track is turned on with M42 5° from the aim point and no GoTo running on the simulator
+- **THEN** a GoTo to M42 starts, and tracking starts within 2 s of its end
+
+#### Scenario: Track off
+- **WHEN** Track is turned off while M42 is tracked on the simulator
+- **THEN** both axes stop within 0.5 s of virtual time, and the telescope stays where it is
+  (the simulator's true direction moves by less than 1′ after they stop)
+
 ### Requirement: The mount's backlash in the session
 
 The session SHALL keep each axis's measured backlash across restarts and nights, with the fixed
 terms, and SHALL clear it when the fixed terms are reset.
-**Refs**: tracking "Feed-forward rates"; observing-session "The model's state for the night"
+**Refs**: tracking "Backlash at reversals"; observing-session "The model's state for the night"
 
 #### Scenario: Measured once, kept
 - **WHEN** the altitude axis's backlash has been measured on the simulator and the binary

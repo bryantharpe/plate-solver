@@ -4,7 +4,8 @@
 
 While a mount is connected, the guidance block SHALL offer a Track toggle, and while tracking SHALL
 read out the tracking error (RMS over the last minute, in arcseconds), the field rotation (°/min)
-and, with an imaging camera set, the longest exposure for 1 px of smear, or why tracking ended.
+and, with an imaging camera set, the longest exposure for 1 px of smear, or why tracking ended,
+rounded to the nearest arcsecond, 0.01°/min and 0.1 s (or "no limit").
 **Refs**: tracking; sky-ephemeris "Alt-az rates", "The longest exposure"; DESIGN.md (Switch)
 
 #### Scenario: Tracking M42

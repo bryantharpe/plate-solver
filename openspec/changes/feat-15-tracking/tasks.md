@@ -2,15 +2,15 @@
 
 - [ ] 1.1 Add alt-az rates and field rotation to `finder::ephemeris`; verified by the "At transit" and "Two hours before transit" tests
 - [ ] 1.2 Add the longest exposure for an imaging camera; verified by the "A 23.5 × 15.6 mm sensor at transit" and "Due east" tests
-- [ ] 1.3 Add the simulator's rate error; verified by the "One per cent fast" test
+- [ ] 1.3 Add the simulator's rate error, backlash setting and test hook to load its truth into the model; verified by the "One per cent fast", "No backlash" and "The truth loaded" tests
 
 ## 2. Tracking loop
 
 - [ ] 2.1 Add feed-forward rates through the model, sent every second; verified by the "Rates follow the sky" test in virtual time
 - [ ] 2.2 Add the PI correction from solves with the 10″ deadband and the integral kept as a separate tracking offset; verified by the "A mount that runs fast" and "Inside the deadband" tests, fed truth plus noise
-- [ ] 2.3 Measure backlash at reversals, keep it in the session and take it up before later reversals; verified by the "The first reversal measures the backlash", "Later reversals take it up" and "Measured once, kept" tests in virtual time
-- [ ] 2.4 Add a short tracking test on rendered, solved frames; verified by its errors agreeing with the truth-plus-noise run of the same 2 minutes within 5″ RMS
-- [ ] 2.5 End tracking safely; verified by the "Setting below the minimum altitude", "Stop while tracking" and "Sunrise" tests
+- [ ] 2.3 Measure backlash at reversals, keep it in the session and take it up before later reversals; verified by the "The first reversal measures the backlash", "Later reversals take it up", "An azimuth reversal", "Measured once, kept" and "Syncs after a transit" tests in virtual time
+- [ ] 2.4 Add a short tracking test on rendered, solved frames; verified by the "Rendered frames agree with truth plus noise" test (within 5″ RMS)
+- [ ] 2.5 End tracking safely; verified by the "Setting below the minimum altitude", "Stop while tracking", "Link lost while tracking" and "Sunrise" tests
 
 ## 3. Zenith keyhole
 
@@ -18,7 +18,7 @@
 
 ## 4. Page and Setup
 
-- [ ] 4.1 Add `POST /api/track`, Track and the imaging camera to the session; verified by the "On after a GoTo", "Refused", "Kept" and "An impossible pixel pitch" API tests
+- [ ] 4.1 Add `POST /api/track`, Track and the imaging camera to the session; verified by the "On after a GoTo", "Refused", "Track on starts a GoTo", "Track off", "Kept" and "An impossible pixel pitch" API tests
 - [ ] 4.2 Add the Track toggle and readout to the guidance block; verified by Vitest tests for "Tracking ended" and the readout's rounding on a recorded session
 - [ ] 4.3 Add Setup's imaging camera section; verified by Vitest tests for "A camera set on Setup" and "A pitch of zero"
 - [ ] 4.4 Run the Impeccable pass on the Track toggle, readout and imaging camera section, and update `DESIGN.md`; verified by a ship verdict from the finish review

@@ -15,7 +15,7 @@ enough toward imaging to report field rotation and the longest exposure for an i
   - feed-forward axis rates from the pointing model, updated at least once a second;
   - corrected by proportional-integral control from the finder camera's solves every 1–5 s, with a 10″
     deadband;
-  - before an axis reverses (the altitude axis at every transit), it takes up that axis's
+  - before an axis reverses (the altitude axis at every transit, the azimuth axis at greatest elongation when δ > φ), it takes up that axis's
     backlash, measured at the first reversal and kept with the fixed terms;
   - near the zenith (within 2°), it lets the target pass and picks it up where it leaves;
   - it ends safely, and says why, on Stop, a lost link, sunrise, or the target sinking below the
@@ -38,8 +38,12 @@ enough toward imaging to report field rotation and the longest exposure for an i
 All introduced earlier in this set; each delta only ADDs:
 
 - `sky-ephemeris`: alt-az rates, field rotation and the longest exposure.
-- `simulator`: a rate-error setting.
-- `observing-session`: the Track state, the imaging camera and the mount's measured backlash.
+- `simulator`: a rate-error setting, a backlash setting and a test hook that loads its truth
+  into the model.
+- `observing-session`: the Track state (turning it on and off), the imaging camera and the
+  mount's measured backlash.
+- `pointing-model`: syncs taken against the GoTo's approach direction carry the measured
+  backlash (introduced by feat-14).
 - `finder-console`: the Track toggle and readout, and Setup's imaging camera section.
 
 ## Impact

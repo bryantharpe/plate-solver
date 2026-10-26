@@ -16,7 +16,8 @@ sends new rates as the sky turns.
 **The rates** (research note §3):
 - dh/dt = −ω cos φ cos δ sin H / cos h;
 - dA/dt = ω (sin φ − sin δ sin h) / cos² h;
-- dq/dt = ω cos φ cos A / cos h;
+- dq/dt = −ω cos φ cos A / cos h, with A from north through east (Meeus's own formula uses
+  azimuth from the south, hence the sign), so dq/dt is +33.69°/h at φ 40°, δ 20°, transit;
 - all checked by hand at φ 40°, δ 20°.
 
 ## Goals / Non-Goals
@@ -69,14 +70,20 @@ gives syncs along one track.
 
 ### Backlash at reversals
 
-The altitude axis reverses at every transit, and the simulator's 0.3° of backlash (1,080″)
-would throw the target far out of a high-power eyepiece.
+The altitude axis reverses at every transit, and the azimuth axis at greatest elongation for
+any target with δ > φ (at φ 40°: M81, M82, M101, Capella), where sin H = sin φ / sin δ. The
+simulator's 0.3° of backlash (1,080″) on each axis would throw the target far out of a
+high-power eyepiece.
 - **Measuring.** At an axis's first reversal of the mount's life, the closed loop sees the
   error jump along that axis; the size of the jump, settled over the next solves, is that
   axis's backlash. Later reversals refine it.
 - **Keeping.** The measurement is kept with the fixed terms, since it belongs to the mount.
-- **Taking it up.** Before a planned reversal (the altitude rate changing sign at transit), the
-  tracker stops the axis, drives it through the measured backlash at 0.5°/s, then resumes the
+- **Syncs.** A GoTo's last approach is from below, so its syncs carry the backlash on the upward
+  side. A sync taken while an axis last moved the other way (tracking down after transit) has
+  that axis's measured backlash applied before fitting, and is held back until one is measured;
+  otherwise up to 0.3° would bias IE without reaching the 0.5° slip threshold.
+- **Taking it up.** Before a planned reversal of either axis (its feed-forward rate changing
+  sign within the 30-minute forecast), the tracker stops the axis, drives it through the measured backlash at 0.5°/s, then resumes the
   feed-forward rate. Until a backlash is measured, the closed loop recovers within about 15 s.
 
 ### The zenith keyhole: wait at the exit
@@ -102,6 +109,12 @@ The tracker checks four conditions every second. Any of them stops both axes and
 - the target's geometric altitude below the minimum altitude, as pointable is judged.
 
 The session reports the reason; the page shows it.
+
+### The rate-error scenario
+
+The plan's "0.5% rate error drifts more than 1′ in 10 min" does not hold: 0.5% of the 8,985″
+M42 moves in 10 minutes is about 45″. The scenario uses 1% (about 90″), pending the owner's
+approval.
 
 ### Track and GoTo together
 

@@ -9,15 +9,20 @@ pointing model, corrected by the finder camera's solves, through the zenith, and
 
 While tracking, the console SHALL command each axis at the rate that keeps the target's apparent
 place at the aim point through the pointing model, recomputed and sent at least once a second.
-When an axis must reverse, it SHALL first take up that axis's backlash, as last measured on this
-mount.
 **Refs**: sky-ephemeris "Alt-az rates"; pointing-model; docs/research/2026-10-21-synscan-mount-control.md §3 (the host computes alt-az tracking)
 
 #### Scenario: Rates follow the sky
-- **WHEN** M42 is tracked on a simulator with no rate error, no backlash and a perfect model for
-  10 minutes of virtual time
+- **WHEN** M42 is tracked on a simulator with no rate error, its backlash set to 0 and its true
+  base tilt and zero points loaded into the console's model, for 10 minutes of virtual time
 - **THEN** a new rate is sent to each axis at least once a second, and the true eyepiece stays
   within 10″ of M42 throughout
+
+### Requirement: Backlash at reversals
+
+The console SHALL measure each axis's backlash at that axis's first reversal on this mount, and
+before each later reversal of either axis, forecast from its feed-forward rate changing sign,
+SHALL stop that axis and take up the measured backlash.
+**Refs**: design.md (Backlash at reversals); simulator "A backlash setting"; docs/research/2026-10-21-synscan-mount-control.md §3
 
 #### Scenario: The first reversal measures the backlash
 - **WHEN** a target is tracked through its transit on the simulator (0.3° of backlash) before
@@ -30,11 +35,19 @@ mount.
 - **THEN** the altitude axis stops, takes up the measured backlash and reverses, and the target
   stays within 30″ of the aim point through the reversal
 
+#### Scenario: An azimuth reversal
+- **WHEN** M81 (Dec +69°) is tracked at latitude 40° through its greatest elongation (hour angle
+  about 43.5°, where its azimuth rate changes sign) on the simulator, after the azimuth axis's
+  backlash has been measured
+- **THEN** the azimuth axis stops, takes up the measured backlash and reverses, and the target
+  stays within 30″ of the aim point through the reversal
+
 ### Requirement: Closed by the finder camera
 
 While tracking, the console SHALL correct the axis rates from at least one solve every 5 s, with
 proportional-integral control on the error between the target and the aim point, resolved into
-the two axes, ignoring errors under 10″.
+the two axes, ignoring errors under 10″: inside that deadband the held integral SHALL keep
+applying but SHALL NOT be updated.
 **Refs**: docs/research/2026-10-21-pointing-model-and-tracking.md §3 (Wallace 2002; PHD2's algorithms)
 
 #### Scenario: A mount that runs fast
@@ -45,8 +58,15 @@ the two axes, ignoring errors under 10″.
   error over the last 8 minutes is at most 20″
 
 #### Scenario: Inside the deadband
-- **WHEN** every solve's error is under 10″
-- **THEN** no correction is applied, and the rates are the feed-forward rates
+- **WHEN** M42 is tracked for 2 minutes of virtual time on a simulator with no rate error,
+  starting with a zero integral, and every pointing's error is under 10″
+- **THEN** each axis's commanded rate equals the feed-forward rate within 0.001″/s, and the
+  tracking offset stays 0
+
+#### Scenario: Rendered frames agree with truth plus noise
+- **WHEN** M42 is tracked for the same 2 minutes of virtual time on the simulator twice, once on
+  rendered and solved frames and once on its truth plus 3″ of noise every 2 s
+- **THEN** the two runs' tracking errors agree within 5″ RMS
 
 ### Requirement: The zenith keyhole
 
@@ -76,6 +96,11 @@ minimum altitude, and the console SHALL report which.
 - **WHEN** Stop is sent while tracking
 - **THEN** both axes stop within 0.5 s of virtual time and tracking reports the observer stopped
   it
+
+#### Scenario: Link lost while tracking
+- **WHEN** the simulator's link stops answering heartbeats while M42 is tracked
+- **THEN** the node stops both axes 1.0 ± 0.1 s after the last heartbeat by its watchdog,
+  tracking ends saying the link was lost, and it does not resume when the link returns
 
 #### Scenario: Sunrise
 - **WHEN** the virtual clock passes the moment the Sun's centre reaches −0.83° while tracking

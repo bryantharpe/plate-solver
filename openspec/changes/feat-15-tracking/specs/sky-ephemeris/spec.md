@@ -4,13 +4,14 @@
 
 The system SHALL compute, for a position at a site and time, the rates of its altitude and
 azimuth, and of field rotation (the parallactic angle), from the spherical relations of Meeus
-ch. 13 and 14, in arcseconds per second.
+ch. 13 and 14: the altitude and azimuth rates in arcseconds per second and field rotation in
+degrees per hour, positive when the parallactic angle increases.
 **Refs**: Meeus ch. 13, 14; SLALIB sla_ALTAZ; docs/research/2026-10-21-pointing-model-and-tracking.md §3
 
 #### Scenario: At transit
 - **WHEN** the rates are computed at latitude 40°, declination 20°, hour angle 0
 - **THEN** the altitude rate is 0 (within 0.01″/s), the azimuth rate 41.33″/s (within
-  0.02″/s) and the field rotation 33.69°/h (within 0.02°/h)
+  0.02″/s) and the field rotation +33.69°/h, the parallactic angle increasing (within 0.02°/h)
 
 #### Scenario: Two hours before transit
 - **WHEN** they are computed at hour angle −30°
