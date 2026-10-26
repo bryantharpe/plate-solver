@@ -9,16 +9,28 @@ field, and what to look at next, at the telescope in a red-on-black night mode a
 
 ### Requirement: Serve the console from one binary
 
-The system SHALL provide a `finder` binary that loads one pattern database (`--db`, default
-cedar's `default_database.npz`) and a folder of sample frames (`--samples`, default cedar's
-`medium_fov` examples), and serves the JSON API under `/api/` and the page on one address
-(`--listen`, default `127.0.0.1:8080`). The page's production build SHALL be embedded in the
-binary, so building the crate never needs Node. Any path without a file extension SHALL serve
-the page's `index.html`; fingerprinted files under `assets/` SHALL be cacheable for a year and
-everything else revalidated; a missing page file SHALL answer 404, and an unknown `/api/` route
-SHALL answer 404 with a JSON `{"error": "..."}` body. (Ref: `src/main.rs`, `src/api.rs` `router`,
-`page`; tests: `the_page_is_served_and_routes_fall_back_to_it`, `page_types`,
+The system SHALL provide a `finder` binary that loads one pattern database (`--db`, default cedar's
+`default_database.npz`) and a folder of sample frames (`--samples`, default cedar's `medium_fov`
+examples), and serves the JSON API under `/api/` and the page on one address (`--listen`, default
+`127.0.0.1:8080`). (Ref: `src/main.rs`, `src/api.rs` `router`, `page`; tests:
+`the_page_is_served_and_routes_fall_back_to_it`, `page_types`,
 `samples_are_listed_served_and_previewed`.)
+
+#### Scenario: The page is built in
+- **WHEN** the crate is built
+- **THEN** the page's production build SHALL be embedded in the binary, so building the crate never needs Node
+
+#### Scenario: The committed build is the build of the source
+- **WHEN** CI rebuilds the page from source
+- **THEN** the result is identical to the committed `web/dist`, or the `finder-page` job fails
+
+### Requirement: Page routes and caching
+
+Any path without a file extension SHALL serve the page's `index.html`; fingerprinted files under
+`assets/` SHALL be cacheable for a year and everything else revalidated; a missing page file SHALL
+answer 404, and an unknown `/api/` route SHALL answer 404 with a JSON `{"error": "..."}` body.
+(Ref: `src/api.rs` `router`, `page`; tests: `the_page_is_served_and_routes_fall_back_to_it`,
+`page_types`.)
 
 #### Scenario: The page and its routes
 - **WHEN** a browser requests `/`, `/index.html` or `/some/route`
@@ -27,10 +39,6 @@ SHALL answer 404 with a JSON `{"error": "..."}` body. (Ref: `src/main.rs`, `src/
 #### Scenario: Unknown API route
 - **WHEN** a client requests `/api/nothing-here`
 - **THEN** the answer is 404 with a JSON `error`
-
-#### Scenario: The committed build is the build of the source
-- **WHEN** CI rebuilds the page from source
-- **THEN** the result is identical to the committed `web/dist`, or the `finder-page` job fails
 
 ### Requirement: Report the loaded database
 
@@ -66,17 +74,16 @@ licenses `web/package-lock.json` pins. (Ref: `THIRD_PARTY_NOTICES.md`, `src/main
 
 ### Requirement: Offer sample frames safely
 
-The system SHALL list the image files (`jpg`, `jpeg`, `png`, `bmp`, `pgm`, `ppm`, `pnm`, any
-case) directly inside the samples folder, sorted by name, each with a readable label (the file
-stem with underscores as spaces, first letter capitalised, a leading capture timestamp
-dropped). It SHALL serve a sample's file and a JPEG preview at most 320 px on its longer side,
-shrunk by keeping each block's brightest pixel and stretched from the sky background to the
-brightest stars, so faint stars survive. Only names from the listing SHALL resolve: any other
-name, including one that climbs out of the folder, SHALL answer 404. (Ref: `src/samples.rs`,
-`src/solve.rs` `thumbnail_jpeg`, `src/api.rs`; tests: `samples_are_listed_served_and_previewed`,
-`scan_lists_images_only_and_paths_resolve_only_for_listed_names`, `names_labels_and_types`,
-`thumbnails_fit_the_box`, `previews_keep_faint_stars`,
-`stretch_takes_the_sky_to_black_and_the_stars_to_white`.)
+The system SHALL list the image files (`jpg`, `jpeg`, `png`, `bmp`, `pgm`, `ppm`, `pnm`, any case)
+directly inside the samples folder, sorted by name, each with a readable label. Only names from the
+listing SHALL resolve: any other name, including one that climbs out of the folder, SHALL answer
+404. (Ref: `src/samples.rs`, `src/api.rs`; tests:
+`samples_are_listed_served_and_previewed`,
+`scan_lists_images_only_and_paths_resolve_only_for_listed_names`, `names_labels_and_types`.)
+
+#### Scenario: Sample labels
+- **WHEN** a sample is listed
+- **THEN** its readable label SHALL be the file stem with underscores as spaces, first letter capitalised, a leading capture timestamp dropped
 
 #### Scenario: Listing skips what is not a frame
 - **WHEN** the samples folder also holds a subfolder and non-image files
@@ -85,6 +92,14 @@ name, including one that climbs out of the folder, SHALL answer 404. (Ref: `src/
 #### Scenario: A path outside the folder
 - **WHEN** a client requests `/api/samples/..%2F..%2FCargo.toml`
 - **THEN** the answer is 404 and no file outside the listing is read
+
+### Requirement: Sample files and previews
+
+The system SHALL serve a sample's file and a JPEG preview at most 320 px on its longer side, shrunk
+by keeping each block's brightest pixel and stretched from the sky background to the brightest
+stars, so faint stars survive. (Ref: `src/solve.rs` `thumbnail_jpeg`, `src/api.rs`; tests:
+`samples_are_listed_served_and_previewed`, `thumbnails_fit_the_box`, `previews_keep_faint_stars`,
+`stretch_takes_the_sky_to_black_and_the_stars_to_white`.)
 
 #### Scenario: A preview keeps a faint star
 - **WHEN** a 1600 × 1200 frame with one faint star is previewed at 160 px
@@ -365,18 +380,29 @@ e2e "the first screen shows where it points…" at both sizes, "the chart sits b
 
 ### Requirement: Choosing a frame
 
-The page SHALL, on a first visit, offer the Orion sample, the device's own frame, and every
-sample with its preview. A frame picker reachable from the top bar SHALL offer the same, plus a
-field-of-view hint (empty for unknown) and a detection threshold; picking a frame SHALL chart it.
-The page SHALL remember the last sample charted and chart it again on the next visit. (Ref:
-`web/src/App.tsx` `FirstRun`, `web/src/components/FramePicker.tsx`, `web/src/settings.ts`;
-tests: App "opens on a first-run card…", "comes back to the last frame…"; FramePicker "offers the
-server's samples…", "opens a frame from the device", "takes a field of view hint…"; settings
-"remembers the last sample charted"; e2e "a frame from the device solves and is charted".)
+The page SHALL, on a first visit, offer the Orion sample, the device's own frame, and every sample
+with its preview. A frame picker reachable from the top bar SHALL offer the same; picking a frame
+SHALL chart it. (Ref: `web/src/App.tsx` `FirstRun`, `web/src/components/FramePicker.tsx`; tests: App "opens on a
+first-run card…"; FramePicker "offers the server's samples…", "opens a frame from the device",
+"takes a field of view hint…"; e2e "a frame from the device solves and is charted".)
+
+#### Scenario: Hints in the frame picker
+- **WHEN** the frame picker is open
+- **THEN** it SHALL also offer a field-of-view hint (empty for unknown) and a detection threshold
 
 #### Scenario: A frame from the phone's gallery
 - **WHEN** the user opens their own frame and chooses the Pleiades image
 - **THEN** the page charts it in Taurus with M45 on the chart
+
+### Requirement: Remember the last frame
+
+The page SHALL remember the last sample charted and chart it again on the next visit. (Ref:
+`web/src/settings.ts`; tests: App "comes back to the last frame…"; settings "remembers the last
+sample charted".)
+
+#### Scenario: The next visit
+- **WHEN** a sample has been charted and the page is opened again
+- **THEN** the page SHALL chart that sample again
 
 ### Requirement: A frame that does not solve
 
