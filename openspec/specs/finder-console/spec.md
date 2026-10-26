@@ -494,23 +494,42 @@ settings "remembers the observing site…", "accepts only real latitudes and lon
 
 ### Requirement: Night mode is red on black
 
-The page SHALL have a night mode, switched in the top bar, that follows the device's dark setting
-until the user chooses and then remembers the choice. In night mode every colour SHALL be on the
-red channel alone, none brighter than the night ink (`#e00000`); photographs, previews and the
-survey view SHALL pass through a filter that maps luminance to red, scaled so white lands just
-under the night ink; and the page SHALL be black before its first paint. Settings SHALL still
-work when the browser blocks storage. (Ref: `web/src/index.css` `[data-theme="night"]`,
-`web/index.html` `#red-only` and the pre-paint script, `web/src/settings.ts` `useNight`; tests:
-theme "redefines every colour…", "puts every colour on the red channel alone…", "filters
-photographs into the red channel by luminance"; settings "follows the device until chosen…",
-"follows a dark device setting…", "still works when storage is blocked"; e2e "night mode puts
-nothing on screen but red, none brighter than the ink…".)
+In night mode every colour SHALL be on the red channel alone, none brighter than the night ink
+(`#e00000`). (Ref: `web/src/index.css` `[data-theme="night"]`, `web/index.html` `#red-only` and the
+pre-paint script; tests: theme "redefines every colour…", "puts every colour on the red channel
+alone…", "filters photographs into the red channel by luminance"; e2e "night mode puts nothing on
+screen but red, none brighter than the ink…".)
+
+#### Scenario: Photographs at night
+- **WHEN** the page is in night mode
+- **THEN** photographs, previews and the survey view SHALL pass through a filter that maps
+  luminance to red, scaled so white lands just under the night ink
+
+#### Scenario: Before the first paint
+- **WHEN** the page loads
+- **THEN** it SHALL be black before its first paint
 
 #### Scenario: Every pixel at night
 - **WHEN** orion2 and virgo are charted in night mode and the frame picker is opened
 - **THEN** screenshots of the whole page and the picker have no pixel with any green or blue, and
-  none redder than the ink beyond two levels of compositing rounding, while the same check on the
+    none redder than the ink beyond two levels of compositing rounding, while the same check on the
   day edition fails
+
+### Requirement: Switching night mode
+
+The page SHALL have a night mode, switched in the top bar, that follows the device's dark setting
+until the user chooses and then remembers the choice. Settings SHALL still work when the browser
+blocks storage. (Ref: `web/src/settings.ts` `useNight`; tests: settings "follows the device until
+chosen…", "follows a dark device setting…", "still works when storage is blocked".)
+
+#### Scenario: Following the device until chosen
+- **WHEN** the user has not chosen a mode
+- **THEN** night mode SHALL follow the device's dark setting
+- **AND** once the user chooses, the page SHALL remember the choice
+
+#### Scenario: Storage blocked
+- **WHEN** the browser blocks storage
+- **THEN** settings SHALL still work
 
 ### Requirement: Day mode is legible
 
