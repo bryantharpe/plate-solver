@@ -15,13 +15,13 @@ SynScan.
   with no hand controller. RS-232 levels can damage the jack.
 - The protocol: 9600 or 115200 baud; on most alt-az boards a single wire, so a TTL cable hears
   its own bytes.
-- About 1,620,000 counts per turn on the motor encoder.
+- About 1,620,000 counts per revolution on the motor encoder.
 - A top rate of about 3.4–4.2°/s.
 - Constant rates only, so the host computes alt-az tracking (feat-15).
 
 **The model** (`docs/research/2026-10-21-pointing-model-and-tracking.md`):
 - TPoint's alt-az terms;
-- one solve fixes IA and only the sum of IE and the tilt along the line of sight;
+- one solve fixes IA and only the sum of IE and the base tilt along the line of sight;
 - a second solve about 90° away fixes IA, IE, AN and AW;
 - the fixed terms want about 20 well-spread observations.
 
@@ -48,7 +48,7 @@ SynScan.
 
 ```
 trait Mount {
-  fn axes(&self) -> [AxisInfo; 2];          // counts per turn, top rate, can_goto
+  fn axes(&self) -> [AxisInfo; 2];          // counts per revolution, top rate, can_goto
   async fn state(&self, axis) -> AxisState;  // position (counts), rate, moving
   async fn goto(&self, axis, position);      // absolute, in counts
   async fn rate(&self, axis, deg_per_s);     // signed
@@ -56,7 +56,7 @@ trait Mount {
 }
 ```
 
-Positions are in the axis's own counts; the console converts with counts per turn. Rates are
+Positions are in the axis's own counts; the console converts with counts per revolution. Rates are
 signed degrees per second, and each adapter turns them into its own units.
 
 ### The Sky-Watcher adapter, in three layers
@@ -78,7 +78,7 @@ signed degrees per second, and each adapter turns them into its own units.
   encoder support) and `:W` (auxiliary encoders off).
 - **Firmware:** below 3.39 is accepted, with a warning that smooth variable-rate tracking may
   not work.
-- **Rates:** set as a step period `:I` = timer frequency × 360 / (°/s) / counts per turn, times
+- **Rates:** set as a step period `:I` = timer frequency × 360 / (°/s) / counts per revolution, times
   the high-speed ratio in fast mode. Fast mode (`:G` codes 0/3) is used above 128× sidereal,
   as INDI does.
 - **Goto:** `:G` (goto mode), `:S` (absolute target), `:J`. If `:S` is refused, the adapter
@@ -131,7 +131,7 @@ The encoder's zero points are arbitrary: IA can be anything. So the forward mode
 3. the base tilt (AN, AW) as an exact rotation of the mount's frame;
 4. CA, NPAE and TF as TPoint's small-angle terms (§7.2).
 
-The finder camera's turn on the tube adds the solve's roll as a third equation per sync,
+The finder camera's rotation on the tube adds the solve's roll as a third equation per sync,
 through the parallactic angle (Meeus ch. 14).
 
 **Fitting.** Levenberg–Marquardt on residuals (ΔA·cos E, ΔE, Δroll), weighted by the solve's
@@ -142,7 +142,7 @@ dependency.
 uncorrected guess, converging in 3–4 steps.
 
 **Epochs and nights.**
-- Each night has its own tilt.
+- Each night has its own base tilt.
 - Each zero-point epoch has its own IA and IE.
 - The fixed terms are shared and kept.
 
@@ -157,8 +157,14 @@ and refined on later nights that qualify. Syncs aren't archived across nights.
   2° zenith circle and is far lower elsewhere.
 - Thinning keeps the newest sync when another lies within 2° and less than 2 minutes older.
 
-**Slips.** A sync more than 0.5° from the prediction starts a new epoch. A mount power-cycled
-mid-night shows up the same way, at its first sync.
+**Slips.** Once the base tilt is fitted, a sync more than 0.5° from the prediction starts a new
+epoch. Before then the prediction is off by up to twice the base tilt (2° for 1°), so the
+threshold is 2.5°; otherwise the second sync itself would open an epoch, and with its own IA
+and IE the base tilt could never be fitted. A mount power-cycled mid-night shows up the same
+way, at its first sync.
+
+**The cable.** The wind is the telescope's azimuth unwrapped continuously from the night's first
+sync, across syncs and epochs, not the raw axis counts, which a power cycle resets.
 
 ### GoTo: a state machine in `finder::goto`
 
@@ -167,17 +173,19 @@ mid-night shows up the same way, at its first sync.
 **Plan.**
 1. Take the target's place at the estimated arrival time (two iterations of the slew-time
    estimate), add refraction, and invert the model.
-2. Choose the azimuth axis value among ±360° candidates that stays within one turn of the
-   night's first sync and is nearest. That unwinds the cable when needed.
+2. Choose the azimuth axis value among ±360° candidates that keeps the unwrapped azimuth within
+   one revolution of the night's first sync and is nearest. That unwinds the cable when needed.
 3. Make each axis's last approach from below: overshoot by 0.5°, more than any backlash a
-   mount like this has (the simulator's is 0.3°), then approach upward.
+   mount like this has (the simulator's is 0.3°), then approach upward. When the altitude
+   overshoot would go under the minimum altitude, the GoTo is refused with that reason.
 
 **The Sun guard.**
 - The path is simulated from the axes' rates and acceleration, at 0.5° steps.
 - If any point comes within 15° of the Sun, the planner tries altitude first, then azimuth
   first, then a dogleg through `max(current, target, Sun's altitude + 20°)`.
 - If none keeps clear, the slew is refused.
-- The Sun's altitude is also checked every second during motion. Reaching −0.83° halts.
+- The Sun's altitude is also checked on the 50 ms tick the watchdog uses during motion.
+  Reaching −0.83° halts.
 
 **Settle and Solve.** Wait until both axes report stopped plus 0.5 s. The first frame whose
 exposure starts after that is solved and taken as a sync.
@@ -228,7 +236,7 @@ takes milliseconds of CPU, and the coverage job (Rust only, 80% floor) counts it
   - no published altitude range;
   - the rocker and ground board limit low altitudes;
   - no azimuth hard stop, so a power cable to the ground can wrap.
-  → GoTo targets are pointable (above the minimum altitude); the one-turn rule unwinds the
+  → GoTo targets are pointable (above the minimum altitude); the one-revolution rule unwinds the
   cable; the adapter reports any range limits it learns at bring-up.
 - **Someone at the eyepiece when the tube moves.** → The console never moves the mount
   unasked: only GoTo, the second sync and (feat-15) Track move it. Stop is always on screen
@@ -249,7 +257,7 @@ Nothing to migrate. Without a mount, the console behaves as after feat-13. At br
 
 ## Open Questions
 
-- The 400P's board and motor firmware version, and its counts per turn. `--probe-mount`
+- The 400P's board and motor firmware version, and its counts per revolution. `--probe-mount`
   records them at bring-up, and they come from the mount, not from the code.
 - Whether `serialport` builds for musl without libudev, or termios is needed. Settled when the
   adapter is first cross-built; either way the adapter's interface is the same.

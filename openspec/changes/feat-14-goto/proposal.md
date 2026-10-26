@@ -29,13 +29,13 @@ fitted from them, and the console slews, solves and corrects until the target is
     and are kept between nights;
   - one tap takes a second sync.
 - **GoTo**:
-  - planning goes through refraction and the model, keeping the cable within one turn;
+  - planning goes through refraction and the model, keeping the cable within one revolution;
   - the Sun guard applies to every motion;
   - a closed loop slews at top speed, approaches from a fixed direction and corrects at most
     5 times, to within 1′;
   - Stop, a lost link or the Sun guard halt the mount;
   - `POST /api/goto` refuses a target that isn't pointable.
-- The session keeps the night's zero points, tilt and syncs, and keeps the fixed terms. The page
+- The session keeps the night's zero points, base tilt and syncs, and keeps the fixed terms. The page
   gains GoTo in the guidance block, Stop in the top bar of every page while the mount may move,
   and a mount and model section on Setup.
 

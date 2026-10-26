@@ -15,7 +15,8 @@ eyepiece direction to tests.
 
 #### Scenario: Top speed
 - **WHEN** a simulated axis is sent 90° away
-- **THEN** it never exceeds 3.4°/s, and takes longer than 90/3.4 s because it accelerates
+- **THEN** it never exceeds 3.4°/s and arrives 27.6 s ± 0.1 s later (90/3.4 + 3.4/3, accelerating
+  and slowing at 3°/s²)
 
 #### Scenario: Stopping from top speed
 - **WHEN** a simulated axis turning at 3.4°/s is told to stop
@@ -23,7 +24,7 @@ eyepiece direction to tests.
 
 #### Scenario: The base is off level
 - **WHEN** the simulated tube is pointed at axis altitude 45° at axis azimuths 0° and 180° (the
-  tilt toward 0°)
+  base tilt toward 0°)
 - **THEN** the true altitudes differ by 2° within 0.01°
 
 ### Requirement: Pushes and slips on the simulated mount

@@ -28,15 +28,15 @@ tall and never covered by a sheet or another control.
 ### Requirement: Setup's mount and model section
 
 The Setup page SHALL have a mount and model section showing the mount's link and board, the
-base tilt ("tilt 0.8° toward 130°"), the model's RMS residual and its number of syncs, with the
+base tilt ("base tilt 0.8° toward 130°"), the model's RMS residual and its number of syncs, with the
 one-tap second sync, and resets for the night's model and for the fixed terms.
 **Refs**: pointing-model (every requirement); observing-session "The model's state for the night"
 
 #### Scenario: After two syncs
 - **WHEN** the simulator (base 1° off level toward azimuth 130°) holds two syncs 90° apart
-- **THEN** Setup reads "tilt 1.0° toward 130°" within 0.1° and 2° of direction, with the RMS and
+- **THEN** Setup reads "base tilt 1.0° toward 130°" within 0.1° and 2° of direction, with the RMS and
   "2 syncs"
 
 #### Scenario: The second sync from Setup
 - **WHEN** the observer taps the second sync with one sync held
-- **THEN** the mount slews, a second sync is taken, and the tilt appears
+- **THEN** the mount slews, a second sync is taken, and the base tilt appears

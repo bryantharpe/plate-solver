@@ -46,13 +46,14 @@ with refraction removed first.
 #### Scenario: One sync is not enough
 - **WHEN** the base is tilted 1° toward azimuth 0°, the only sync is at azimuth 0°, altitude 45°,
   and the model predicts azimuth 180°, altitude 45°
-- **THEN** its error there is 2.00° ± 0.01°, twice the tilt, as the research notes predict
+- **THEN** its error there is 2.00° ± 0.01°, twice the base tilt, as the research notes predict
 
 ### Requirement: Slips
 
-A sync more than 0.5° from the model's prediction SHALL open a new zero-point epoch: the zero
-points SHALL be fitted again from that sync and later ones, keeping the base tilt and the fixed
-terms.
+Once the base tilt is fitted, a sync more than 0.5° from the model's prediction SHALL open a new
+zero-point epoch: the zero points SHALL be fitted again from that sync and later ones, keeping
+the base tilt and the fixed terms. Before then, a sync SHALL open one only when it is more than
+2.5° from the prediction (0.5° plus twice a 1° base tilt).
 **Refs**: docs/research/2026-10-21-synscan-mount-control.md §1 (Freedom Find), §5
 
 #### Scenario: Pushed by hand
@@ -60,6 +61,11 @@ terms.
   solves, and a GoTo is then made
 - **THEN** a new epoch is opened at that sync, and the GoTo still ends with the true eyepiece
   within 1′ of the target
+
+#### Scenario: The second sync is not a slip
+- **WHEN** the simulator (base 1° off level toward azimuth 130°) holds one sync at azimuth 120°
+  and the second sync is taken at azimuth 250°
+- **THEN** no new epoch is opened, and the base tilt is fitted within 1′ of the simulator's
 
 ### Requirement: Fixed terms
 
@@ -70,9 +76,9 @@ spanning 180° of azimuth and 30° of altitude, and keep them across nights unti
 
 #### Scenario: Synthetic fixed terms
 - **WHEN** 24 synthetic syncs spanning 200° of azimuth and 40° of altitude carry CA 10′, NPAE 3′,
-  TF 5′ and the finder camera turned 4° about its axis on the tube, besides the zero points and
-  tilt
-- **THEN** CA, NPAE, TF and the camera's turn are each fitted within 1″
+  TF 5′ and the finder camera rotated 4° about its axis on the tube, besides the zero points and
+  base tilt
+- **THEN** CA, NPAE, TF and the camera's rotation on the tube are each fitted within 1″
 
 #### Scenario: Too few
 - **WHEN** only 19 such syncs are held
@@ -84,7 +90,7 @@ On request, the console SHALL slew to a pointable spot at least 90° in azimuth 
 syncs and outside the Sun guard, solve there, and take the sync, so the base tilt can be fitted.
 **Refs**: GLOSSARY.md (sync); docs/research/2026-10-21-pointing-model-and-tracking.md §5
 
-#### Scenario: From one sync to tilt
+#### Scenario: From one sync to base tilt
 - **WHEN** the simulator holds one sync at azimuth 120° and the second sync is requested
 - **THEN** the mount slews to a pointable spot whose azimuth differs from 120° by at least 90°,
   a sync is taken there, and the base tilt is fitted within 1′ of the simulator's

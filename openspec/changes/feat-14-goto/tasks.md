@@ -28,17 +28,17 @@
 ## 6. Pointing model
 
 - [ ] 6.1 Take syncs from solves (still or tracking axes, mid-exposure interpolation, thinning); verified by the "A still telescope", "During a slew", "A frame uploaded by hand" and "Interpolated to mid-exposure" tests
-- [ ] 6.2 Fit zero points and tilt (exact offsets and rotation, Levenberg–Marquardt, Newton inverse); verified by the "Synthetic terms recovered" and "One sync is not enough" tests
-- [ ] 6.3 Open new epochs on slips; verified by the "Pushed by hand" test after 7.2
+- [ ] 6.2 Fit zero points and base tilt (exact offsets and rotation, Levenberg–Marquardt, Newton inverse); verified by the "Synthetic terms recovered" and "One sync is not enough" tests
+- [ ] 6.3 Open new epochs on slips; verified by the "Pushed by hand" test after 7.2 and the "The second sync is not a slip" test
 - [ ] 6.4 Fit and keep the fixed terms; verified by the "Synthetic fixed terms" and "Too few" tests
 - [ ] 6.5 Keep the night's model state and the fixed terms in the session; verified by the "A restart at midnight", "The next day" and "Resetting the fixed terms" tests
 
 ## 7. GoTo
 
-- [ ] 7.1 Plan slews (arrival time, refraction, model inverse, one-turn cable rule, approach from below); verified by the "Unwinding the cable" and "Where the target will be" tests
+- [ ] 7.1 Plan slews (arrival time, refraction, model inverse, one-revolution cable rule, approach from below); verified by the "Unwinding the cable", "Unwinding after a power cycle", "Where the target will be", "Too close to the limit" and "Just clear of the limit" tests
 - [ ] 7.2 Run the closed loop (settle, solve, correct at most 5 times) and the halts; verified by the "Five targets on the simulator", "A GoTo that cannot converge", "Stop during a slew", "The link drops during a slew" and "Sunrise during a slew" tests in virtual time
 - [ ] 7.3 Apply the Sun guard to motion (the Sun up, path checks, re-planning); verified by the "Daylight" and "A slew at dusk" tests
-- [ ] 7.4 Add `POST /api/goto`, `POST /api/stop`, the model routes and progress in the session; verified by the "Below the horizon" and "Progress" tests and the one-tap "From one sync to tilt" test
+- [ ] 7.4 Add `POST /api/goto`, `POST /api/stop`, the model routes and progress in the session; verified by the "Below the horizon" and "Progress" tests and the one-tap "From one sync to base tilt" test
 
 ## 8. Page and Setup
 
@@ -53,4 +53,4 @@
 
 ## 10. On the sky
 
-- [ ] 10.1 Run the manual checklist at the telescope: `--probe-mount` with the USB–TTL cable (board, firmware, counts per turn recorded); Stop and the watchdog with the tube unloaded; the second sync; GoTos to five bright targets ending within 1′ in the eyepiece; verified by the filled-in checklist, with logs, attached to the PR
+- [ ] 10.1 Run the manual checklist at the telescope: `--probe-mount` with the USB–TTL cable (board, firmware, counts per revolution recorded); Stop and the watchdog with the tube unloaded; the second sync; GoTos to five bright targets ending within 1′ in the eyepiece; verified by the filled-in checklist, with logs, attached to the PR

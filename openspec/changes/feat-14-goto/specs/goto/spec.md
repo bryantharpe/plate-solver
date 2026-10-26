@@ -9,8 +9,9 @@ the target is within 1′, and halting safely.
 ### Requirement: Planning a slew
 
 The console SHALL plan each slew to the target's apparent place (refraction added) at the
-expected arrival time, through the pointing model, to axis positions that keep the azimuth axis
-within one turn either way of its position when the night's first sync was made.
+expected arrival time, through the pointing model, to axis positions that keep the cable within
+one revolution either way of the night's first sync, measured as the telescope's azimuth
+unwrapped continuously across syncs and zero-point epochs.
 **Refs**: pointing-model; sky-ephemeris "Apparent altitude"; docs/research/2026-10-21-synscan-mount-control.md §1 (cable wrap)
 
 #### Scenario: Unwinding the cable
@@ -18,10 +19,33 @@ within one turn either way of its position when the night's first sync was made.
   azimuth 20°, 30° clockwise of where the telescope points
 - **THEN** the slew turns anticlockwise 330°, not clockwise 30°
 
+#### Scenario: Unwinding after a power cycle
+- **WHEN** the telescope has turned 350° clockwise since the first sync, the simulated mount is
+  power-cycled (its counts reset), a sync opens a new zero-point epoch, and the target is 30°
+  clockwise of where the telescope points
+- **THEN** the slew turns anticlockwise 330°
+
 #### Scenario: Where the target will be
 - **WHEN** a slew is expected to take 40 s
 - **THEN** it is planned to the target's apparent place 40 s after it starts (within 1 s of
   planning time)
+
+### Requirement: Above the minimum altitude all the way
+
+Every point of a planned slew, including the last approach and each correction, SHALL stay at or
+above the minimum altitude; when the last approach from below would go under it, the GoTo SHALL
+be refused with the reason.
+**Refs**: GLOSSARY.md (minimum altitude); design.md (Plan: the approach from below; Mechanical limits)
+
+#### Scenario: Too close to the limit
+- **WHEN** the minimum altitude is 15° and a GoTo is asked for a target at 15.2° on the simulator
+- **THEN** it is refused with 409 and a JSON `error` saying the approach would go below the
+  minimum altitude, and no axis moves
+
+#### Scenario: Just clear of the limit
+- **WHEN** the minimum altitude is 15° and a GoTo is made to a target at 16° on the simulator
+- **THEN** the simulator's true eyepiece altitude, sampled every 0.1 s of virtual time, never goes
+  below 15°
 
 ### Requirement: The Sun guard on motion
 
@@ -50,7 +74,8 @@ direction, then solve at the aim point and correct, at most 5 times, until the t
 
 #### Scenario: Five targets on the simulator
 - **WHEN** GoTos to M42, M31, M45, M81 and M1 are made in turn on the simulator (base 1° off
-  level, zero points offset, 0.3° backlash) after a second sync
+  level, zero points offset, 0.3° backlash) after a second sync, at 40° N, 75° W from
+  2026-01-16 02:00 UT (`--sim-start 2026-01-16T02:00:00Z`) with a minimum altitude of 15°
 - **THEN** each ends with the simulator's true eyepiece direction within 1′ of its target, using
   at most 5 corrections
 
@@ -93,6 +118,7 @@ pointable, no mount is connected, the night has no sync yet, or the Sun is up.
 - **THEN** the answer is 409 saying M8 is below the horizon, and no axis moves
 
 #### Scenario: Progress
-- **WHEN** a GoTo to M42 runs on the simulator
+- **WHEN** a GoTo to M42 runs on the simulator at 40° N, 75° W from 2026-01-16 02:00 UT with a
+  minimum altitude of 15°
 - **THEN** the session reports it slewing, then solving, then each correction by number, then
   done with the final error in arcseconds

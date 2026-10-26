@@ -3,7 +3,7 @@
 ### Requirement: The mount port
 
 The scope node SHALL drive a mount only through a mount port of two axes, each of which reports
-its axis position and capabilities (counts per turn, top rate, whether it can go to a position),
+its axis position and capabilities (counts per revolution, top rate, whether it can go to a position),
 goes to a position, moves at a signed rate and stops. Every mount SHALL be reached through an
 adapter behind this port.
 **Refs**: ADR-0001; GLOSSARY.md (mount port, mount adapter, axis position)
@@ -11,7 +11,7 @@ adapter behind this port.
 #### Scenario: The simulator's mount
 - **WHEN** the simulated mount's axes are asked for their capabilities, sent to positions, moved
   at rates and stopped through the port
-- **THEN** each reports its counts per turn and top rate, reaches each position within one
+- **THEN** each reports its counts per revolution and top rate, reaches each position within one
   count, holds each rate within 0.1%, and stops
 
 ### Requirement: The Sky-Watcher adapter
@@ -46,8 +46,9 @@ off with `:W`, and stop an axis before reversing it.
 
 ### Requirement: Stop wins, and a watchdog
 
-A stop SHALL be carried out before any command that arrived with or after it, and SHALL cancel
-any move in progress. The scope node SHALL stop both axes when 1 s has passed without a heartbeat
+A stop SHALL cancel any move in progress and SHALL discard every mount command that reached the
+node before it and has not yet been carried out; a command that reaches the node after the stop
+has been answered SHALL be carried out normally. The scope node SHALL stop both axes when 1 s has passed without a heartbeat
 from the console.
 **Refs**: scope-link "Clock mapping", "Link health"; GLOSSARY.md (scope node)
 
@@ -56,8 +57,9 @@ from the console.
 - **THEN** both axes are commanded to stop 1.0 ± 0.1 s after the last heartbeat
 
 #### Scenario: Stop among moves
-- **WHEN** a stop and a goto reach the node together
-- **THEN** the axes stop and the goto is not carried out
+- **WHEN** a goto is queued behind another command on the simulated mount and a stop arrives
+- **THEN** the axes stop and the queued goto is not carried out, and a goto sent after the stop's
+  reply is carried out
 
 ### Requirement: Axis positions on star frames
 

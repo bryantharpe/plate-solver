@@ -2,7 +2,7 @@
 
 ### Requirement: Mount calls
 
-The scope link SHALL carry the mount port's calls: describe the axes (counts per turn, top
+The scope link SHALL carry the mount port's calls: describe the axes (counts per revolution, top
 rate, whether each can go to a position), each axis's state (position, rate, whether it is
 moving), go to a position, move at a rate, and stop all. Every call except stop all SHALL need
 the token, so anyone on the network can halt the telescope but no one else can move it.
@@ -19,5 +19,5 @@ the token, so anyone on the network can halt the telescope but no one else can m
 #### Scenario: Axis state over the link
 - **WHEN** the console describes the simulated mount's axes and reads their state through the
   link
-- **THEN** it gets each axis's counts per turn and top rate, and its position, rate and moving
+- **THEN** it gets each axis's counts per revolution and top rate, and its position, rate and moving
   flag, exactly as the simulator holds them
