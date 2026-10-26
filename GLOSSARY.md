@@ -27,7 +27,7 @@ The lowest altitude the observer will point at, one number for the whole sky (de
 _Avoid_: altitude limit, horizon limit
 
 **Sun guard**:
-The console's standing refusal to point at the Sun or move the telescope near it. Always on, with no override from the page.
+The console's standing refusal to point at the Sun or move the telescope near it. Always on, with no override from the page or an MCP client.
 _Avoid_: sun warning
 
 **Push-to**:
@@ -113,7 +113,7 @@ An axis's own reading of where it is, in the mount's frame rather than the sky's
 _Avoid_: mount alt/az, encoder alt/az
 
 **MCP client**:
-A program that calls the console's MCP tools over the house LAN, such as Claude on the Surface or an app on the phone. It needs no token, and can do no more than the page can.
+A program that calls the console's MCP tools over the house LAN, such as Claude on the Surface or an app on the phone. It needs no token, and passes the same guards as the page, so it can move the telescope nowhere the page could not.
 _Avoid_: agent, the AI (alone), bot
 
 **MCP tool**:

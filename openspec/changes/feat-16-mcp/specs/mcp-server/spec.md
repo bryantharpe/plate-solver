@@ -12,7 +12,7 @@ The console SHALL serve MCP over Streamable HTTP at `/mcp` on its own address an
 no token: a POST of a JSON-RPC request SHALL get one `application/json` answer, a notification
 SHALL get 202, a GET SHALL get 405, and an unsupported `MCP-Protocol-Version` SHALL get 400. It
 SHALL need no `Mcp-Session-Id`, and `finder --no-mcp` SHALL turn the endpoint off.
-**Refs**: docs/research/2026-10-25-mcp-server.md §1–2; MCP specification 2025-06-18, Transports (Streamable HTTP)
+**Refs**: docs/research/2026-10-25-mcp-server.md §1–2, §5; MCP specification 2025-06-18, Transports (Streamable HTTP)
 
 #### Scenario: Initialising
 - **WHEN** a client with no `Authorization` header posts `initialize` to `/mcp` on
@@ -35,7 +35,8 @@ SHALL need no `Mcp-Session-Id`, and `finder --no-mcp` SHALL turn the endpoint of
 The endpoint SHALL refuse, with 403 and nothing run, a request whose `Origin` names an origin
 other than the one it was sent to, or whose `Host` or `Origin` host is not an IP literal,
 `localhost`, or a name given with `--mcp-allow-host`. It SHALL allow a request with no `Origin`.
-A `tools/call` of `stop` or `stop_all` SHALL be carried out even when these checks fail.
+From a request that fails these checks it SHALL carry out a `tools/call` of `stop` or
+`stop_all` and nothing else.
 **Refs**: MCP specification 2025-06-18, Transports (Security Warning); RFC 6454 §7; observing-session "Same-origin writes"; docs/research/2026-10-25-mcp-server.md §3
 
 #### Scenario: A page on another site
@@ -59,51 +60,84 @@ A `tools/call` of `stop` or `stop_all` SHALL be carried out even when these chec
 - **THEN** the GoTo is halted with the reason Stop and both axes are commanded to stop within
   0.1 s of virtual time
 
+#### Scenario: A move riding on a stop
+- **WHEN** a JSON-RPC batch of `stop_all` and `goto_target` is posted with
+  `Origin: http://elsewhere.example` while both axes are at rest
+- **THEN** both axes are commanded to stop, no GoTo starts, and the session has no `motion`
+  (oracle: the simulator's command log, exact)
+
+### Requirement: LAN peers only
+
+The endpoint SHALL refuse, with 403 and nothing run, a request whose peer address is not
+loopback, private (RFC 1918), link-local or an IPv6 unique local address, so that it answers
+only the house LAN even if the console's port becomes reachable from the internet. From such a
+request it SHALL still carry out a `tools/call` of `stop` or `stop_all`.
+**Refs**: RFC 1918; RFC 4193; RFC 3927; RFC 4291 §2.5.6; MCP specification 2025-06-18, Transports (Security Warning); owner's decision of 2026-10-25 (open on the LAN)
+
+#### Scenario: From the internet
+- **WHEN** `get_session` and `goto_target` are posted from the peer address `203.0.113.7`
+  with no `Origin` and `Host: 192.168.1.20:8080`
+- **THEN** both are answered 403 and no axis moves (oracle: the simulator's axis state, exact)
+
+#### Scenario: From the house LAN
+- **WHEN** `get_session` is posted from the peer addresses `127.0.0.1`, `192.168.1.30`,
+  `172.24.0.1`, `fe80::1` and `fd00::30`
+- **THEN** each is answered 200 with the session, equal to `GET /api/session`
+
 ### Requirement: Tools pass through to the console
 
 Each tool SHALL call the same function as the HTTP route or action it passes through to, take
 the session's JSON names, and return that route's JSON as `structuredContent` and as text. A
-refusal SHALL be a result with `isError: true` and the same reason the route's 400, 404 or 409
-carries. Read-only tools SHALL carry `readOnlyHint: true`.
+refusal SHALL be a result with `isError: true` and the same reason the route's 400, 404, 409 or
+413 carries. Read-only tools SHALL carry `readOnlyHint: true`.
 **Refs**: MCP specification 2025-06-18, Tools (structured content, tool errors, annotations); docs/research/2026-10-25-mcp-server.md §4
 
 #### Scenario: Searching
 - **WHEN** `search_targets` is called with `{"q": "orion"}`
-- **THEN** its `structuredContent` equals the HTTP target search's answer for `orion`, exactly
+- **THEN** its `structuredContent` equals `GET /api/targets?q=orion`'s answer, exactly
 
 #### Scenario: A refusal reads the same
-- **WHEN** `set_session` is called with `min_alt_deg` 85
-- **THEN** the result has `isError: true` and the same `error` text `PUT /api/session` answers
+- **WHEN** `set_session` is called with `min_alt_deg` 85, and again with `{"sun_guard": false}`
+- **THEN** each result has `isError: true` and the same `error` text `PUT /api/session` answers
   with 400, and the session is unchanged (oracle: `GET /api/session`, exact)
 
 ### Requirement: Session and catalog tools
 
 The endpoint SHALL offer at least `get_session`, `set_session` (`site`, `min_alt_deg`,
-`target`), `search_targets`, `get_guidance` (pointability and push-to directions), `set_target`,
-`solve_frame` (an image as base64, within `POST /api/solve`'s size limit) and `get_pointing`.
-`set_session` SHALL refuse the scope node's address and token, so no MCP client can repoint or
-re-pair the console.
-**Refs**: observing-session; target-catalog; push-to; finder-console; GLOSSARY.md (pointable, push-to)
+`target`), `search_targets`, `get_guidance`, `set_target`, `solve_frame` (an image as base64,
+held to `POST /api/solve`'s limits once decoded) and `get_pointing`. `set_session` SHALL refuse
+the scope node's address and token, and a new site while a mount is connected, since the Sun
+guard reckons the Sun from the site.
+**Refs**: observing-session "Checked edits", "The latest pointing"; target-catalog "Search"; push-to "Turn and tilt"; finder-console (request limits); GLOSSARY.md (pointable, push-to)
 
 #### Scenario: Push-to over MCP
 - **WHEN** the latest pointing is at azimuth 350°, altitude 30°, the target is pointable at
   azimuth 24°, altitude 42° (push-to's "Across north"), and `get_guidance` is called
-- **THEN** it gives turn clockwise 34° and tilt up 12° (within 1e-9°), equal to the page's
-  guidance for the same session
+- **THEN** it gives turn clockwise 34° and tilt up 12° (within 1e-9°), equal to the `guidance`
+  in `GET /api/session` for the same session
 
 #### Scenario: The scope node stays put
 - **WHEN** `set_session` is called with a scope node address or token
 - **THEN** the result has `isError: true`, and the session's scope node address and
   whether a token is set are unchanged (oracle: `GET /api/session`, exact)
 
-#### Scenario: Solving a saved frame
-- **WHEN** `solve_frame` is called with a saved fixture frame as base64
-- **THEN** the RA, Dec and roll equal `POST /api/solve`'s for the same file, exactly, and
-  `get_pointing` then returns that solve
+#### Scenario: The site stays put under a mount
+- **WHEN** the simulated mount is connected at 40° N, 75° W and `set_session` is called with the
+  site 40° N, 75° E
+- **THEN** the result has `isError: true` saying the site can't change while a mount is
+  connected, and the site is unchanged (oracle: `GET /api/session`, exact)
 
-#### Scenario: Too large
-- **WHEN** `solve_frame` is called with an image larger than `POST /api/solve` accepts
-- **THEN** the result has `isError: true` and the latest pointing is unchanged
+#### Scenario: Solving a saved frame
+- **WHEN** `solve_frame` is called with `orion2.jpg` as base64
+- **THEN** the RA, Dec and roll equal `POST /api/solve`'s for the same file, exactly, and
+  `get_pointing` then returns the session's `pointing`, field for field
+
+#### Scenario: At the limit
+- **WHEN** `solve_frame` is called with an image file of exactly 32 MiB, and again with one
+  byte more
+- **THEN** the first gets the same answer `POST /api/solve` gives for those bytes, exactly, and
+  the second has `isError: true` with `POST /api/solve`'s 413 reason and leaves the latest
+  pointing unchanged
 
 ### Requirement: Live tools
 
@@ -127,7 +161,7 @@ The endpoint SHALL offer at least `describe_axes`, `get_axis_state`, `goto_axis_
 `move_axis` and `stop_all`, mapping onto the scope link's mount calls, and `goto_target` and
 `stop`, mapping onto the console's GoTo and Stop. The scope node's token SHALL stay in the
 console and appear in no tool's result.
-**Refs**: scope-link "Mount calls"; goto; ADR-0001; MCP security best practices (token passthrough)
+**Refs**: scope-link "Mount calls"; goto "Pointable targets only", "Halts"; ADR-0001; MCP security best practices (token passthrough)
 
 #### Scenario: Axis state
 - **WHEN** `describe_axes` and `get_axis_state` are called on `finder --simulate`
@@ -145,7 +179,7 @@ A moving tool from an MCP client SHALL start the motion before it answers, with 
 on the page, and SHALL record the motion in the session as coming from an MCP client.
 **Refs**: observing-session "The source of motion"; owner's decision of 2026-10-25 (design.md)
 
-#### Scenario: GoTo from an AI
+#### Scenario: GoTo from an MCP client
 - **WHEN** `goto_target` is called for a pointable target on `finder --simulate` after a sync,
   and nothing is done on the page
 - **THEN** the GoTo completes with the target within 1′ of the aim point (oracle: the
@@ -153,11 +187,11 @@ on the page, and SHALL record the motion in the session as coming from an MCP cl
 
 ### Requirement: Guards on every move
 
-Every tool that can move the telescope SHALL run the page's guards before and during the move:
-the Sun guard on motion, the minimum altitude and horizon, the path planner's mechanical range
-and cable rule, Stop wins, and the node's watchdog. A direct axis move SHALL be refused when the
-night has no sync, because the console cannot then tell where it would point.
-**Refs**: goto "The Sun guard on motion", "Planning a slew", "Halts", "Pointable targets only"; scope-node "Stop wins, and a watchdog"; ADR-0001; GLOSSARY.md (Sun guard, minimum altitude)
+Every tool that can move the telescope SHALL run the page's guards before and during the move,
+with no argument that turns one off: the Sun guard on motion, the minimum altitude, the
+one-turn cable rule, Stop wins and the node's watchdog. A direct axis move SHALL be refused
+when the night has no sync, because the console cannot then tell where it would point.
+**Refs**: goto "The Sun guard on motion", "Planning a slew", "Halts", "Pointable targets only"; scope-node "Stop wins, and a watchdog"; ADR-0001; GLOSSARY.md (Sun guard, minimum altitude, direct axis move)
 
 #### Scenario: Daylight
 - **WHEN** `goto_target`, `goto_axis_position` and `move_axis` are each called while the Sun's
@@ -168,18 +202,25 @@ night has no sync, because the console cannot then tell where it would point.
 #### Scenario: Pointed at the Sun by axis position
 - **WHEN** at dusk, with the Sun 10° below the horizon, `goto_axis_position` asks for the axis
   positions that the pointing model puts 5° from the Sun
-- **THEN** the result has `isError: true` naming the Sun guard, and no axis moves
+- **THEN** the result has `isError: true` naming the Sun guard, and no axis moves (oracle: the
+  simulator's axis state, exact)
 
 #### Scenario: A rate toward the Sun
-- **WHEN** at dusk `move_axis` turns the azimuth axis toward the Sun's azimuth at its top rate
-  for 30 s, from 40° away
-- **THEN** the simulator's true eyepiece direction, sampled every 0.1 s of virtual time, never
-  comes within 15° of the Sun, and the result or the session says the Sun guard stopped it
+- **WHEN** at dusk `move_axis` asks to turn the azimuth axis toward the Sun's azimuth at its top
+  rate for 30 s, from 40° away
+- **THEN** the result has `isError: true` naming the Sun guard, and no axis moves (oracle: the
+  simulator's axis state, exact)
 
 #### Scenario: Below the minimum altitude
 - **WHEN** `goto_axis_position` asks for positions the model puts 5° below the session's minimum
   altitude
 - **THEN** the result has `isError: true` saying the position is too low, and no axis moves
+
+#### Scenario: Climbing from low down
+- **WHEN** the telescope points 3° up with a minimum altitude of 15°, and `move_axis` turns the
+  altitude axis up at 1°/s for 20 s
+- **THEN** the move is carried out and the axis is commanded to stop 20.0 ± 0.1 s of virtual
+  time after the call (oracle: the simulator's command log)
 
 #### Scenario: Past the cable
 - **WHEN** `goto_axis_position` asks for an azimuth 1.2 turns from where the night's first sync
@@ -193,19 +234,34 @@ night has no sync, because the console cannot then tell where it would point.
 ### Requirement: Rate moves end
 
 `move_axis` SHALL take a signed rate, capped at the axis's top rate, and a duration of at most
-30 s, and SHALL stop the axis when the duration ends, when a guard's forecast would be crossed
-within 1 s, or on Stop.
-**Refs**: scope-link "Mount calls"; goto "Halts"; design.md (direct axis moves)
+30 s, SHALL refuse a move whose path over that duration would break a guard, and SHALL stop the
+axis when the duration ends, on Stop, or in time to be at rest before any limit that a change
+while it runs (the Sun rising, a new minimum altitude) brings into its path.
+**Refs**: scope-link "Mount calls"; goto "Halts"; scope-node "Stop wins, and a watchdog"; design.md (direct axis moves)
 
 #### Scenario: The duration ends
 - **WHEN** `move_axis` turns the altitude axis at 0.5°/s for 10 s on the simulator, clear of
   every limit
 - **THEN** the axis is commanded to stop 10.0 ± 0.1 s of virtual time after the call, and has
-  moved 5.0 ± 0.1°
+  moved 5.0° less the simulated mount's acceleration ramp (oracle: the simulator's motion model,
+  within 0.1°)
 
 #### Scenario: Too long
 - **WHEN** `move_axis` is called with a duration of 60 s
 - **THEN** the result has `isError: true` and no axis moves
+
+#### Scenario: The client goes away
+- **WHEN** `move_axis` turns the azimuth axis for 20 s, and the MCP client then closes its
+  connection and sends nothing more
+- **THEN** the axis is commanded to stop 20.0 ± 0.1 s of virtual time after the call, and the
+  console's heartbeats to the node carry on throughout (oracle: the simulator's command and
+  heartbeat logs)
+
+#### Scenario: Sunrise during a rate move
+- **WHEN** the virtual clock passes the moment the Sun's centre reaches −0.83° during a
+  `move_axis`
+- **THEN** the axis is commanded to stop within 1 s of that moment, and the session says the
+  Sun guard ended the move
 
 ### Requirement: A rate limit on moving tools
 
@@ -221,16 +277,23 @@ Reads, `stop` and `stop_all` SHALL NOT be limited.
 
 ### Requirement: Stop is always there
 
-`stop` and `stop_all` SHALL be listed in every state once the mount tools have landed, SHALL never
-be refused, and SHALL end any GoTo, axis move or tracking in progress, whoever started it, before
-the console sends stop all.
-**Refs**: scope-node "Stop wins, and a watchdog"; goto "Halts"; finder-console "GoTo and Stop on the console"
+`stop` and `stop_all` SHALL be listed in every state once the mount tools have landed, SHALL
+never be refused or limited, whatever the request's headers or peer, and SHALL end any GoTo,
+direct axis move or tracking in progress, whoever started it, before the console sends stop
+all. A stop SHALL be carried out even when the answer must be an error.
+**Refs**: scope-node "Stop wins, and a watchdog"; goto "Halts"; finder-console "GoTo and Stop on the console"; MCP specification 2025-06-18, Transports (Protocol Version Header)
 
-#### Scenario: Stop during an AI's GoTo
+#### Scenario: Stop during an MCP client's GoTo
 - **WHEN** `goto_target` runs from an MCP client and `stop_all` is called from another client
 - **THEN** the GoTo is halted with the reason Stop, both axes are commanded to stop within 0.1 s
   of virtual time, and no later correction moves them (oracle: the simulator's axis state for
   5 s after)
+
+#### Scenario: Stop with a bad protocol version
+- **WHEN** `stop` is posted with `MCP-Protocol-Version: 1999-01-01` while a GoTo runs on the
+  simulator
+- **THEN** the answer is 400, and both axes are still commanded to stop within 0.1 s of virtual
+  time
 
 #### Scenario: Stop with nothing moving
 - **WHEN** `stop` is called with no mount connected
@@ -240,9 +303,9 @@ the console sends stop all.
 
 The endpoint SHALL offer at least `set_tracking`, turning Track on or off as the page's toggle
 does, refused for the same reasons, and `get_session` SHALL include tracking's readout.
-**Refs**: tracking; finder-console "Track on the console"
+**Refs**: tracking "Ending safely"; observing-session "Track in the session"; finder-console "Track on the console"
 
-#### Scenario: Tracking from an AI
+#### Scenario: Tracking from an MCP client
 - **WHEN** `set_tracking` turns Track on for M42 on `finder --simulate` and 10 min of virtual
   time pass
 - **THEN** M42 stays within 1′ of the aim point (oracle: the simulator's true eyepiece direction,

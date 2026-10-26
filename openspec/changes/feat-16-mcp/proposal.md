@@ -4,14 +4,17 @@ The owner wants an AI (Claude on the Surface, or an app on the phone) to steer t
 find a target, solve a frame, point the scope and track it. MCP is how those clients call tools.
 This change gives the console an MCP server that passes its own actions and the scope link's
 mount calls through to MCP clients on the house LAN, while every move still goes through the
-console's guards, so an AI can never point the 16-inch aperture at the Sun.
+console's guards, so no MCP client can ever point the 16-inch aperture at the Sun.
 
 ## What Changes
 
 - **An MCP endpoint** in the console: Streamable HTTP at `/mcp`, on the console's own address and
   port, so whatever lets the phone reach the page under WSL2 (portproxy or mirrored mode) also
   carries MCP. No token: it is open on the LAN, by the owner's decision. It validates `Origin`, as
-  the MCP specification requires, and `Host`, against DNS rebinding.
+  the MCP specification requires, and `Host`, against DNS rebinding, and answers only peers on
+  private, link-local or loopback addresses, so it stays on the LAN. Like the page, it reaches
+  the LAN only when the console listens there (`--listen 0.0.0.0:8080`; the default is
+  `127.0.0.1:8080`).
 - **Tools that pass the console's actions through**, landing with the change that made each
   action:
   - after feat-12: the session, search targets, the target's guidance (pointability and push-to
@@ -25,7 +28,7 @@ console's guards, so an AI can never point the 16-inch aperture at the Sun.
   page's guards: the Sun guard, the minimum altitude, the horizon, feat-14's motion and path
   checks, the cable rule, Stop wins and the watchdog. A rate move has a duration and stops at its
   end, and moving tools share a rate limit of 2 calls a second. Stop and stop all are always
-  listed, never limited and never refused.
+  listed, never limited and never refused, whatever the request's headers or peer.
 - The session records whether the current motion came from the page or an MCP client; the page
   says so, and Setup shows the MCP address.
 - **No MCP on the scope node.** The Pi is controlled only over the existing `scope_node.v1` link,
@@ -56,7 +59,8 @@ All introduced earlier in this set; each delta only ADDs:
   (`docs/research/2026-10-25-mcp-server.md` §5); `cargo deny check` confirms it when it lands.
 - **Security:** anyone on the house Wi-Fi can move the telescope through MCP, within the guards.
   That is the owner's decision; it is listed under Decisions for the owner in design.md, with
-  the `Host` check and the rate-move duration as recommended defaults.
+  the `Host` check, the LAN-peers-only check and the rate-move duration as recommended
+  defaults.
 - **Tests:** Rust tests post JSON-RPC to `/mcp` through the router and check each tool against
   the HTTP route it passes through, and every motion tool against the simulator's truth in
   virtual time. Playwright adds an MCP-moved flow to the `simulate` project. No existing test,
