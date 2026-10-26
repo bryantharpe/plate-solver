@@ -3,10 +3,10 @@
 - [ ] 1.1 Record the owner's approval of the changes to tested behaviour this proposal names (the four MODIFIED `finder-console` requirements and the `playwright.config.ts` servers); verified by the approval on the PR before any code lands
 - [ ] 1.2 Add `finder::session` with the `Clock` trait, `SystemClock` and `FixedClock`, and `AppState::with_session`/`with_clock`, keeping `new`, `shared` and `router` as they are; verified by `cargo test -p finder` passing unchanged, a unit test that a fresh session has no site, no target and a 15° minimum, and tests for "A fixed clock in tests" and "The binary's own clock"
 - [ ] 1.3 Add `GET`/`PUT /api/session` with checked, partial edits and unknown fields refused; verified by API tests for "What one device writes, another reads", "Values that are out of range", "A target the catalog does not hold" and "One field at a time"
-- [ ] 1.4 Refuse foreign `Origin`s on `PUT /api/session` and `POST /api/solve`, and non-JSON edits; verified by API tests for "A page on another site", "The console's own page", "A form post", "A rebound name" and "A name the console was given", with every existing API test still passing
+- [ ] 1.4 Refuse foreign `Origin`s, and hosts that are not IP literals, `localhost` or given with `--allow-host`, on `PUT /api/session` and `POST /api/solve`, and non-JSON edits; verified by API tests for "A page on another site", "The console's own page", "A form post", "A rebound name" and "A name the console was given", with every existing API test still passing
 - [ ] 1.5 Record the latest pointing from each solve (with `pointing_seq` on the report and the solved `Frame` kept); verified by API tests for "orion2 under a fixed clock", "A frame that does not solve", "No site yet", "A site set after the solve" and "A site cleared"
 - [ ] 1.6 Add the state file (`--state`, the XDG default, atomic write, `.bad` on a bad file); verified by a CLI test that restarts the binary on one `--state` folder, a test with an unreadable file, and the "Tests write nothing" test
-- [ ] 1.7 Document `/api/session` and `--state` in the crate docs and `crates/finder/README.md`; verified by `cargo doc` with `-D warnings`
+- [ ] 1.7 Document `/api/session`, `--state` and `--allow-host` in the crate docs and `crates/finder/README.md`; verified by `cargo doc` with `-D warnings`
 
 ## 2. Target catalog
 

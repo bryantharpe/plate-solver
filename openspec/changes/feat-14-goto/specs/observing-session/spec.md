@@ -5,7 +5,7 @@
 The session SHALL keep the night's syncs, zero points and base tilt across restarts until the
 Sun's next upper transit at the site (local noon) after the night's first sync, and then clear
 them. It SHALL keep the fixed terms across nights until they are reset.
-**Refs**: pointing-model; GLOSSARY.md (observing session, pointing model); sky-ephemeris "Rising, transit and setting"
+**Refs**: pointing-model; GLOSSARY.md (observing session, pointing model); sky-ephemeris "The next rising, transit and setting"
 
 #### Scenario: A restart at midnight
 - **WHEN** the site is 40° N, 75° W and the binary restarts at 05:30 UT on 2026-01-16, past

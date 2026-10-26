@@ -54,7 +54,7 @@ observing session that live solving (feat-13), the mount and later clients will 
 ## Impact
 
 - **Code:** `crates/finder` gains session, target-catalog, ephemeris and push-to modules and
-  routes (`/api/session`, `/api/targets`), a `--state` option, and an injectable clock.
+  routes (`/api/session`, `/api/targets`), `--state` and `--allow-host` options, and an injectable clock.
   `AppState::new`/`shared`, `router`, `similar()`, `Observer` and `Frame` keep their shapes;
   `similar_above()` is added beside `similar()`. `crates/math-core` is untouched.
 - **Data:** `crates/finder/data/openngc.csv`, an extract of OpenNGC at a pinned commit (about

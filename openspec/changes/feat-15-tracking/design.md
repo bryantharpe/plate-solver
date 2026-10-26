@@ -43,7 +43,7 @@ Each second, the tracker:
 3. sends each axis the rate that covers the difference in that second, plus the correction
    below.
 
-That carries every model term (tilt, CA, NPAE, TF) into the rates, which plain dh/dt and dA/dt
+That carries every model term (base tilt, CA, NPAE, TF) into the rates, which plain dh/dt and dA/dt
 wouldn't. The rates in `sky-ephemeris` are used for the readout, the keyhole forecast and the
 tests' oracles.
 
@@ -102,7 +102,8 @@ fast, and the plan's rule keeps the loop out of that region.
 
 ### Ending
 
-The tracker checks four conditions every second. Any of them stops both axes and records why:
+The tracker checks four conditions on the same 50 ms tick feat-14 uses for the Sun during a
+GoTo, so the 1 s bounds in the scenarios have margin. Any of them stops both axes and records why:
 - Stop;
 - a lost link (feat-13's 1 s rule; the node's watchdog also stops the axes);
 - the Sun's centre above −0.83°;

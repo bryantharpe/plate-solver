@@ -71,7 +71,8 @@ pointing is stale, within 1 s of the newest live pointing passing 5 s old.
 **Refs**: live-finder "Fresh pointings only"; finder-console "The guidance block"
 
 #### Scenario: Frames stop on the simulator
-- **WHEN** M78 is the target on `finder --simulate` and the simulator's frames stop
+- **WHEN** the site is 40° N, 75° W, M78 is the target on
+  `finder --simulate --sim-start 2026-01-16T02:00:00Z`, and the simulator's frames stop
 - **THEN** within 6 s of the last frame's mid-exposure, by the virtual clock, the guidance block
   and the chart say the pointing is stale and show no turn or tilt
 
