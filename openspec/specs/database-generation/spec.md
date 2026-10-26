@@ -106,12 +106,15 @@ doc 05 §5.2.)
 
 ### Requirement: Edge-ratio hashing and insertion
 
-The system SHALL, per pattern, compute the 6 sorted edge angles, the largest edge `L`, the 5
-edge ratios, the quantized key (`pattern_bins = round(1/(4·pattern_max_error))`, cedar default
-250), the 64-bit `key_hash`, and the table index, then open-address insert the pattern
-(presorted by centroid distance) and record `pattern_largest_edge = L·1000` (mrad, f16) and
-`pattern_key_hashes = key_hash & 0xFFFF` (u16) at the chosen slot. Table size SHALL be
-`next_prime(2·N)` (quadratic) or `next_prime(3·N)` (linear). (Ref: doc 05 §6.)
+The system SHALL, per pattern, compute the 6 sorted edge angles, the largest edge `L`, the 5 edge
+ratios, the quantized key (`pattern_bins = round(1/(4·pattern_max_error))`, cedar default 250), the
+64-bit `key_hash`, and the table index, then open-address insert the pattern (presorted by centroid
+distance) and record `pattern_largest_edge = L·1000` (mrad, f16) and `pattern_key_hashes = key_hash
+& 0xFFFF` (u16) at the chosen slot. (Ref: doc 05 §6.)
+
+#### Scenario: Table size by probing scheme
+- **WHEN** the hash table is allocated for `N` patterns
+- **THEN** table size SHALL be `next_prime(2·N)` (quadratic) or `next_prime(3·N)` (linear)
 
 #### Scenario: Patterns presorted at build time
 - **WHEN** a pattern is inserted

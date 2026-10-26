@@ -239,13 +239,16 @@ angle_camera)` over matched pairs; with distortion, least-squares solve for foca
 
 ### Requirement: Binomial false-alarm test
 
-The system SHALL accept or reject a candidate attitude by a binomial false-alarm probability,
-not a fixed match count: with `n` extracted centroids, `Nc` projected nearby catalog stars, `m`
-matches, and `match_radius` (fraction of width), compute `prob_single = Nc·match_radius²` and
-`prob_mismatch = binom.cdf(n − (m − 2), n, 1 − prob_single)`, accepting when
-`prob_mismatch < match_threshold`. `match_threshold` MUST be divided by `num_patterns`
-(Bonferroni); reported `Prob` MUST be `prob_mismatch · num_patterns`. The `−2` accounts for the
-two degrees of freedom consumed fitting the attitude. (Ref: doc 02 §9.)
+The system SHALL accept or reject a candidate attitude by a binomial false-alarm probability, not a
+fixed match count: with `n` extracted centroids, `Nc` projected nearby catalog stars, `m` matches,
+and `match_radius` (fraction of width), compute `prob_single = Nc·match_radius²` and `prob_mismatch
+= binom.cdf(n − (m − 2), n, 1 − prob_single)`, accepting when `prob_mismatch < match_threshold`. The
+`−2` accounts for the two degrees of freedom consumed fitting the attitude. (Ref: doc 02 §9.)
+
+#### Scenario: Threshold and reported Prob scaled by patterns tried
+- **WHEN** `num_patterns` patterns have been tried
+- **THEN** `match_threshold` MUST be divided by `num_patterns` (Bonferroni)
+- **AND** reported `Prob` MUST be `prob_mismatch · num_patterns`
 
 #### Scenario: More matches lower the false-alarm probability
 - **WHEN** the match count `m` increases with `n`, `Nc`, `match_radius` fixed
