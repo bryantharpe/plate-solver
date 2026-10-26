@@ -79,11 +79,12 @@ The page SHALL open a solved frame with where it points: a title block naming th
 constellation, RA and Dec at display size with their unit marks, the field, roll and scale, and
 the solve time, matched-of-detected stars and RMS residual, with these facts wrapping only
 between clauses. In reading order it SHALL then give what is in the field, the chart, the full
-list of what is in the field, what to look at next and the survey view. On a phone of 412 × 915
-or 390 × 844 CSS px with no target set, the first screen SHALL hold the title block, a one-or-two-line roster of
-the field's objects and brightest named stars, the whole chart and its legend. With a target
-set, the guidance block SHALL come first, before the title block, and the roster SHALL follow
-the chart's legend; with no target the page is as above. On a screen at
+list of what is in the field, what to look at next and the survey view; with a target set, the
+guidance block and the title block come first, then the chart and its legend, then what is in
+the field and the rest. On a phone of 412 × 915 or 390 × 844 CSS px, the first screen SHALL
+hold the title block, a one-or-two-line roster of the field's objects and brightest named stars,
+the whole chart and its legend with no target set, and the guidance block, the title block, the
+whole chart and its legend with one. On a screen at
 least 64rem wide, the chart SHALL sit to the right of the facts and stay in view while they
 scroll, with the page centred, sized to the chart, and gutters of at least 40 px. (Ref:
 `web/src/App.tsx`, `web/src/components/ChartHeader.tsx`, `FieldList.tsx` `FieldRoster`; tests:
@@ -101,7 +102,7 @@ e2e "the first screen shows where it points…" at both sizes, "the chart sits b
 - **THEN** it breaks between "30 of 67 stars matched" and "12″ RMS", never inside either
 
 #### Scenario: The first screen with a target
-- **WHEN** M78 is the target and orion2 is charted on a 412 × 915 screen
+- **WHEN** M78 is the target and orion2 is charted on a 412 × 915 or a 390 × 844 screen
 - **THEN** the guidance block, the title block, the chart and the legend are all fully on
   screen, in that order from the top, and the roster comes after the legend
 
@@ -113,12 +114,13 @@ The page SHALL offer, from the top bar, a target sheet that searches the catalog
 types and lists each match with its id, Messier number, common name, kind, magnitude and whether
 it is pointable now. Picking a match SHALL make it the session's target, and the sheet SHALL also
 offer to clear the target.
-**Refs**: target-catalog "Search"; push-to "Pointable"; DESIGN.md (Sheets, Lists)
+**Refs**: target-catalog "Search"; push-to "Classes in a search"; DESIGN.md (Sheets, Lists)
 
 #### Scenario: Andromeda by name
 - **WHEN** the user types `andro` in the target sheet
-- **THEN** NGC 224 (M31), the Andromeda Galaxy, is listed first; picking it makes it the
-  session's target, closes the sheet, and the guidance block names it
+- **THEN** NGC 224 (M31), the Andromeda Galaxy, is listed first with the class the search
+  answer gives it; picking it makes it the session's target, closes the sheet, and the guidance
+  block names it
 
 #### Scenario: Nothing matches
 - **WHEN** the user types `qqq`
@@ -133,8 +135,8 @@ offer to clear the target.
 With a target set, the page SHALL show a guidance block naming the target and its class: when
 pointable, the turn and tilt from the latest pointing to whole degrees ("turn clockwise 34° ·
 tilt up 12°") and the pointing's age, or a prompt to solve a frame; when down, when it rises,
-transits and sets; under the Sun guard, that the console will not point there. It SHALL refresh
-at least every 5 s.
+transits and sets; under the Sun guard, that the console will not point there; without a site,
+that a site is needed, leading to the Setup page. It SHALL refresh at least every 5 s.
 **Refs**: push-to (every requirement); GLOSSARY.md (turn, tilt, Sun guard)
 
 #### Scenario: Directions to M78
@@ -150,6 +152,10 @@ at least every 5 s.
 #### Scenario: Near the Sun
 - **WHEN** M75 is the target at that time
 - **THEN** the block says the console will not point within 15° of the Sun, with no directions
+
+#### Scenario: A target without a site
+- **WHEN** M42 is the target and the session has no site
+- **THEN** the block says a site is needed and links to `/setup`, with no times or directions
 
 #### Scenario: Changed on another device
 - **WHEN** another client puts the target M31 while the page shows M78

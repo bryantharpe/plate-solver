@@ -16,12 +16,13 @@ Meeus's low-accuracy method (ch. 25), to within 0.01° over the years 1950 to 21
 - **WHEN** the Sun is computed for 1992 October 13.0 TD (JD 2448908.5)
 - **THEN** its apparent RA is 198.38083° and its Dec −7.78507°, each within 0.01°
 
-### Requirement: Rising, transit and setting
+### Requirement: Rising, transit and setting on a date
 
-The system SHALL compute, for a position, a site, a date and an altitude, when the position next
-rises above that altitude, crosses the meridian and sets below it, each to within one minute, or
-say that on that date it stays above or never reaches that altitude. A position that moves SHALL
-be interpolated over the date as Meeus does.
+The system SHALL compute, for a position, a site, a UT date and an altitude, the times on that
+date when the position rises above that altitude, crosses the meridian and sets below it
+(Meeus's m1, m0 and m2, in no particular order), each to within one minute, or say that on that
+date it stays above or never reaches that altitude. A position that moves SHALL be interpolated
+over the date as Meeus does.
 **Refs**: Meeus, Astronomical Algorithms 2nd ed., ch. 15 and example 15.a
 
 #### Scenario: Meeus's example 15.a
@@ -42,3 +43,19 @@ be interpolated over the date as Meeus does.
 - **WHEN** a fixed position's rising time for altitude 15° is computed at 40° N, 75° W
 - **THEN** the finder console's own altitude of that position at that time is 15° within 0.05°,
   and it is climbing
+
+### Requirement: The next rising, transit and setting
+
+The system SHALL compute, for a position, a site, a time and an altitude, the next rising (the
+first at or after that time within the next 24 sidereal hours), then the first transit and the
+first setting after that rising, each to within one minute, from the times on that UT date and
+the next. When the position stays above or never reaches the altitude it SHALL say so and give
+the next transit.
+**Refs**: Meeus, Astronomical Algorithms 2nd ed., ch. 15; push-to "When a target that is down comes up"
+
+#### Scenario: M8 from a January evening
+- **WHEN** the next times of altitude 15° are asked for M8 at 40° N, 75° W from
+  2026-01-16 02:00 UT
+- **THEN** 02:00 UT is before the rising, the rising before the transit and the transit before
+  the setting, and the finder console's own altitude of M8 is 15° within 0.05° at the rising
+  (climbing) and at the setting (sinking)

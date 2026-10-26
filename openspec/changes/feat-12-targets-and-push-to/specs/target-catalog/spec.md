@@ -24,8 +24,8 @@ SHALL find the object it duplicates.
   an object of its own
 
 #### Scenario: Offline
-- **WHEN** a search runs on a machine with no network connection
-- **THEN** it answers from the bundled catalog, exactly as it does online
+- **WHEN** a search runs with no catalog file on disk and no network access
+- **THEN** it answers from the catalog compiled into the binary, exactly as it does otherwise
 
 ### Requirement: The Messier objects agree
 

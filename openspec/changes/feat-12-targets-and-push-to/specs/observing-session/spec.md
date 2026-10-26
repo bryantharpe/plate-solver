@@ -65,9 +65,9 @@ library SHALL keep the session in memory unless it is given a state file.
   that file beside the new one with a `.bad` suffix
 
 #### Scenario: Tests write nothing
-- **WHEN** the library's state is built without a state file and the session is changed through
-  the API
-- **THEN** no file is created under the state folder or anywhere else
+- **WHEN** the library's state is built without a state file, with `HOME` and `XDG_STATE_HOME`
+  pointed at an empty temporary folder, and the session is changed through the API
+- **THEN** that folder is still empty
 
 ### Requirement: Same-origin writes
 
@@ -93,12 +93,30 @@ page on another site cannot drive the console.
 - **WHEN** an edit is sent as `text/plain` whose body would parse as JSON
 - **THEN** the answer is 415 with a JSON `error`, and nothing changes
 
+### Requirement: Known hosts only
+
+Every route that changes the session, except one that only stops the telescope, SHALL refuse
+with 403 and a JSON `error` a request that carries an `Origin` and whose `Host` is not an IP
+literal, `localhost`, or a name given with `--allow-host`, so that a page on a rebound DNS name
+cannot drive the console.
+**Refs**: observing-session "Same-origin writes"; OWASP CSRF Prevention Cheat Sheet; RFC 6454 §7
+
+#### Scenario: A rebound name
+- **WHEN** a request to put the target M42 carries `Host: evil.example:8097` and
+  `Origin: http://evil.example:8097`
+- **THEN** the answer is 403 with a JSON `error`, and the session is unchanged
+
+#### Scenario: A name the console was given
+- **WHEN** the console runs with `--allow-host surface.local` and the same edit carries
+  `Host: surface.local:8097` and `Origin: http://surface.local:8097`
+- **THEN** it is applied and answered 200 with the session
+
 ### Requirement: The latest pointing
 
 The system SHALL make each frame that solves the session's latest pointing: the J2000 RA and Dec
-at the aim point (the frame centre until an aim point is set), its altitude and azimuth at the
-solve time when the session has a site, and the solve time on the console's clock. A frame that
-does not solve SHALL leave the pointing as it was.
+at the aim point (the frame centre until an aim point is set), the frame's time on the console's
+clock (for an uploaded frame, the time it is solved), and its altitude and azimuth at that time
+when the session has a site. A frame that does not solve SHALL leave the pointing as it was.
 **Refs**: GLOSSARY.md (aim point, sync); finder-console "The solve report" (orion2's pointing)
 
 #### Scenario: orion2 under a fixed clock
@@ -115,6 +133,23 @@ does not solve SHALL leave the pointing as it was.
 #### Scenario: No site yet
 - **WHEN** orion2 is solved while the session has no site
 - **THEN** the pointing has RA, Dec and time, and no altitude or azimuth
+
+### Requirement: The pointing follows the site
+
+When the session's site is set or changed, the system SHALL recompute the latest pointing's
+altitude and azimuth from its RA, Dec and frame time for the new site, and when the site is
+cleared it SHALL drop them, keeping the RA, Dec and time.
+**Refs**: push-to "Turn and tilt"; finder-console "The observing site"
+
+#### Scenario: A site set after the solve
+- **WHEN** orion2 is solved with no site under a clock fixed at 2026-01-16 02:00 UT, and the site
+  40° N, 75° W is then put
+- **THEN** the pointing's altitude and azimuth equal the finder console's own altitude and
+  azimuth of 85.190964°, −4.246105° for that site at 1768528800, within 1e-9°
+
+#### Scenario: A site cleared
+- **WHEN** the site is then cleared
+- **THEN** the pointing keeps its RA, Dec and time exactly and has no altitude or azimuth
 
 ### Requirement: The console's time
 

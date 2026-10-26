@@ -73,7 +73,9 @@ for a moment.
 
 The `/api/solve` handler, after a frame solves, records the pointing:
 - the J2000 centre (the aim point until feat-13);
-- alt/az from `alt_az` at the clock's now, when a site is set;
+- alt/az from `alt_az` at the frame's time (the clock's now for an uploaded frame), when a
+  site is set, recomputed for the new site whenever the site changes and dropped when it is
+  cleared;
 - the clock's time;
 - a sequence number.
 
@@ -111,7 +113,10 @@ longitude.
 - a position may be a fixed point or three daily positions to interpolate (Meeus's Venus
   test, and the Sun later).
 
-"Next" rising means at or after now, searched over the next 24 sidereal hours. The answer
+The date-bound times are Meeus's m0, m1 and m2 for the UT date, in no particular order (in
+15.a the setting comes before the rising). "Next" rising means at or after now, searched over
+the next 24 sidereal hours from that date's and the next date's times; the transit and setting
+are the first after that rising. The answer
 names `always_above` or `never_rises` when cos H₀ falls outside ±1, and still gives the
 transit.
 
@@ -168,6 +173,9 @@ A small check runs on every route that changes the session: `PUT /api/session` a
 - It compares the `Origin` header's host and port with the request's `Host`.
 - It answers 403 on a mismatch and lets an absent `Origin` through, so curl and the Rust tests
   are unaffected.
+- When an `Origin` is present, the `Host` must also be an IP literal, `localhost`, or a name
+  given with `--allow-host`, so a DNS-rebinding page (whose `Origin` and `Host` both name its
+  own domain) is refused. A phone on the LAN reaches the console by IP, so it passes.
 
 A phone through `netsh portproxy` or mirrored networking keeps its own `Host`, so it passes.
 A route that only stops the telescope (feat-14's `POST /api/stop`) is exempt, because a stop
@@ -210,11 +218,14 @@ Origin check covers `/api/solve`, whose multipart body is itself one of those.
 
 The existing Playwright server writes nothing a developer cares about only if it has its own
 state, so:
-- `playwright.config.ts` starts it with `--state` in a fresh folder under `target/`;
+- `playwright.config.ts` starts it with `--state` in a fresh folder under `target/`, and with
+  `reuseExistingServer: false`, so a developer's own console is never reused (with
+  `FINDER_URL` set, the tests run against that server and its session);
 - a second `finder` server on port 8098, with its own fresh `--state`, serves a new `session`
   project for the tests that set targets;
 - the default project ignores those tests, so the existing ones still see a session with no
-  target.
+  target. They do share one session, so after the first test that seeds a browser site, later
+  tests see that site; none of the existing assertions depends on there being no site.
 
 The proposal names this config change for the owner's approval.
 

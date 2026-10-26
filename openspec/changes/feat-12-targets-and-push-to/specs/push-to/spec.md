@@ -32,7 +32,7 @@ otherwise say that a site is needed. The Sun guard SHALL be always on, with no o
 For a target below the horizon or too low, the system SHALL give when it next rises to the
 minimum altitude, when it next transits and when it then sets below the minimum altitude, or say
 that it never reaches the minimum altitude on that date.
-**Refs**: sky-ephemeris "Rising, transit and setting"; GLOSSARY.md (minimum altitude)
+**Refs**: sky-ephemeris "The next rising, transit and setting"; GLOSSARY.md (minimum altitude)
 
 #### Scenario: M8 at 15°
 - **WHEN** M8 is the target at 40° N, 75° W at 2026-01-16 02:00 UT with a minimum of 15°
@@ -66,9 +66,21 @@ target's altitude less the pointing's, up when positive. Otherwise it SHALL give
 - **WHEN** the target is M8 below the horizon and a pointing exists
 - **THEN** no turn or tilt is given
 
+### Requirement: An uploaded frame never goes stale
+
+A latest pointing SHALL go stale only where another requirement says so; a pointing from an
+uploaded frame SHALL never go stale, whatever its age.
+**Refs**: push-to "Turn and tilt"; design.md (Risks: the guidance trusts the latest pointing)
+
+#### Scenario: An hour later
+- **WHEN** orion2 was solved at 40° N, 75° W at 2026-01-16 02:00 UT with M78 as the target, and
+  the guidance is read at 03:00 UT by the console's fixed clock, M78 being pointable then
+- **THEN** the turn and tilt are still given, from the pointing's altitude and azimuth at 02:00
+  to M78's at 03:00 (within 1e-9°)
+
 ### Requirement: A still telescope stays put
 
-The system SHALL hold the latest pointing's altitude and azimuth at their values at its solve
+The system SHALL hold the latest pointing's altitude and azimuth at their values at its frame's
 time, since an alt-az telescope left alone stays put, while the target's altitude and azimuth
 follow the console's clock.
 **Refs**: GLOSSARY.md (push-to, tracking); docs/research/2026-10-21-pointing-model-and-tracking.md §3
@@ -79,6 +91,17 @@ follow the console's clock.
 - **THEN** the turn and tilt start from the pointing's altitude and azimuth at 02:00 (within
   1e-9°) and end at M78's at 02:10 (within 1e-9°), so they differ from the 02:00 guidance by
   M78's own motion
+
+### Requirement: Classes in a search
+
+Each result of `GET /api/targets` SHALL carry its class at the console's time, as "Pointable"
+classes the session's target.
+**Refs**: push-to "Pointable"; target-catalog "Search"
+
+#### Scenario: M42 and M75 searched on a January evening
+- **WHEN** `m42` and `m75` are searched at 40° N, 75° W under a clock fixed at
+  2026-01-16 02:00 UT, with the minimum altitude 15°
+- **THEN** M42's class is pointable and M75's is under the Sun guard
 
 ### Requirement: Placed on the frame
 

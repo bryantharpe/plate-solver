@@ -67,8 +67,11 @@ observing session that live solving (feat-13), the mount and later clients will 
   the Rust tests write nothing.
 - **Playwright (named for the owner's approval):** `web/playwright.config.ts` gains a second
   `finder` server on another port with its own throwaway `--state`, for the new tests that
-  write to the session, and the existing server is given a throwaway `--state` too, so a
-  developer's own session can never leak into the existing end-to-end tests. No existing test
-  changes. CI (`ci.yml`) is unchanged.
+  write to the session; the existing server is given a throwaway `--state` too, and both set
+  `reuseExistingServer: false`, so a developer's own console on 8097 is never reused for the
+  end-to-end tests (with `FINDER_URL` set, the tests run against that server's session). The
+  default project still shares one session, so once a test that seeds a browser site has run,
+  later tests in it see that site; no existing assertion depends on there being none. No
+  existing test changes. CI (`ci.yml`) is unchanged.
 - **Design records:** a surface brief for the Setup page under `.impeccable/surfaces/`, and a
   `DESIGN.md` update after the Impeccable pass.
