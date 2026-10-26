@@ -44,13 +44,16 @@ sample frames. (Ref: `src/api.rs` `health`; test: `health_reports_the_database`.
 
 ### Requirement: Third-party notices
 
-The system SHALL carry, in `THIRD_PARTY_NOTICES.md`, a notice for each third-party work
-compiled into the binary (the page's packages and fonts, and the bundled sky data), with its
-source, version, license and the license's full text. The page's packages SHALL be listed at
-the versions and licenses `web/package-lock.json` pins. `finder --licenses` SHALL print the
-file and exit without loading a database or serving. (Ref: `THIRD_PARTY_NOTICES.md`,
-`src/main.rs` `THIRD_PARTY_NOTICES`; tests: `licenses_prints_the_notices_and_exits`,
+The system SHALL carry, in `THIRD_PARTY_NOTICES.md`, a notice for each third-party work compiled
+into the binary (the page's packages and fonts, and the bundled sky data), with its source, version,
+license and the license's full text. The page's packages SHALL be listed at the versions and
+licenses `web/package-lock.json` pins. (Ref: `THIRD_PARTY_NOTICES.md`, `src/main.rs`
+`THIRD_PARTY_NOTICES`; tests: `licenses_prints_the_notices_and_exits`,
 `the_notices_name_the_page_packages_as_locked`.)
+
+#### Scenario: The licenses flag
+- **WHEN** `finder --licenses` is run
+- **THEN** it SHALL print the file and exit without loading a database or serving
 
 #### Scenario: Printing the notices
 - **WHEN** `finder --licenses --db no-such-database.npz` runs
@@ -223,28 +226,42 @@ bundled list of bright stars, their proper name, checked against the database's 
 ### Requirement: Deep-sky objects on and near the frame
 
 The system SHALL report each Messier object whose symbol overlaps the frame, with its image
-position, half its major and minor axes in pixels, the image direction of its major axis
-(from its position angle and the local direction of north), its distance from the frame centre,
-and whether its centre is inside the frame; those centred inside come first, then by magnitude.
-It SHALL report up to eight Messier objects off the frame within 15° of its corners, nearest
-first, each with its distance and its direction in the image (degrees clockwise from up).
-(Ref: `src/solve.rs` `object_marks`; tests: `a_sample_solves_and_its_overlay_lands_on_its_stars`,
-`an_upload_solves_and_finds_what_is_in_it`, `objects_just_off_the_frame_are_listed_nearest_first`.)
+position, half its major and minor axes in pixels, the image direction of its major axis (from its
+position angle and the local direction of north), its distance from the frame centre, and whether
+its centre is inside the frame. (Ref: `src/solve.rs` `object_marks`; tests:
+`a_sample_solves_and_its_overlay_lands_on_its_stars`, `an_upload_solves_and_finds_what_is_in_it`.)
+
+#### Scenario: Order of objects on the frame
+- **WHEN** objects on the frame are reported
+- **THEN** those centred inside come first, then by magnitude
 
 #### Scenario: Orion's nebulae at true size
 - **WHEN** `orion2.jpg` is solved
 - **THEN** the objects are M42, M78 and M43 in that order, M42 is inside the frame with a radius
   of 36–39 px (45′ at 72″ a pixel), and M79 is listed just off the frame about 20° away
 
+### Requirement: Deep-sky objects just off the frame
+
+The system SHALL report up to eight Messier objects off the frame within 15° of its corners,
+nearest first, each with its distance and its direction in the image (degrees clockwise from up).
+(Ref: `src/solve.rs` `object_marks`; tests: `objects_just_off_the_frame_are_listed_nearest_first`.)
+
+#### Scenario: Objects off the frame
+- **WHEN** a frame solves with Messier objects off it within 15° of its corners
+- **THEN** up to eight of them SHALL be reported, nearest first, each with its distance and its direction in the image (degrees clockwise from up)
+
 ### Requirement: The RA/Dec grid
 
-The system SHALL compute an RA/Dec graticule for a solved frame: parallels at a round spacing
-giving about four across the frame's width (0.25° to 45°), hour circles at a round spacing that
-keeps cells roughly square on the sky, both carried a little past the frame and labelled where
-they cross its edges (`5h 40m` or `6h`; `−4°` or `+2° 30′`). Near a pole the hour circles
-SHALL radiate from it all the way round. (Ref: `src/grid.rs`; tests:
+The system SHALL compute an RA/Dec graticule for a solved frame: parallels at a round spacing giving
+about four across the frame's width (0.25° to 45°), hour circles at a round spacing that keeps cells
+roughly square on the sky, both carried a little past the frame and labelled where they cross its
+edges (`5h 40m` or `6h`; `−4°` or `+2° 30′`). (Ref: `src/grid.rs`; tests:
 `on_the_equator_north_up_the_grid_is_square_to_the_frame`, `near_the_pole_hour_circles_radiate`,
 `labels`.)
+
+#### Scenario: Hour circles at a pole
+- **WHEN** the frame is near a pole
+- **THEN** the hour circles SHALL radiate from it all the way round
 
 #### Scenario: Near the pole
 - **WHEN** the grid is drawn for a frame centred at Dec 88°
@@ -273,13 +290,16 @@ IAU's spelling of all 88 names. (Ref: `src/constellation.rs`, `data/README.md`; 
 
 ### Requirement: Time and place on the sky
 
-The system SHALL compute, for an observer's latitude, longitude and time, the altitude and
-azimuth (from north through east) of a J2000 position: precessed to the date with the IAU 1976
-angles, with mean sidereal time, without nutation or refraction, to within 0.01° of Meeus's
-worked examples. (Ref: `src/sky.rs` `precess_from_j2000`, `gmst_deg`, `alt_az`,
-`compass_point`; tests: `precession_matches_meeus_example_21b`,
+The system SHALL compute, for an observer's latitude, longitude and time, the altitude and azimuth
+(from north through east) of a J2000 position: precessed to the date with the IAU 1976 angles, with
+mean sidereal time, without nutation or refraction. (Ref: `src/sky.rs` `precess_from_j2000`,
+`gmst_deg`, `alt_az`, `compass_point`; tests: `precession_matches_meeus_example_21b`,
 `sidereal_time_matches_meeus_example_12a`, `alt_az_matches_meeus_example_13b`,
 `compass_and_formatting`.)
+
+#### Scenario: Agreement with Meeus
+- **WHEN** the result is compared with Meeus's worked examples
+- **THEN** it SHALL agree to within 0.01°
 
 #### Scenario: Venus from Washington
 - **WHEN** Meeus's example 13.b is computed (1987 April 10, 19:21 UT, US Naval Observatory)
@@ -360,12 +380,15 @@ server's samples…", "opens a frame from the device", "takes a field of view hi
 
 ### Requirement: A frame that does not solve
 
-The page SHALL show, for a frame that does not solve, "No match", the server's hint, how many
-stars were found at which threshold, the centroids on the frame, and a button to try again at a
-lower threshold (5σ from above 5σ, then 3σ, then none). (Ref:
-`web/src/components/ChartHeader.tsx`, `Chart.tsx`; tests: ChartHeader "says what to try when a
-frame does not solve…"; Chart "shows only the detected stars, fixed on…"; e2e "a frame that does
-not solve says what to try, and solves at the lower threshold it offers".)
+The page SHALL show, for a frame that does not solve, "No match", the server's hint, how many stars
+were found at which threshold, the centroids on the frame, and a button to try again at a lower
+threshold. (Ref: `web/src/components/ChartHeader.tsx`, `Chart.tsx`; tests: ChartHeader "says what to
+try when a frame does not solve…"; Chart "shows only the detected stars, fixed on…"; e2e "a frame
+that does not solve says what to try, and solves at the lower threshold it offers".)
+
+#### Scenario: The lower threshold offered
+- **WHEN** the button to try again at a lower threshold is shown
+- **THEN** the lower threshold it offers SHALL be 5σ from above 5σ, then 3σ, then none
 
 #### Scenario: The roof frame
 - **WHEN** `roof.jpg` does not solve at 8σ and the user taps "Try again at 5σ"
@@ -395,12 +418,15 @@ grid…".)
 
 The page SHALL name every Messier object on the chart and the named stars where there is room,
 without any label covering another label, the compass, scale bar or reticle, or crossing its own
-symbol; labels SHALL stay inside the frame. A label goes beside its mark past the symbol's reach
-in that direction, or further out on a leader line from the symbol's edge when the near spots are
-taken; a star name with no clear spot is left out; an object whose centre lies off the frame is
-named inside it. On the Orion frame at phone and laptop widths no label SHALL cover another star's
-ring. (Ref: `web/src/labels.ts`; tests: labels.test.ts, every case, on the real Orion and Virgo
-reports at 380, 800 and 960 px and on constructed fields.)
+symbol; labels SHALL stay inside the frame. On the Orion frame at phone and laptop widths no label
+SHALL cover another star's ring. (Ref: `web/src/labels.ts`; tests: labels.test.ts, every case, on
+the real Orion and Virgo reports at 380, 800 and 960 px and on constructed fields.)
+
+#### Scenario: Where a label goes
+- **WHEN** a label is placed
+- **THEN** it goes beside its mark past the symbol's reach in that direction, or further out on a leader line from the symbol's edge when the near spots are taken
+- **AND** a star name with no clear spot is left out
+- **AND** an object whose centre lies off the frame is named inside it
 
 #### Scenario: Orion on a phone
 - **WHEN** orion2 is laid out 380 px wide
