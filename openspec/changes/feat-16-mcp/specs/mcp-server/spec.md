@@ -27,7 +27,8 @@ SHALL need no `Mcp-Session-Id`, and `finder --no-mcp` SHALL turn the endpoint of
 
 #### Scenario: Turned off
 - **WHEN** the console runs with `--no-mcp` and a client posts `initialize` to `/mcp`
-- **THEN** the answer is 404, exactly as for any unknown path
+- **THEN** the answer's status equals the one for a path the console doesn't serve (oracle: a
+  request to `/no-such-path`, exact), and no tool runs
 
 ### Requirement: Origin and Host
 
@@ -71,22 +72,29 @@ carries. Read-only tools SHALL carry `readOnlyHint: true`.
 - **THEN** its `structuredContent` equals the HTTP target search's answer for `orion`, exactly
 
 #### Scenario: A refusal reads the same
-- **WHEN** `set_session` is called with a minimum altitude of 95°
+- **WHEN** `set_session` is called with `min_alt_deg` 85
 - **THEN** the result has `isError: true` and the same `error` text `PUT /api/session` answers
   with 400, and the session is unchanged (oracle: `GET /api/session`, exact)
 
 ### Requirement: Session and catalog tools
 
-The endpoint SHALL offer at least `get_session`, `set_session`, `search_targets`,
-`get_guidance` (the target's pointability and push-to directions), `set_target`, `solve_frame`
-(an image as base64, under the same size limit as `POST /api/solve`) and `get_pointing` (the
-latest pointing).
+The endpoint SHALL offer at least `get_session`, `set_session` (`site`, `min_alt_deg`,
+`target`), `search_targets`, `get_guidance` (pointability and push-to directions), `set_target`,
+`solve_frame` (an image as base64, within `POST /api/solve`'s size limit) and `get_pointing`.
+`set_session` SHALL refuse the scope node's address and token, so no MCP client can repoint or
+re-pair the console.
 **Refs**: observing-session; target-catalog; push-to; finder-console; GLOSSARY.md (pointable, push-to)
 
 #### Scenario: Push-to over MCP
-- **WHEN** `set_target` is called with M42 and then `get_guidance`, with the session's latest
-  pointing and clock as in push-to's worked example
-- **THEN** the turn and tilt equal the page's guidance for the same session, exactly
+- **WHEN** the latest pointing is at azimuth 350°, altitude 30°, the target is pointable at
+  azimuth 24°, altitude 42° (push-to's "Across north"), and `get_guidance` is called
+- **THEN** it gives turn clockwise 34° and tilt up 12° (within 1e-9°), equal to the page's
+  guidance for the same session
+
+#### Scenario: The scope node stays put
+- **WHEN** `set_session` is called with a scope node address or token
+- **THEN** the result has `isError: true`, and the session's scope node address and
+  whether a token is set are unchanged (oracle: `GET /api/session`, exact)
 
 #### Scenario: Solving a saved frame
 - **WHEN** `solve_frame` is called with a saved fixture frame as base64
@@ -111,7 +119,7 @@ the live loop runs.
 
 #### Scenario: Link lost
 - **WHEN** the simulator stops answering heartbeats and `get_link` is called 2 s later
-- **THEN** it reports the link as lost, matching `GET /api/session`, exactly
+- **THEN** it reports the link as disconnected, matching `GET /api/session`, exactly
 
 ### Requirement: Mount calls through MCP
 

@@ -7,7 +7,7 @@
 
 ## 2. Session and catalog tools (after feat-12)
 
-- [ ] 2.1 Add `get_session`, `set_session`, `set_target` and `search_targets`, each calling the route's function; verified by the "Searching" test and a test comparing each tool with its route for the same input
+- [ ] 2.1 Add `get_session`, `set_session` (site, minimum altitude and target only), `set_target` and `search_targets`, each calling the route's function; verified by the "Searching" and "The scope node stays put" tests (the latter once feat-13's scope node fields exist) and a test comparing each tool with its route for the same input
 - [ ] 2.2 Add `get_guidance`; verified by the "Push-to over MCP" test against push-to's worked example
 - [ ] 2.3 Add `solve_frame` and `get_pointing`, with the `/api/solve` size limit; verified by the "Solving a saved frame" and "Too large" tests on a saved fixture frame
 

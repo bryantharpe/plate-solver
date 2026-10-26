@@ -103,7 +103,7 @@ drift. Arguments use the session's JSON names; results are the same JSON the rou
 | Tool | Passes through to | Lands after | Moves the telescope |
 |---|---|---|---|
 | `get_session` | `GET /api/session` | feat-12 | no |
-| `set_session` | `PUT /api/session` (site, minimum altitude, target) | feat-12 | no |
+| `set_session` | `PUT /api/session` (site, minimum altitude, target; never the scope node) | feat-12 | no |
 | `search_targets` | the target search | feat-12 | no |
 | `get_guidance` | the target's pointability and push-to directions | feat-12 | no |
 | `set_target` | `PUT /api/session` with a target only | feat-12 | no |
@@ -119,6 +119,9 @@ drift. Arguments use the session's JSON names; results are the same JSON the rou
 | `stop_all` | `POST /api/stop`, which ends in the mount call "stop all" | feat-14 | stops |
 | `set_tracking` | `POST /api/track` | feat-15 | yes |
 
+- `set_session` takes only `site`, `min_alt_deg` and `target`. The scope node's address and
+  token (feat-13) are refused: an MCP client that could change them could point the console at a
+  node of its own, or break its pairing. The token is never read back in any case.
 - Read-only tools carry `readOnlyHint: true`; the moving ones say in their description that they
   move a real telescope. Annotations are hints a client may ignore, so no guard depends on them.
 - `stop_all` goes through the console's Stop rather than straight to the link, so a GoTo or
