@@ -73,6 +73,7 @@ must ground requirements in these and cite the doc number.
 | [ADR-0001](../docs/adr/0001-console-owns-pointing-scope-node-drives-axes.md); `docs/research/2026-10-21-scope-node-runtime.md`; Cedar's and PiFinder's aim-point calibration (`docs/research/2026-10-21-pointing-model-and-tracking.md` §2); RFC 5905 (NTP's offset and delay) | **`scope-link`**, **`scope-node`**, **`simulator`**, **`live-finder`** (`feat-13-live-finder`) |
 | Sky-Watcher's motor-controller command set and `docs/research/2026-10-21-synscan-mount-control.md`; the TPoint manual v18.20 §7.2 and Taki (1989), via `docs/research/2026-10-21-pointing-model-and-tracking.md` §1–2; Meeus ch. 16 (refraction) | **`pointing-model`**, **`goto`** (`feat-14-goto`) |
 | Meeus ch. 13 and 14 (parallactic angle); `docs/research/2026-10-21-pointing-model-and-tracking.md` §3 (rates, zenith keyhole, field rotation, closed loop) | **`tracking`** (`feat-15-tracking`) |
+| The MCP specification (Streamable HTTP, security best practices, tools) and the `rmcp` crate, via `docs/research/2026-10-25-mcp-server.md`; ADR-0001 | **`mcp-server`** (`feat-16-mcp`) |
 
 Feature dependency order (implementation order): `math-core` → `star-detection` → `pattern-database`
 → `database-generation` → `plate-solver` → `grpc-service` → `mobile-runtime`. `finder-console`
@@ -90,6 +91,9 @@ mount's two axes to the target through a pointing model fitted from syncs) and
 `feat-15-tracking` (the mount follows the target). Per ADR-0001 the console owns pointing and
 reaches hardware only through the mount port and camera port. SkySafari, the AI and the mobile
 app are out of scope for these four. None of them touches `math-core`, the parity path.
+`feat-16-mcp` comes after them: an MCP endpoint in the console whose tools pass its actions and
+the mount calls through to MCP clients on the LAN, under the same guards. Its tasks land in
+steps after each of the four; the scope node gets no MCP.
 
 ## 4. Coordinate & sign conventions (binding across all specs)
 

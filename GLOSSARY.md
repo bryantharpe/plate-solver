@@ -112,6 +112,18 @@ _Avoid_: driver
 An axis's own reading of where it is, in the mount's frame rather than the sky's. The pointing model turns axis positions into a direction on the sky.
 _Avoid_: mount alt/az, encoder alt/az
 
+**MCP client**:
+A program that calls the console's MCP tools over the house LAN, such as Claude on the Surface or an app on the phone. It needs no token, and can do no more than the page can.
+_Avoid_: agent, the AI (alone), bot
+
+**MCP tool**:
+One action the console offers MCP clients, passing through to one of the console's own actions or one of the scope link's mount calls.
+_Avoid_: command, endpoint
+
+**Direct axis move**:
+Moving an axis to an axis position, or at a rate for a set time, asked for by axis rather than by target. Only MCP clients ask for one; it needs a sync and passes the same guards as a GoTo.
+_Avoid_: raw move, manual slew
+
 ### Solving
 
 **Centroid**:
