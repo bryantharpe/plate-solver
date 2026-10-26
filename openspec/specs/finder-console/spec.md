@@ -132,18 +132,11 @@ example's. Unknown fields SHALL be ignored. (Ref: `src/api.rs` `SolveForm::read`
 
 ### Requirement: Solve errors and limits
 
-The system SHALL refuse a request body over 32 MiB with 413, an image over 20,000 px on a side
-or over the decoder's 256 MiB budget with 413, bytes that are not a readable PNG, JPEG, BMP or
-PNM image with 415, and an unknown sample name with 404, each with a JSON `error`. It SHALL run
-one decode-and-solve at a time, so that frames posted together queue rather than run the
-machine out of memory, and each is answered with its own solution. A request SHALL take its
-turn before its form is read, so a queued upload stays unread on the network rather than in
-memory; a request whose form has not fully arrived 30 s after its turn began SHALL be answered
-408 with a JSON `error`, and the next in the queue SHALL go on. (Ref: `src/api.rs`
-`SOLVE_BODY_LIMIT`, `solve_gate`, `FORM_READ_TIMEOUT`, `AppState::with_form_timeout`,
-`From<DecodeError>`, `src/solve.rs` `decode`; tests: `oversized_uploads_are_refused`,
-`decodes_and_refuses`, `decode_errors_map_to_statuses`, `bad_requests_are_refused_with_reasons`,
-`frames_posted_together_are_each_answered`, `a_stalled_upload_times_out_and_the_queue_moves_on`.)
+The system SHALL refuse a request body over 32 MiB with 413, an image over 20,000 px on a side or
+over the decoder's 256 MiB budget with 413, bytes that are not a readable PNG, JPEG, BMP or PNM
+image with 415, and an unknown sample name with 404, each with a JSON `error`. (Ref: `src/api.rs`
+`SOLVE_BODY_LIMIT`, `From<DecodeError>`, `src/solve.rs` `decode`; tests: `oversized_uploads_are_refused`,
+`decodes_and_refuses`, `decode_errors_map_to_statuses`, `bad_requests_are_refused_with_reasons`.)
 
 #### Scenario: Too large to read
 - **WHEN** an upload is one byte over 32 MiB
@@ -153,9 +146,23 @@ memory; a request whose form has not fully arrived 30 s after its turn began SHA
 - **WHEN** an upload holds `not a jpeg`
 - **THEN** the answer is 415 with a JSON `error`
 
+### Requirement: One solve at a time
+
+The system SHALL run one decode-and-solve at a time, so that frames posted together queue rather
+than run the machine out of memory, and each is answered with its own solution. (Ref: `src/api.rs`
+`solve_gate`; tests: `frames_posted_together_are_each_answered`.)
+
 #### Scenario: Two frames at once
 - **WHEN** the Orion and Pleiades samples are posted together
 - **THEN** both answer 200, one in Orion and one in Taurus
+
+### Requirement: A queued upload waits unread
+
+A request SHALL take its turn before its form is read, so a queued upload stays unread on the
+network rather than in memory; a request whose form has not fully arrived 30 s after its turn began
+SHALL be answered 408 with a JSON `error`, and the next in the queue SHALL go on. (Ref: `src/api.rs` `solve_gate`,
+`FORM_READ_TIMEOUT`, `AppState::with_form_timeout`; tests:
+`a_stalled_upload_times_out_and_the_queue_moves_on`.)
 
 #### Scenario: An upload that stops
 - **WHEN** a client sends half its form and stops while it has the turn, and another frame is
