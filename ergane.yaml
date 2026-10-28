@@ -1,0 +1,105 @@
+# What "green" means for this repository. Every agent node dispatched here reads
+# this file to learn which commands decide its fate. Declared, never auto-detected.
+#
+# Schema v2: `ladder:` and `roadmap:` are v2-only keys. The worker's installed
+# parser reads this file, not the worktree's, so a node must never add a key here;
+# the operator declares, nodes obey.
+version: 2
+
+runtime: bwrap
+
+# Two gates. Schema v1 fixes the legal names to `test`, `lint` and `typecheck`;
+# clippy type-checks every target, so a separate `typecheck` would only compile the
+# workspace a second time.
+#
+# These are the fast local half of the contract. The merge queue also runs every
+# `ci.yml` job (the 13 checks branch protection already requires: coverage floor,
+# the cedar e2e eval and canary, finder-page, msrv, docs, deny, machete, secrets),
+# so a node can pass here and still be refused at the queue. The commands below are
+# the ones `ci.yml` runs, with the same RUSTFLAGS, so the two halves agree on
+# everything they both check. `.github/workflows/ergane-gates.yml` runs these same
+# commands under the job names `lint` and `test`; keep the two files in lockstep.
+#
+# `cargo` is not on the boundary's PATH: the gate boundary binds only uv, node,
+# git, the agent runner and /usr, under a tmpfs HOME. The toolchain arrives through
+# the CARGO_HOME / RUSTUP_HOME caches below, so each command puts $CARGO_HOME/bin
+# on PATH first.
+#
+# The C toolchain is named explicitly. On Debian/Ubuntu `/usr/bin/cc` and
+# `/usr/bin/c++` are links through `/etc/alternatives/`, which the boundary does
+# not mount, so inside it they dangle and every build script fails with "linker
+# `cc` not found". `gcc` and `g++` resolve within `/usr`. CC/CXX reach the cc crate
+# (zstd-sys compiles C); the LINKER variable reaches rustc. Neither changes what is
+# compiled, so CI, which uses the runner's own `cc`, checks the same thing.
+gates:
+  lint: >-
+    export PATH="$CARGO_HOME/bin:$PATH" RUSTFLAGS="-D warnings"
+    CC=gcc CXX=g++ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc &&
+    cargo fmt --all --check &&
+    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+  test: >-
+    export PATH="$CARGO_HOME/bin:$PATH" RUSTFLAGS="-D warnings"
+    CC=gcc CXX=g++ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc &&
+    cargo test --workspace --all-targets --all-features --locked &&
+    cargo test --workspace --locked --doc
+
+# A warm build runs both gates in under a minute on the factory host. A cold one
+# compiles tonic, prost and image from scratch, and a second node gating at the
+# same time waits on cargo's lock on the shared target directory. Leave headroom
+# rather than charge a lock wait to a node's attempt budget.
+timeouts:
+  lint: 1200
+  test: 1800
+
+# Writable binds into the gate boundary, each paired with the variable that
+# points the toolchain at it.
+#
+# The toolchain is a dedicated rustup install for the factory, not the operator's
+# ~/.cargo and ~/.rustup. Gate commands run agent-written build scripts and
+# tests, and every bind here is writable; a node must not be able to replace a
+# binary the operator later runs. It tracks stable, as ci.yml's
+# dtolnay/rust-toolchain does, so local clippy sees the lints CI will.
+# Provision or update it with:
+#
+#     CARGO_HOME=~/.cache/ergane/rust/cargo RUSTUP_HOME=~/.cache/ergane/rust/rustup \
+#       ~/.cache/ergane/rust/cargo/bin/rustup update stable
+#
+# The shared target directory keeps every node from recompiling ~3.6 GB of
+# dependencies. Fingerprints include the source path, so each worktree rebuilds
+# the workspace crates while reusing everything from crates.io.
+caches:
+  - path: ~/.cache/ergane/rust/cargo
+    env: CARGO_HOME
+  - path: ~/.cache/ergane/rust/rustup
+    env: RUSTUP_HOME
+  - path: ~/.cache/ergane/cargo-target/plate-solver
+    env: CARGO_TARGET_DIR
+
+# Story-sized Rust diffs carry tests and goldens beside the code. The 64 KiB
+# default refuses them after the gates have passed; this keeps a ceiling while
+# matching what the other targets on this host declare.
+diff_refusal_bytes: 262144
+
+# The document every agent attempt is told to read and obey.
+standards: .specify/memory/constitution.md
+
+# The branch the factory lands on. Declared by the operator, never by a node.
+landing_branch: main
+
+# The retry ladder, mirroring ergane's own manifest:
+#
+#     implementer x2  ->  closer x1 (promotion)  ->  debugger x1  ->  escalate
+#
+# `promotion_persona` names a ROLE, never a model: model names live in the
+# operator's personas.yaml alone.
+ladder:
+  max_attempts: 2
+  promotion_cycles: 1
+  promotion_persona: closer
+
+# How wide the floor may run. Every spec carries `depends_on_landed` in its
+# frontmatter, so a second concurrent epic never starts N+1 before N has landed.
+roadmap:
+  cadence_s: 300
+  max_concurrent_epics: 2
+  max_concurrent_nodes: 2

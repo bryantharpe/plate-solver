@@ -1,0 +1,62 @@
+# The checks the Ergane merge queue requires, one per gate declared in ergane.yaml.
+#
+# The job names below ARE the gate names. GitHub names each check run after the
+# job's `name`, and the `ergane merge queue` ruleset requires a check named after
+# each declared gate. Rename a job here and the factory refuses to dispatch
+# against this repo.
+#
+# These must stay in lockstep with `gates:` in ergane.yaml. A node runs those
+# commands inside bwrap on the factory host; this workflow runs the same commands
+# on a runner so the merge queue has a check to require. Two places, one contract:
+# if they drift, a node can pass locally and be refused at the queue, or the
+# reverse.
+#
+# ci.yml stays the full verification (its 13 jobs are required by branch
+# protection and also run on `merge_group`). Same supply-chain rules as ci.yml:
+# actions pinned by commit SHA, least-privilege token, --locked everywhere.
+name: ergane gates
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ergane-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  lint:
+    name: "lint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with: { components: "clippy, rustfmt" }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: "lint"
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+  test:
+    name: "test"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: "test"
+        run: |
+          cargo test --workspace --all-targets --all-features --locked
+          cargo test --workspace --locked --doc

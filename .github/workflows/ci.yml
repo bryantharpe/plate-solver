@@ -22,6 +22,13 @@ on:
     # Found the hard way on the first real hold (PR #27): the label went on and
     # nothing turned red.
     types: [opened, synchronize, reopened, labeled, unlabeled]
+  # The Ergane merge queue builds each queued PR on a temporary branch and waits for
+  # every required check to report there. Branch protection requires all 13 jobs
+  # below, so without this trigger none of them would run on the queued commit and
+  # every queued PR would wait out the queue's timeout and be removed. `hold` reads
+  # PR labels, which a merge group does not carry, so it passes there; the brake
+  # still works on the PR itself, which cannot enter the queue while it is red.
+  merge_group:
   workflow_dispatch:
 
 permissions:
