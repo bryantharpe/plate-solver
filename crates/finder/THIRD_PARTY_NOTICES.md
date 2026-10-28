@@ -20,6 +20,7 @@ is covered by this project's own license. `finder --licenses` prints this file.
 | File | Source | License |
 |---|---|---|
 | `messier.csv` | [OpenNGC](https://github.com/mattiaverga/OpenNGC) by Mattia Verga, extracted as described in `data/README.md` | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); the extract is under the same license |
+| `openngc.csv` | [OpenNGC](https://github.com/mattiaverga/OpenNGC) by Mattia Verga, at commit `be3cd6c5498806a2fbb2f7e0452ef802dbb02be0`, extracted as described in `data/README.md` | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); the extract is under the same license |
 | `constellation_boundaries.dat`, `constellation_names.dat` | [Astropy](https://github.com/astropy/astropy), from N. G. Roman (1987), CDS VI/42 | BSD 3-Clause |
 
 ## License texts
