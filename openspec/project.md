@@ -67,7 +67,7 @@ must ground requirements in these and cite the doc number.
 | `docs/06-plate-solving.md` | **`plate-solver`** (`feat-05-plate-solver`) |
 | `docs/07-cedar-detect-service-api.md` | **`grpc-service`** (`feat-06-grpc-service`) |
 | `docs/08-tetra3-vs-cedar-comparison.md` | cross-cutting defaults/decisions (all designs); informs **`mobile-runtime`** |
-| perf notes in docs 04/06/08 | **`mobile-runtime`** (`feat-07-mobile-runtime`) |
+| perf notes in docs 04/06/08 | **`mobile-runtime`** (`feat-07-mobile-runtime`), deferred: archived unapplied on 2026-10-25, since `PRODUCT.md` puts the mobile app out of scope for now |
 | none: a consumer of the solver, grounded in its code, its tests and the sources in `crates/finder/data/README.md` | **`finder-console`** (`feat-11-finder-console`) |
 | Meeus, *Astronomical Algorithms* (2nd ed.), ch. 13 (altitude and azimuth), 15 (rising, transit, setting), 21 (precession) and 25 (the Sun); [OpenNGC](https://github.com/mattiaverga/OpenNGC); `GLOSSARY.md` | **`observing-session`**, **`target-catalog`**, **`sky-ephemeris`**, **`push-to`** (`feat-12-targets-and-push-to`) |
 | [ADR-0001](../docs/adr/0001-console-owns-pointing-scope-node-drives-axes.md); `docs/research/2026-10-21-scope-node-runtime.md`; Cedar's and PiFinder's aim-point calibration (`docs/research/2026-10-21-pointing-model-and-tracking.md` §2); RFC 5905 (NTP's offset and delay) | **`scope-link`**, **`scope-node`**, **`simulator`**, **`live-finder`** (`feat-13-live-finder`) |
@@ -76,7 +76,7 @@ must ground requirements in these and cite the doc number.
 | The MCP specification (Streamable HTTP, security best practices, tools) and the `rmcp` crate, via `docs/research/2026-10-25-mcp-server.md`; ADR-0001 | **`mcp-server`** (`feat-16-mcp`) |
 
 Feature dependency order (implementation order): `math-core` → `star-detection` → `pattern-database`
-→ `database-generation` → `plate-solver` → `grpc-service` → `mobile-runtime`. `finder-console`
+→ `database-generation` → `plate-solver` → `grpc-service` → `mobile-runtime` (deferred). `finder-console`
 sits beside `grpc-service` as a second consumer, over `math-core`, `star-detection`,
 `pattern-database` and `plate-solver`; it also adds a requirement each to `star-detection`
 (PIL's gray conversion) and `plate-solver` (cedar's detection settings), so the console and

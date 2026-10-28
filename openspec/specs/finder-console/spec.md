@@ -9,16 +9,28 @@ field, and what to look at next, at the telescope in a red-on-black night mode a
 
 ### Requirement: Serve the console from one binary
 
-The system SHALL provide a `finder` binary that loads one pattern database (`--db`, default
-cedar's `default_database.npz`) and a folder of sample frames (`--samples`, default cedar's
-`medium_fov` examples), and serves the JSON API under `/api/` and the page on one address
-(`--listen`, default `127.0.0.1:8080`). The page's production build SHALL be embedded in the
-binary, so building the crate never needs Node. Any path without a file extension SHALL serve
-the page's `index.html`; fingerprinted files under `assets/` SHALL be cacheable for a year and
-everything else revalidated; a missing page file SHALL answer 404, and an unknown `/api/` route
-SHALL answer 404 with a JSON `{"error": "..."}` body. (Ref: `src/main.rs`, `src/api.rs` `router`,
-`page`; tests: `the_page_is_served_and_routes_fall_back_to_it`, `page_types`,
+The system SHALL provide a `finder` binary that loads one pattern database (`--db`, default cedar's
+`default_database.npz`) and a folder of sample frames (`--samples`, default cedar's `medium_fov`
+examples), and serves the JSON API under `/api/` and the page on one address (`--listen`, default
+`127.0.0.1:8080`). (Ref: `src/main.rs`, `src/api.rs` `router`, `page`; tests:
+`the_page_is_served_and_routes_fall_back_to_it`, `page_types`,
 `samples_are_listed_served_and_previewed`.)
+
+#### Scenario: The page is built in
+- **WHEN** the crate is built
+- **THEN** the page's production build SHALL be embedded in the binary, so building the crate never needs Node
+
+#### Scenario: The committed build is the build of the source
+- **WHEN** CI rebuilds the page from source
+- **THEN** the result is identical to the committed `web/dist`, or the `finder-page` job fails
+
+### Requirement: Page routes and caching
+
+Any path without a file extension SHALL serve the page's `index.html`; fingerprinted files under
+`assets/` SHALL be cacheable for a year and everything else revalidated; a missing page file SHALL
+answer 404, and an unknown `/api/` route SHALL answer 404 with a JSON `{"error": "..."}` body.
+(Ref: `src/api.rs` `router`, `page`; tests: `the_page_is_served_and_routes_fall_back_to_it`,
+`page_types`.)
 
 #### Scenario: The page and its routes
 - **WHEN** a browser requests `/`, `/index.html` or `/some/route`
@@ -27,10 +39,6 @@ SHALL answer 404 with a JSON `{"error": "..."}` body. (Ref: `src/main.rs`, `src/
 #### Scenario: Unknown API route
 - **WHEN** a client requests `/api/nothing-here`
 - **THEN** the answer is 404 with a JSON `error`
-
-#### Scenario: The committed build is the build of the source
-- **WHEN** CI rebuilds the page from source
-- **THEN** the result is identical to the committed `web/dist`, or the `finder-page` job fails
 
 ### Requirement: Report the loaded database
 
@@ -44,13 +52,16 @@ sample frames. (Ref: `src/api.rs` `health`; test: `health_reports_the_database`.
 
 ### Requirement: Third-party notices
 
-The system SHALL carry, in `THIRD_PARTY_NOTICES.md`, a notice for each third-party work
-compiled into the binary (the page's packages and fonts, and the bundled sky data), with its
-source, version, license and the license's full text. The page's packages SHALL be listed at
-the versions and licenses `web/package-lock.json` pins. `finder --licenses` SHALL print the
-file and exit without loading a database or serving. (Ref: `THIRD_PARTY_NOTICES.md`,
-`src/main.rs` `THIRD_PARTY_NOTICES`; tests: `licenses_prints_the_notices_and_exits`,
+The system SHALL carry, in `THIRD_PARTY_NOTICES.md`, a notice for each third-party work compiled
+into the binary (the page's packages and fonts, and the bundled sky data), with its source, version,
+license and the license's full text. The page's packages SHALL be listed at the versions and
+licenses `web/package-lock.json` pins. (Ref: `THIRD_PARTY_NOTICES.md`, `src/main.rs`
+`THIRD_PARTY_NOTICES`; tests: `licenses_prints_the_notices_and_exits`,
 `the_notices_name_the_page_packages_as_locked`.)
+
+#### Scenario: The licenses flag
+- **WHEN** `finder --licenses` is run
+- **THEN** it SHALL print the file and exit without loading a database or serving
 
 #### Scenario: Printing the notices
 - **WHEN** `finder --licenses --db no-such-database.npz` runs
@@ -63,17 +74,16 @@ file and exit without loading a database or serving. (Ref: `THIRD_PARTY_NOTICES.
 
 ### Requirement: Offer sample frames safely
 
-The system SHALL list the image files (`jpg`, `jpeg`, `png`, `bmp`, `pgm`, `ppm`, `pnm`, any
-case) directly inside the samples folder, sorted by name, each with a readable label (the file
-stem with underscores as spaces, first letter capitalised, a leading capture timestamp
-dropped). It SHALL serve a sample's file and a JPEG preview at most 320 px on its longer side,
-shrunk by keeping each block's brightest pixel and stretched from the sky background to the
-brightest stars, so faint stars survive. Only names from the listing SHALL resolve: any other
-name, including one that climbs out of the folder, SHALL answer 404. (Ref: `src/samples.rs`,
-`src/solve.rs` `thumbnail_jpeg`, `src/api.rs`; tests: `samples_are_listed_served_and_previewed`,
-`scan_lists_images_only_and_paths_resolve_only_for_listed_names`, `names_labels_and_types`,
-`thumbnails_fit_the_box`, `previews_keep_faint_stars`,
-`stretch_takes_the_sky_to_black_and_the_stars_to_white`.)
+The system SHALL list the image files (`jpg`, `jpeg`, `png`, `bmp`, `pgm`, `ppm`, `pnm`, any case)
+directly inside the samples folder, sorted by name, each with a readable label. Only names from the
+listing SHALL resolve: any other name, including one that climbs out of the folder, SHALL answer
+404. (Ref: `src/samples.rs`, `src/api.rs`; tests:
+`samples_are_listed_served_and_previewed`,
+`scan_lists_images_only_and_paths_resolve_only_for_listed_names`, `names_labels_and_types`.)
+
+#### Scenario: Sample labels
+- **WHEN** a sample is listed
+- **THEN** its readable label SHALL be the file stem with underscores as spaces, first letter capitalised, a leading capture timestamp dropped
 
 #### Scenario: Listing skips what is not a frame
 - **WHEN** the samples folder also holds a subfolder and non-image files
@@ -82,6 +92,14 @@ name, including one that climbs out of the folder, SHALL answer 404. (Ref: `src/
 #### Scenario: A path outside the folder
 - **WHEN** a client requests `/api/samples/..%2F..%2FCargo.toml`
 - **THEN** the answer is 404 and no file outside the listing is read
+
+### Requirement: Sample files and previews
+
+The system SHALL serve a sample's file and a JPEG preview at most 320 px on its longer side, shrunk
+by keeping each block's brightest pixel and stretched from the sky background to the brightest
+stars, so faint stars survive. (Ref: `src/solve.rs` `thumbnail_jpeg`, `src/api.rs`; tests:
+`samples_are_listed_served_and_previewed`, `thumbnails_fit_the_box`, `previews_keep_faint_stars`,
+`stretch_takes_the_sky_to_black_and_the_stars_to_white`.)
 
 #### Scenario: A preview keeps a faint star
 - **WHEN** a 1600 × 1200 frame with one faint star is previewed at 160 px
@@ -114,18 +132,11 @@ example's. Unknown fields SHALL be ignored. (Ref: `src/api.rs` `SolveForm::read`
 
 ### Requirement: Solve errors and limits
 
-The system SHALL refuse a request body over 32 MiB with 413, an image over 20,000 px on a side
-or over the decoder's 256 MiB budget with 413, bytes that are not a readable PNG, JPEG, BMP or
-PNM image with 415, and an unknown sample name with 404, each with a JSON `error`. It SHALL run
-one decode-and-solve at a time, so that frames posted together queue rather than run the
-machine out of memory, and each is answered with its own solution. A request SHALL take its
-turn before its form is read, so a queued upload stays unread on the network rather than in
-memory; a request whose form has not fully arrived 30 s after its turn began SHALL be answered
-408 with a JSON `error`, and the next in the queue SHALL go on. (Ref: `src/api.rs`
-`SOLVE_BODY_LIMIT`, `solve_gate`, `FORM_READ_TIMEOUT`, `AppState::with_form_timeout`,
-`From<DecodeError>`, `src/solve.rs` `decode`; tests: `oversized_uploads_are_refused`,
-`decodes_and_refuses`, `decode_errors_map_to_statuses`, `bad_requests_are_refused_with_reasons`,
-`frames_posted_together_are_each_answered`, `a_stalled_upload_times_out_and_the_queue_moves_on`.)
+The system SHALL refuse a request body over 32 MiB with 413, an image over 20,000 px on a side or
+over the decoder's 256 MiB budget with 413, bytes that are not a readable PNG, JPEG, BMP or PNM
+image with 415, and an unknown sample name with 404, each with a JSON `error`. (Ref: `src/api.rs`
+`SOLVE_BODY_LIMIT`, `From<DecodeError>`, `src/solve.rs` `decode`; tests: `oversized_uploads_are_refused`,
+`decodes_and_refuses`, `decode_errors_map_to_statuses`, `bad_requests_are_refused_with_reasons`.)
 
 #### Scenario: Too large to read
 - **WHEN** an upload is one byte over 32 MiB
@@ -135,9 +146,23 @@ memory; a request whose form has not fully arrived 30 s after its turn began SHA
 - **WHEN** an upload holds `not a jpeg`
 - **THEN** the answer is 415 with a JSON `error`
 
+### Requirement: One solve at a time
+
+The system SHALL run one decode-and-solve at a time, so that frames posted together queue rather
+than run the machine out of memory, and each is answered with its own solution. (Ref: `src/api.rs`
+`solve_gate`; tests: `frames_posted_together_are_each_answered`.)
+
 #### Scenario: Two frames at once
 - **WHEN** the Orion and Pleiades samples are posted together
 - **THEN** both answer 200, one in Orion and one in Taurus
+
+### Requirement: A queued upload waits unread
+
+A request SHALL take its turn before its form is read, so a queued upload stays unread on the
+network rather than in memory; a request whose form has not fully arrived 30 s after its turn began
+SHALL be answered 408 with a JSON `error`, and the next in the queue SHALL go on. (Ref: `src/api.rs` `solve_gate`,
+`FORM_READ_TIMEOUT`, `AppState::with_form_timeout`; tests:
+`a_stalled_upload_times_out_and_the_queue_moves_on`.)
 
 #### Scenario: An upload that stops
 - **WHEN** a client sends half its form and stops while it has the turn, and another frame is
@@ -223,28 +248,42 @@ bundled list of bright stars, their proper name, checked against the database's 
 ### Requirement: Deep-sky objects on and near the frame
 
 The system SHALL report each Messier object whose symbol overlaps the frame, with its image
-position, half its major and minor axes in pixels, the image direction of its major axis
-(from its position angle and the local direction of north), its distance from the frame centre,
-and whether its centre is inside the frame; those centred inside come first, then by magnitude.
-It SHALL report up to eight Messier objects off the frame within 15° of its corners, nearest
-first, each with its distance and its direction in the image (degrees clockwise from up).
-(Ref: `src/solve.rs` `object_marks`; tests: `a_sample_solves_and_its_overlay_lands_on_its_stars`,
-`an_upload_solves_and_finds_what_is_in_it`, `objects_just_off_the_frame_are_listed_nearest_first`.)
+position, half its major and minor axes in pixels, the image direction of its major axis (from its
+position angle and the local direction of north), its distance from the frame centre, and whether
+its centre is inside the frame. (Ref: `src/solve.rs` `object_marks`; tests:
+`a_sample_solves_and_its_overlay_lands_on_its_stars`, `an_upload_solves_and_finds_what_is_in_it`.)
+
+#### Scenario: Order of objects on the frame
+- **WHEN** objects on the frame are reported
+- **THEN** those centred inside come first, then by magnitude
 
 #### Scenario: Orion's nebulae at true size
 - **WHEN** `orion2.jpg` is solved
 - **THEN** the objects are M42, M78 and M43 in that order, M42 is inside the frame with a radius
   of 36–39 px (45′ at 72″ a pixel), and M79 is listed just off the frame about 20° away
 
+### Requirement: Deep-sky objects just off the frame
+
+The system SHALL report up to eight Messier objects off the frame within 15° of its corners,
+nearest first, each with its distance and its direction in the image (degrees clockwise from up).
+(Ref: `src/solve.rs` `object_marks`; tests: `objects_just_off_the_frame_are_listed_nearest_first`.)
+
+#### Scenario: Objects off the frame
+- **WHEN** a frame solves with Messier objects off it within 15° of its corners
+- **THEN** up to eight of them SHALL be reported, nearest first, each with its distance and its direction in the image (degrees clockwise from up)
+
 ### Requirement: The RA/Dec grid
 
-The system SHALL compute an RA/Dec graticule for a solved frame: parallels at a round spacing
-giving about four across the frame's width (0.25° to 45°), hour circles at a round spacing that
-keeps cells roughly square on the sky, both carried a little past the frame and labelled where
-they cross its edges (`5h 40m` or `6h`; `−4°` or `+2° 30′`). Near a pole the hour circles
-SHALL radiate from it all the way round. (Ref: `src/grid.rs`; tests:
+The system SHALL compute an RA/Dec graticule for a solved frame: parallels at a round spacing giving
+about four across the frame's width (0.25° to 45°), hour circles at a round spacing that keeps cells
+roughly square on the sky, both carried a little past the frame and labelled where they cross its
+edges (`5h 40m` or `6h`; `−4°` or `+2° 30′`). (Ref: `src/grid.rs`; tests:
 `on_the_equator_north_up_the_grid_is_square_to_the_frame`, `near_the_pole_hour_circles_radiate`,
 `labels`.)
+
+#### Scenario: Hour circles at a pole
+- **WHEN** the frame is near a pole
+- **THEN** the hour circles SHALL radiate from it all the way round
 
 #### Scenario: Near the pole
 - **WHEN** the grid is drawn for a frame centred at Dec 88°
@@ -273,13 +312,16 @@ IAU's spelling of all 88 names. (Ref: `src/constellation.rs`, `data/README.md`; 
 
 ### Requirement: Time and place on the sky
 
-The system SHALL compute, for an observer's latitude, longitude and time, the altitude and
-azimuth (from north through east) of a J2000 position: precessed to the date with the IAU 1976
-angles, with mean sidereal time, without nutation or refraction, to within 0.01° of Meeus's
-worked examples. (Ref: `src/sky.rs` `precess_from_j2000`, `gmst_deg`, `alt_az`,
-`compass_point`; tests: `precession_matches_meeus_example_21b`,
+The system SHALL compute, for an observer's latitude, longitude and time, the altitude and azimuth
+(from north through east) of a J2000 position: precessed to the date with the IAU 1976 angles, with
+mean sidereal time, without nutation or refraction. (Ref: `src/sky.rs` `precess_from_j2000`,
+`gmst_deg`, `alt_az`, `compass_point`; tests: `precession_matches_meeus_example_21b`,
 `sidereal_time_matches_meeus_example_12a`, `alt_az_matches_meeus_example_13b`,
 `compass_and_formatting`.)
+
+#### Scenario: Agreement with Meeus
+- **WHEN** the result is compared with Meeus's worked examples
+- **THEN** it SHALL agree to within 0.01°
 
 #### Scenario: Venus from Washington
 - **WHEN** Meeus's example 13.b is computed (1987 April 10, 19:21 UT, US Naval Observatory)
@@ -345,27 +387,41 @@ e2e "the first screen shows where it points…" at both sizes, "the chart sits b
 
 ### Requirement: Choosing a frame
 
-The page SHALL, on a first visit, offer the Orion sample, the device's own frame, and every
-sample with its preview. A frame picker reachable from the top bar SHALL offer the same, plus a
-field-of-view hint (empty for unknown) and a detection threshold; picking a frame SHALL chart it.
-The page SHALL remember the last sample charted and chart it again on the next visit. (Ref:
-`web/src/App.tsx` `FirstRun`, `web/src/components/FramePicker.tsx`, `web/src/settings.ts`;
-tests: App "opens on a first-run card…", "comes back to the last frame…"; FramePicker "offers the
-server's samples…", "opens a frame from the device", "takes a field of view hint…"; settings
-"remembers the last sample charted"; e2e "a frame from the device solves and is charted".)
+The page SHALL, on a first visit, offer the Orion sample, the device's own frame, and every sample
+with its preview. A frame picker reachable from the top bar SHALL offer the same; picking a frame
+SHALL chart it. (Ref: `web/src/App.tsx` `FirstRun`, `web/src/components/FramePicker.tsx`; tests: App "opens on a
+first-run card…"; FramePicker "offers the server's samples…", "opens a frame from the device",
+"takes a field of view hint…"; e2e "a frame from the device solves and is charted".)
+
+#### Scenario: Hints in the frame picker
+- **WHEN** the frame picker is open
+- **THEN** it SHALL also offer a field-of-view hint (empty for unknown) and a detection threshold
 
 #### Scenario: A frame from the phone's gallery
 - **WHEN** the user opens their own frame and chooses the Pleiades image
 - **THEN** the page charts it in Taurus with M45 on the chart
 
+### Requirement: Remember the last frame
+
+The page SHALL remember the last sample charted and chart it again on the next visit. (Ref:
+`web/src/settings.ts`; tests: App "comes back to the last frame…"; settings "remembers the last
+sample charted".)
+
+#### Scenario: The next visit
+- **WHEN** a sample has been charted and the page is opened again
+- **THEN** the page SHALL chart that sample again
+
 ### Requirement: A frame that does not solve
 
-The page SHALL show, for a frame that does not solve, "No match", the server's hint, how many
-stars were found at which threshold, the centroids on the frame, and a button to try again at a
-lower threshold (5σ from above 5σ, then 3σ, then none). (Ref:
-`web/src/components/ChartHeader.tsx`, `Chart.tsx`; tests: ChartHeader "says what to try when a
-frame does not solve…"; Chart "shows only the detected stars, fixed on…"; e2e "a frame that does
-not solve says what to try, and solves at the lower threshold it offers".)
+The page SHALL show, for a frame that does not solve, "No match", the server's hint, how many stars
+were found at which threshold, the centroids on the frame, and a button to try again at a lower
+threshold. (Ref: `web/src/components/ChartHeader.tsx`, `Chart.tsx`; tests: ChartHeader "says what to
+try when a frame does not solve…"; Chart "shows only the detected stars, fixed on…"; e2e "a frame
+that does not solve says what to try, and solves at the lower threshold it offers".)
+
+#### Scenario: The lower threshold offered
+- **WHEN** the button to try again at a lower threshold is shown
+- **THEN** the lower threshold it offers SHALL be 5σ from above 5σ, then 3σ, then none
 
 #### Scenario: The roof frame
 - **WHEN** `roof.jpg` does not solve at 8σ and the user taps "Try again at 5σ"
@@ -395,12 +451,15 @@ grid…".)
 
 The page SHALL name every Messier object on the chart and the named stars where there is room,
 without any label covering another label, the compass, scale bar or reticle, or crossing its own
-symbol; labels SHALL stay inside the frame. A label goes beside its mark past the symbol's reach
-in that direction, or further out on a leader line from the symbol's edge when the near spots are
-taken; a star name with no clear spot is left out; an object whose centre lies off the frame is
-named inside it. On the Orion frame at phone and laptop widths no label SHALL cover another star's
-ring. (Ref: `web/src/labels.ts`; tests: labels.test.ts, every case, on the real Orion and Virgo
-reports at 380, 800 and 960 px and on constructed fields.)
+symbol; labels SHALL stay inside the frame. On the Orion frame at phone and laptop widths no label
+SHALL cover another star's ring. (Ref: `web/src/labels.ts`; tests: labels.test.ts, every case, on
+the real Orion and Virgo reports at 380, 800 and 960 px and on constructed fields.)
+
+#### Scenario: Where a label goes
+- **WHEN** a label is placed
+- **THEN** it goes beside its mark past the symbol's reach in that direction, or further out on a leader line from the symbol's edge when the near spots are taken
+- **AND** a star name with no clear spot is left out
+- **AND** an object whose centre lies off the frame is named inside it
 
 #### Scenario: Orion on a phone
 - **WHEN** orion2 is laid out 380 px wide
@@ -442,23 +501,42 @@ settings "remembers the observing site…", "accepts only real latitudes and lon
 
 ### Requirement: Night mode is red on black
 
-The page SHALL have a night mode, switched in the top bar, that follows the device's dark setting
-until the user chooses and then remembers the choice. In night mode every colour SHALL be on the
-red channel alone, none brighter than the night ink (`#e00000`); photographs, previews and the
-survey view SHALL pass through a filter that maps luminance to red, scaled so white lands just
-under the night ink; and the page SHALL be black before its first paint. Settings SHALL still
-work when the browser blocks storage. (Ref: `web/src/index.css` `[data-theme="night"]`,
-`web/index.html` `#red-only` and the pre-paint script, `web/src/settings.ts` `useNight`; tests:
-theme "redefines every colour…", "puts every colour on the red channel alone…", "filters
-photographs into the red channel by luminance"; settings "follows the device until chosen…",
-"follows a dark device setting…", "still works when storage is blocked"; e2e "night mode puts
-nothing on screen but red, none brighter than the ink…".)
+In night mode every colour SHALL be on the red channel alone, none brighter than the night ink
+(`#e00000`). (Ref: `web/src/index.css` `[data-theme="night"]`, `web/index.html` `#red-only` and the
+pre-paint script; tests: theme "redefines every colour…", "puts every colour on the red channel
+alone…", "filters photographs into the red channel by luminance"; e2e "night mode puts nothing on
+screen but red, none brighter than the ink…".)
+
+#### Scenario: Photographs at night
+- **WHEN** the page is in night mode
+- **THEN** photographs, previews and the survey view SHALL pass through a filter that maps
+  luminance to red, scaled so white lands just under the night ink
+
+#### Scenario: Before the first paint
+- **WHEN** the page loads
+- **THEN** it SHALL be black before its first paint
 
 #### Scenario: Every pixel at night
 - **WHEN** orion2 and virgo are charted in night mode and the frame picker is opened
 - **THEN** screenshots of the whole page and the picker have no pixel with any green or blue, and
-  none redder than the ink beyond two levels of compositing rounding, while the same check on the
+    none redder than the ink beyond two levels of compositing rounding, while the same check on the
   day edition fails
+
+### Requirement: Switching night mode
+
+The page SHALL have a night mode, switched in the top bar, that follows the device's dark setting
+until the user chooses and then remembers the choice. Settings SHALL still work when the browser
+blocks storage. (Ref: `web/src/settings.ts` `useNight`; tests: settings "follows the device until
+chosen…", "follows a dark device setting…", "still works when storage is blocked".)
+
+#### Scenario: Following the device until chosen
+- **WHEN** the user has not chosen a mode
+- **THEN** night mode SHALL follow the device's dark setting
+- **AND** once the user chooses, the page SHALL remember the choice
+
+#### Scenario: Storage blocked
+- **WHEN** the browser blocks storage
+- **THEN** settings SHALL still work
 
 ### Requirement: Day mode is legible
 

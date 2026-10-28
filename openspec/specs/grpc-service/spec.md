@@ -118,16 +118,19 @@ optional background-estimation region for extraction; and `fov_estimate`, `fov_m
 
 ### Requirement: SolveFromImage detection fidelity
 
-`SolveFromImage` SHALL honor the detection fields of its `CentroidsRequest` (`extract`) —
-`sigma`, `binning`, `detect_hot_pixels`, `normalize_rows`, `use_binned_for_star_candidates`,
-`return_binned` — and SHALL estimate noise from the input image using the same estimation
-`ExtractCentroids` uses, rather than hardcoding detection parameters. It is the only RPC that
-performs detection server-side as part of a solve. It SHALL resolve effective binning by the
-same rule `ExtractCentroids` uses, so the two paths cannot drift on detection semantics. A
-client that requests `binning=2` or `sigma=8` and silently receives default detection behavior
-SHALL be treated as a correctness-contract violation at the public API boundary, not a
-performance nuance: detection parameters set the detection threshold, which determines which
-centroids exist, which determines whether the image solves at all. (Ref: doc 07 §1.)
+`SolveFromImage` SHALL honor the detection fields of its `CentroidsRequest` (`extract`) — `sigma`,
+`binning`, `detect_hot_pixels`, `normalize_rows`, `use_binned_for_star_candidates`, `return_binned`
+— and SHALL estimate noise from the input image using the same estimation `ExtractCentroids` uses,
+rather than hardcoding detection parameters. It is the only RPC that performs detection server-side
+as part of a solve. (Ref: doc 07 §1.)
+
+#### Scenario: Effective binning resolved by the same rule
+- **WHEN** `SolveFromImage` resolves effective binning
+- **THEN** it SHALL resolve it by the same rule `ExtractCentroids` uses, so the two paths cannot drift on detection semantics
+
+#### Scenario: Silent default detection is a contract violation
+- **WHEN** a client requests `binning=2` or `sigma=8` and silently receives default detection behavior
+- **THEN** that SHALL be treated as a correctness-contract violation at the public API boundary, not a performance nuance: detection parameters set the detection threshold, which determines which centroids exist, which determines whether the image solves at all
 
 #### Scenario: Client sigma honored
 - **WHEN** a client sends `SolveFromImage` with `extract.sigma = 8.0`

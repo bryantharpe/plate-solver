@@ -15,13 +15,16 @@ built offline by `database-generation`.
 ## Requirements
 ### Requirement: On-disk database layout
 
-The system SHALL define a database containing: `star_table` (`(N,6)` f32 rows
-`[RA, Dec, x, y, z, mag]`, RA/Dec radians, brightest-first); `pattern_catalog`
-(`(catalog_length, 4)` unsigned star indices in hashed-slot order, dtype the smallest unsigned
-int holding the max index — u8/u16/u32); `pattern_largest_edge` (`(catalog_length,)` f16,
-largest edge in **milliradians**); `pattern_key_hashes` (`(catalog_length,)` u16, low 16 bits of
-each key hash); `star_catalog_IDs` (`(N,)` or `(N,3)` source IDs); and a packed **properties**
-record. (Ref: doc 05 §7.)
+The system SHALL define a database containing: `star_table` (`(N,6)` f32 rows `[RA, Dec, x, y, z,
+mag]`, RA/Dec radians, brightest-first); `pattern_catalog` (`(catalog_length, 4)` unsigned star
+indices in hashed-slot order); `pattern_largest_edge` (`(catalog_length,)` f16, largest edge in
+**milliradians**); `pattern_key_hashes` (`(catalog_length,)` u16, low 16 bits of each key hash);
+`star_catalog_IDs` (`(N,)` or `(N,3)` source IDs); and a packed **properties** record. (Ref: doc 05
+§7.)
+
+#### Scenario: Pattern catalog index width
+- **WHEN** `pattern_catalog` is defined
+- **THEN** its dtype SHALL be the smallest unsigned int holding the max index — u8/u16/u32
 
 #### Scenario: Star table is brightest-first
 - **WHEN** the star table is loaded
