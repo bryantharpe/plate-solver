@@ -1,6 +1,6 @@
 # plate-solver
 
-[![ci](https://github.com/bryantharpe/plate-solver/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bryantharpe/plate-solver/actions/workflows/ci.yml)
+[![ci](https://github.com/bryantharpeorg/plate-solver/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bryantharpeorg/plate-solver/actions/workflows/ci.yml)
 
 A fast star-field plate solver written in Rust. Give it a frame from a camera on your
 telescope's finder scope and it works out where the telescope is pointing (right ascension,
