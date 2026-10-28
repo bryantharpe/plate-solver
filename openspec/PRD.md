@@ -57,14 +57,14 @@ matched stars.*
 - The original **tetra3 simpler detector** (threshold + connected-components + moments, doc 03)
   and **per-anchor-star DB enumeration** (doc 05 §5.1) — kept as reference-only; v1 implements
   the cedar lattice-field + cedar-detect path only.
-- Tracking mode (solving *with* a prior attitude); only lost-in-space is in scope for v1.
+- Hinted solving (solving *with* a prior attitude); only lost-in-space is in scope for v1.
 - Non-rectilinear (fisheye) lens models beyond the single-parameter radial distortion `k`.
 - Higher-than-8-bit detection pipelines (input is converted to 8-bit grayscale).
 
 ## Functional Scope (the 7 feature capabilities)
 
 In dependency order. Capabilities 1–6 are specified in `openspec/specs/`; `mobile-runtime` is
-still an open change under `openspec/changes/`.
+deferred: its change was archived unapplied on 2026-10-25, under `openspec/changes/archive/`.
 
 1. **`math-core`** — coordinate/vector math, `2·arcsin(d/2)` angles, pinhole projection,
    distortion, Wahba/SVD attitude + RA/Dec/Roll, edge-ratio pattern key + 64-bit hash + table

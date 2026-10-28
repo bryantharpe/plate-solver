@@ -12,7 +12,9 @@ ceiling on solve quality: too few centroids, or centroids found at the wrong thr
 image will not solve no matter how good the identification is. The noise estimate in particular
 is load-bearing, because it sets the detection threshold; it must be derived from the image and
 never assumed. Parity is against cedar-detect (centroids within ~±0.1 px).
+
 ## Requirements
+
 ### Requirement: Input and output contract
 
 The system SHALL accept an 8-bit grayscale image and return a list of star centroids ordered
@@ -50,10 +52,13 @@ the standard deviation of the **darkest cut by mean**. A noise floor of `0.2` SH
 
 The system SHALL support binning factors 1, 2, 4, 8. For `binning > 1` it SHALL detect on the
 most-binned image (better SNR for soft/oversampled stars) while centroiding on the
-one-level-less-binned `higher_res_image` and scaling centroids by `binning/2` back to
-input-image coordinates; the noise estimate SHALL be recomputed on the detection image. Each
-2×2 bin is the integer average `(p1+p2+p3+p4)/4`. `max_size` SHALL be `width/100` for
-`binning==1`, else `width/100/binning + 1`. (Ref: doc 04 §4.)
+one-level-less-binned `higher_res_image` and scaling centroids by `binning/2` back to input-image
+coordinates; the noise estimate SHALL be recomputed on the detection image. `max_size` SHALL be
+`width/100` for `binning==1`, else `width/100/binning + 1`. (Ref: doc 04 §4.)
+
+#### Scenario: Bin value
+- **WHEN** a 2×2 bin is formed
+- **THEN** its value is the integer average `(p1+p2+p3+p4)/4`
 
 #### Scenario: Centroids reported in input coordinates
 - **WHEN** detection runs with `binning = 4`
@@ -65,14 +70,15 @@ input-image coordinates; the noise estimate SHALL be recomputed on the detection
 
 ### Requirement: One-dimensional row gate
 
-The system SHALL scan each row by first estimating a cheap `row_min` (sampling every 64th
-pixel) to set a coarse threshold `row_min + sigma_noise_2/2` that most pixels skip, then
-applying the 7-pixel gate `gate_star_1d` to each center pixel at or above threshold, using
-integer thresholds `sigma_noise_2 = max(round(2·sigma·noise), 2)` and
-`sigma_noise_3 = max(round(3·sigma·noise), 3)`. A center pixel `C` with borders `lb,rb`,
-margins `lm,rm`, neighbors `l,r` SHALL qualify only if: `2·C − (lb+rb) ≥ sigma_noise_2`;
-`l ≤ C ≥ r`; `lm < C > rm`; the flat-top tie-breaks hold; and `|lb − rb| ≤ sigma_noise_3`
-(uniform background). (Ref: doc 04 §5.)
+The system SHALL scan each row by first estimating a cheap `row_min` (sampling every 64th pixel) to
+set a coarse threshold `row_min + sigma_noise_2/2` that most pixels skip, then applying the 7-pixel
+gate `gate_star_1d` to each center pixel at or above threshold, using integer thresholds
+`sigma_noise_2 = max(round(2·sigma·noise), 2)` and `sigma_noise_3 = max(round(3·sigma·noise), 3)`.
+(Ref: doc 04 §5.)
+
+#### Scenario: Gate conditions
+- **WHEN** a center pixel `C` with borders `lb,rb`, margins `lm,rm`, neighbors `l,r` is gated
+- **THEN** it SHALL qualify only if: `2·C − (lb+rb) ≥ sigma_noise_2`; `l ≤ C ≥ r`; `lm < C > rm`; the flat-top tie-breaks hold; and `|lb − rb| ≤ sigma_noise_3` (uniform background)
 
 #### Scenario: Significance test eliminates background
 - **WHEN** a center pixel's excess over its border estimate is below `sigma_noise_2`
@@ -116,13 +122,15 @@ doc 04 §7.)
 
 ### Requirement: Two-dimensional gate
 
-The system SHALL apply a 2-D gate per blob using four concentric boxes — `core` (blob bounding
-box), `neighbors` (+1), `margin` (+2), `perimeter` (+3) — rejecting the blob on any failure of:
-size (`core_width,core_height ≤ max_size` and perimeter within image bounds); inner-core
-brightness (`core_mean ≥ outer_core_mean` when core ≥ 3×3); `core_mean ≥ neighbor_mean`
-(corners excluded); `core_mean > margin_mean`; uniform perimeter
-(`perimeter_max − perimeter_min ≤ 3·sigma·noise`); and significance
-`core_mean − mean(perimeter) ≥ sigma·max(noise, perimeter_stddev)`. (Ref: doc 04 §8.)
+The system SHALL apply a 2-D gate per blob using four concentric boxes — `core` (blob bounding box),
+`neighbors` (+1), `margin` (+2), `perimeter` (+3) — rejecting the blob on any failure of: size
+(`core_width,core_height ≤ max_size` and perimeter within image bounds); inner-core brightness
+(`core_mean ≥ outer_core_mean` when core ≥ 3×3); `core_mean ≥ neighbor_mean` (corners excluded);
+`core_mean > margin_mean`. (Ref: doc 04 §8.)
+
+#### Scenario: Perimeter and significance checks
+- **WHEN** a blob is gated
+- **THEN** it SHALL also be rejected on any failure of: uniform perimeter (`perimeter_max − perimeter_min ≤ 3·sigma·noise`); and significance `core_mean − mean(perimeter) ≥ sigma·max(noise, perimeter_stddev)`
 
 #### Scenario: Locally inflated noise suppresses clutter
 - **WHEN** the perimeter ring is noisy (lit foreground)
@@ -177,3 +185,26 @@ within ≈±0.1 px and the brightest-first ordering agrees. (Ref: doc 04; doc 08
 - **THEN** the detected centroids correspond to cedar-detect's within ±0.1 px with the same
   brightness ranking for the common stars
 
+### Requirement: Gray from color as cedar makes it
+
+The system SHALL provide `star_detection::gray` to turn color into the 8-bit gray that detection
+takes, exactly as PIL's `convert('L')` does in cedar's reference pipeline: ITU-R 601-2 luma in
+16-bit fixed point, rounded, `(19595·R + 38470·G + 7471·B + 32768) >> 16`. Detection itself SHALL
+still take gray only. (Ref: `crates/star-detection/src/gray.rs`; tests:
+`primaries_and_white_match_pil`, `a_green_pixel_is_601_not_709`, `rgb_rows_convert_pixel_by_pixel`.)
+
+#### Scenario: One pixel and a buffer
+- **WHEN** `pil_luma` or `from_rgb8` is called
+- **THEN** `pil_luma` SHALL convert one pixel and `from_rgb8` a row-major interleaved RGB buffer, one gray value per whole pixel, ignoring a trailing partial pixel
+
+#### Scenario: PIL's values
+- **WHEN** pure red, green, blue, white and black are converted
+- **THEN** they become 76, 150, 29, 255 and 0, as PIL makes them
+
+#### Scenario: Not Rec. 709
+- **WHEN** the pixel (10, 200, 30) is converted
+- **THEN** it becomes 124, not the 147 that the `image` crate's Rec. 709 `to_luma8` gives
+
+#### Scenario: A buffer
+- **WHEN** `from_rgb8` is given three pixels, or one pixel and a stray byte
+- **THEN** it returns one gray value for each whole pixel
