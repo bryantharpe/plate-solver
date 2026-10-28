@@ -37,3 +37,12 @@ __pycache__/
 
 # Coverage output from cargo llvm-cov (CI's test-coverage job writes it)
 lcov.info
+
+# Ergane runtime root: worktrees, session transcripts, verification evidence. One that
+# reaches git history lands megabytes of agent output on the landing branch.
+.ergane/
+# Ergane's worktree-boundary detector writes its findings here, inside the repo it audits.
+.ergane-detector/
+# Ergane's legacy verification store: a live SQLite database (plus -wal/-shm) written while
+# gates run. Committed mid-write it is a torn database.
+.factory/
