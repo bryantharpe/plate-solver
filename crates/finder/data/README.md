@@ -23,6 +23,46 @@ Changes from the source:
 - Seven objects have no magnitude in OpenNGC and none here (M22, M35, M62, M69, M70, M71,
   M107).
 
+## `openngc.csv`: every NGC, IC and addendum object, for choosing a target
+
+Derived from [OpenNGC](https://github.com/mattiaverga/OpenNGC) by Mattia Verga,
+`database_files/NGC.csv` and `database_files/addendum.csv` at commit
+`be3cd6c5498806a2fbb2f7e0452ef802dbb02be0` (2026-10-18, "Revise data from Simbad"). OpenNGC
+is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), and so is
+this extract. OpenNGC itself credits NED, HyperLEDA, SIMBAD and the other sources listed in
+its README.
+
+**Object count: 13372 objects and 651 aliases.** That is the 14034 source rows less 10
+`NonEx` rows and 652 `Dup` rows, with 651 of the `Dup` rows kept as aliases.
+
+To regenerate it, check out OpenNGC at the commit above and run:
+
+```sh
+python3 scripts/data/openngc-extract.py /path/to/OpenNGC > crates/finder/data/openngc.csv
+```
+
+The script uses the standard library only. Its output for that commit is byte-identical to
+this file.
+
+Changes from the source:
+
+- **Rows:**
+  - Every row of both files is kept except those typed `NonEx`.
+  - A `Dup` row is kept only as an alias. Its type is `Dup`, every other field is empty,
+    and `dup_of` names the object it duplicates. That object is the first of its NGC and
+    IC references that is not itself a `Dup`; this matters for IC0843, IC4088 and NGC5620,
+    which name both.
+- **Columns:** only name (OpenNGC's spelling, e.g. `NGC0224`), type, position,
+  constellation, axes (arcminutes), position angle, magnitude (V, falling back to B),
+  Messier number (`M31`), every common name (comma-separated, as OpenNGC gives them) and
+  `dup_of`.
+- **Positions:** RA and Dec are converted from sexagesimal to decimal degrees (J2000), to
+  five places, exactly as for `messier.csv`. For every Messier object, the row here matches
+  `messier.csv` field for field.
+- **M102:** OpenNGC lists it as a duplicate of M101 because its identity is disputed. That
+  alias is dropped, and NGC 5866, the Spindle Galaxy, carries M102, following the common
+  identification as `messier.csv` does.
+
 ## `constellation_boundaries.dat` and `constellation_names.dat`
 
 The IAU constellation boundaries (Delporte 1930) as tabulated by N. G. Roman, "Identification
