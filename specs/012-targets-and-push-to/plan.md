@@ -385,13 +385,13 @@ check with a target and on the Setup page.
 
 ## Prerequisites before this spec is flipped to `ready`
 
-1. **The OpenNGC extract is on `main`.** It is staged by the operator in PR #109:
-   `crates/finder/data/openngc.csv`, its `data/README.md` recipe with the commit and object
-   count, `scripts/data/openngc-extract.py`, and the `THIRD_PARTY_NOTICES.md` row.
-2. **The owner approvals are given.** They are listed in spec § Owner approvals, and
-   flipping to `ready` records them.
-3. **The repository is wired for the Ergane merge queue.** Run `ergane init --wire`, and
-   `ergane init --check` must be all green.
+1. **The OpenNGC extract is on `main`.** Done: landed in #109 (10f3e6d).
+2. **The owner approvals are given.** Done: approved on 2026-10-28 (spec § Owner
+   approvals).
+3. **The repository is wired for the Ergane merge queue.** Done: `ergane init --check`
+   passes all 15 checks.
+4. **The coding agent can run cargo.** Ergane spec 261 (an agent can build what its gates
+   build) has landed, and the worker has been redeployed at a build that includes it.
 
 ## Risks
 

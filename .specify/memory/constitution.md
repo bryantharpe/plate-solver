@@ -75,6 +75,10 @@ transports in their separate crates.
 - **Toolchain:** MSRV is Rust 1.96 (`rust-version` in `Cargo.toml`). New dependencies
   must build on it and pass `cargo-deny` and `cargo-machete`. Every cargo invocation
   uses `--locked`.
+- **Cargo in the factory sandbox:** the toolchain comes in through the caches
+  `ergane.yaml` declares, so `CARGO_HOME` and `RUSTUP_HOME` are set but cargo is not on
+  `PATH`. Run `export PATH="$CARGO_HOME/bin:$PATH" CC=gcc CXX=g++` before any cargo
+  command, as the gate commands do.
 - **Warnings are errors:** CI builds with `RUSTFLAGS="-D warnings"`. clippy, coverage and
   docs build with `--all-features` on x86_64, and rustdoc denies warnings too.
 - **Product limits:** detection input is 8-bit grayscale. The database must stay

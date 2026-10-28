@@ -4,7 +4,7 @@ depends_on_landed: []
 # Converted 2026-10-28 from the reviewed OpenSpec change feat-12 (#102). This trio is
 # now the feature's only specification. It stays draft until the owner has reviewed
 # it and given the approvals listed under "Owner approvals". Flipping it to `ready`
-# is the act that dispatches it.
+# is the act that dispatches it. The owner approved it on 2026-10-28.
 ---
 
 # Feature Specification: Targets and Push-To
@@ -67,8 +67,11 @@ It needs no new hardware. It also lays down the shared observing session that li
 
 ## Owner approvals
 
-Flipping this spec to `ready` approves the following changes to tested behaviour. Each is
-named in the FR that makes it. No existing test changes, and CI (`ci.yml`) is unchanged.
+**Approved by the owner on 2026-10-28.** The owner approved all four changes below.
+This spec is flipped to `ready` once its last prerequisite is met (plan.md §
+Prerequisites).
+
+These are the changes to tested behaviour. Each is named in the FR that makes it. No existing test changes, and CI (`ci.yml`) is unchanged.
 
 1. **The site moves from the browser into the session.** A site this browser stored is
    adopted once and then forgotten by the browser (FR-027).
