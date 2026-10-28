@@ -1,10 +1,10 @@
 ---
 state: draft
 depends_on_landed: []
-# Converted 2026-10-28 from openspec/changes/feat-12-targets-and-push-to (reviewed
-# and refined in #102). It stays draft until the owner has reviewed it and given
-# the approvals listed under "Owner approvals". Flipping it to `ready` is the act
-# that dispatches it.
+# Converted 2026-10-28 from the reviewed OpenSpec change feat-12 (#102). This trio is
+# now the feature's only specification. It stays draft until the owner has reviewed
+# it and given the approvals listed under "Owner approvals". Flipping it to `ready`
+# is the act that dispatches it.
 ---
 
 # Feature Specification: Targets and Push-To
@@ -15,8 +15,7 @@ depends_on_landed: []
 
 **Status**: Draft
 
-**Input**: OpenSpec change `feat-12-targets-and-push-to` (proposal, design and five
-capability deltas). Today the finder console answers "what am I looking at": it
+**Input**: Today the finder console answers "what am I looking at": it
 plate-solves one frame and charts it. At the telescope, the next question is "where do I
 want to go, and how do I get there". This feature adds three things:
 
@@ -30,13 +29,12 @@ It needs no new hardware. It also lays down the shared observing session that li
 
 ## Clarifications
 
-### Session 2026-10-28 (conversion from OpenSpec)
+### Session 2026-10-28
 
-- Q: Which document is authoritative where this spec and the OpenSpec change differ? → A:
-  This spec. It carries every requirement and scenario of the change, unchanged in
-  substance. `openspec/changes/feat-12-targets-and-push-to/design.md` remains the design
-  record that `plan.md` points into. A story that finds the two in conflict escalates
-  rather than choosing.
+- Q: What does a story read besides this trio? → A: Nothing about the feature. The trio is
+  self-contained: `spec.md` holds every requirement and scenario, and `plan.md` holds
+  every design decision, the interfaces, and the alternatives rejected. A story that
+  would change a decision escalates rather than re-deciding it.
 - Q: How is the change sliced for the factory? → A: Into eight stories, each a vertical
   slice that lands its own tests:
   - the sky ephemeris;
@@ -48,18 +46,24 @@ It needs no new hardware. It also lays down the shared observing session that li
   - the end-to-end suite.
 
   The server is built before the page, and the page before its end-to-end tests.
-- Q: Where does the roughly 1 MB OpenNGC extract come from? → A: It is a prerequisite that
-  the maintainer lands before this spec is ready, together with its recipe in
-  `crates/finder/data/README.md` and its row in `crates/finder/THIRD_PARTY_NOTICES.md`.
-  One megabyte of data is four times the factory's 256 KiB diff ceiling, so no story could
-  land it. US2 builds on the extract and proves it.
-- Q: What about OpenSpec task 7.1, the Impeccable pass (shape → craft → finish review)? →
-  A: It is outside the factory. A "ship verdict" is not evidence the judge can see in a
-  diff. US7 records the new parts in `DESIGN.md` as built, and the maintainer runs the
-  Impeccable pass after US7 lands.
-- Q: What about OpenSpec task 1.1, the owner's approval of the changes to tested behaviour?
-  → A: The owner gives it by reviewing this spec and flipping it to `ready`. The approvals
-  are listed below so that the flip is an informed act.
+- Q: Where does the OpenNGC extract come from? → A: The operator stages it on `main`
+  before this spec is ready, outside the factory, in PR #109, with these files:
+  - `crates/finder/data/openngc.csv`;
+  - its recipe, pinned commit and object count in `crates/finder/data/README.md`;
+  - the script that regenerates it;
+  - its row in `crates/finder/THIRD_PARTY_NOTICES.md`.
+
+  At 734 KB, the vendored data is about three times the factory's 256 KiB diff ceiling,
+  so no story can carry it. US2 builds on the extract and proves it.
+- Q: How does Impeccable take part? → A: `DESIGN.md`, `.impeccable/design.json` and the
+  surface briefs under `.impeccable/surfaces/` are the design system every page story
+  builds to. The Impeccable review itself (shape → craft → finish review) is outside the
+  factory, because a "ship verdict" is not evidence the judge can see in a diff. US7
+  records the new parts in `DESIGN.md` as built, and the maintainer runs the review after
+  US7 lands.
+- Q: Who approves the changes to tested behaviour? → A: The owner, by reviewing this spec
+  and flipping it to `ready`. The approvals are listed below so that the flip is an
+  informed act.
 
 ## Owner approvals
 
@@ -723,7 +727,7 @@ piece by piece. They come last because they exercise every story before them.
   Otherwise it SHALL give neither. **Refs**: GLOSSARY.md (push-to, turn, tilt).
 - **FR-021**: A latest pointing SHALL go stale only where another requirement says so. A
   pointing from an uploaded frame SHALL never go stale, whatever its age. **Refs**:
-  openspec design.md (Risks).
+  plan.md § Risks (the guidance trusts the latest pointing).
 - **FR-022**: The system SHALL hold the latest pointing's altitude and azimuth at their
   values at its frame's time, since an alt-az telescope left alone stays put. The target's
   altitude and azimuth SHALL follow the console's clock. **Refs**:
@@ -756,8 +760,8 @@ piece by piece. They come last because they exercise every story before them.
 - **FR-026**: `GET /api/session` SHALL carry the target's guidance, derived at read time
   on the console's clock: `class`, and where they apply `rise`, `transit`, `set`, `never`,
   `turn_deg`, `tilt_deg` and `placement`. One poll then gives the page the session and its
-  guidance, and the two can never disagree. **Refs**: openspec design.md ("One poll
-  carries the session and its guidance").
+  guidance, and the two can never disagree. **Refs**: plan.md § Interfaces and
+  § Decisions.
 
 **The page: session and Setup** (US6):
 
@@ -819,7 +823,7 @@ piece by piece. They come last because they exercise every story before them.
   tests, unchanged.
 - **FR-034**: `DESIGN.md` and `.impeccable/design.json` SHALL record the guidance block,
   the target reticle, the edge arrow and the Setup page as built. **Refs**: DESIGN.md;
-  openspec feat-12 task 7.2.
+  `.impeccable/design.json`.
 
 **End to end** (US8):
 
@@ -832,8 +836,8 @@ piece by piece. They come last because they exercise every story before them.
   - The default project SHALL ignore those tests.
   - `FINDER_URL` SHALL keep running the tests against a given server.
 
-  So a developer's own console is never reused or written to. **Refs**: openspec
-  design.md ("End-to-end tests").
+  So a developer's own console is never reused or written to. **Refs**: plan.md § User
+  Story 8.
 - **FR-036**: The end-to-end suite SHALL prove four things in Chromium:
   - FR-033's first screen with a target, at both phone sizes;
   - a site set on one device and seen on another;
@@ -876,12 +880,12 @@ piece by piece. They come last because they exercise every story before them.
 
 ## Assumptions
 
-- **The OpenNGC extract is a prerequisite.** `crates/finder/data/openngc.csv`, about 1 MB,
-  is extracted at a pinned OpenNGC commit by the recipe in
-  `openspec/changes/feat-12-targets-and-push-to/design.md` ("The target catalog"). Its
-  recipe, commit and object count are recorded in `crates/finder/data/README.md`. The
-  maintainer lands it, with its `THIRD_PARTY_NOTICES.md` row, before this spec is flipped
-  to `ready`.
+- **The OpenNGC extract is staged by the operator.** `crates/finder/data/openngc.csv`,
+  about 1 MB, is extracted at a pinned OpenNGC commit. It covers every row of `NGC.csv`
+  and `addendum.csv`, with `NonEx` dropped and `Dup` rows as aliases. Its recipe, commit,
+  object count and regenerating script are recorded in `crates/finder/data/README.md`,
+  and its row is in `THIRD_PARTY_NOTICES.md`. All of this is on `main` before this spec is
+  flipped to `ready`.
 - **Deferred to later changes:**
   - refraction and apparent altitude (feat-14);
   - the aim point's calibration (feat-13); until then, the aim point is the frame centre;
@@ -891,8 +895,7 @@ piece by piece. They come last because they exercise every story before them.
   - typed RA and Dec;
   - named stars, the Moon and planets as targets;
   - a horizon that varies by direction.
-- **Done by the maintainer after US7 lands:** the Impeccable pass of the new parts
-  (OpenSpec task 7.1).
+- **Done by the maintainer after US7 lands:** the Impeccable review of the new parts.
 - **The factory's gates and CI:**
   - The factory's local gates are `lint` and `test`, which are cargo only.
   - The page stories (US6, US7) must also pass `npm run typecheck`,

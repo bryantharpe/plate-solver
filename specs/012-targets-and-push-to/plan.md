@@ -2,9 +2,8 @@
 
 **Branch**: `012-targets-and-push-to` | **Date**: 2026-10-28 | **Spec**: [spec.md](spec.md)
 
-**Design record**: `openspec/changes/feat-12-targets-and-push-to/design.md`. Every decision
-below is taken from it. Read its section before changing what it decided, and escalate
-rather than re-decide.
+This plan records every design decision for the feature. A story that would change one
+escalates rather than re-deciding it.
 
 ## Summary
 
@@ -101,10 +100,76 @@ crates/finder/
 DESIGN.md, .impeccable/design.json                # US7
 ```
 
+## Interfaces
+
+**`GET /api/session`** answers:
+
+```text
+{ site: {lat_deg, lon_deg} | null, min_alt_deg, target: <catalog object> | null,
+  pointing: {seq, frame, ra_deg, dec_deg, alt_deg?, az_deg?, time} | null,
+  time, guidance?: {class, rise?, transit?, set?, never?, turn_deg?, tilt_deg?, placement?} }
+```
+
+- `pointing` arrives with US4 and `guidance` with US5.
+- `class` is one of `sun_guard`, `below_horizon`, `too_low`, `pointable` or `no_site`.
+- `placement` is either `{on_frame: true, x, y, axes, angle}` or
+  `{on_frame: false, direction_deg, distance_deg}`.
+
+**`PUT /api/session`** takes `{site?, min_alt_deg?, target?}` with `deny_unknown_fields`,
+where `null` clears `site` or `target`. It answers the new session.
+
+**`GET /api/targets?q=&limit=`** answers a list of catalog objects, each carrying a
+`class` from US5 on.
+
+**The solve report** gains an optional `pointing_seq`. Old page fixtures lack it and read
+as "not the latest pointing", which is correct.
+
+## Shapes that existing tests pin
+
+These are not changed by any story:
+- **Rust signatures:** `AppState::new`, `AppState::shared`, `router` and `similar()`.
+- **Rust structs:** the fields of `Observer` and `Frame`, which tests build as struct
+  literals.
+- **Page components:** the legend's five chips; `useSite` and SiteDialog's props;
+  NextTargets' `getSimilar` URL.
+- **Page test data:** the page's fixtures, so every new report field is optional; and
+  App.test's fetch mock, which answers every unknown route with the health body.
+- **Geometry:** `sky::alt_az` stays geometric, as the Meeus 13.b test pins. Refraction
+  arrives with feat-14.
+
+## Decisions and the alternatives rejected
+
+**An injectable clock, not a global or `#[cfg(test)]` clock.** Integration tests in
+`tests/` cannot see `cfg(test)` items, and a global clock makes parallel tests interfere.
+`FixedClock` is public, but no binary option builds one. Only feat-13's `--simulate`
+reaches a virtual clock.
+
+**One poll for the session and its guidance, not a separate `/api/guidance`.** Two polls
+cost twice as much and can disagree for a moment.
+
+**Meeus's method for rise and set, not stepping `alt_az` and bisecting.** Stepping is
+slower, and Meeus's worked example would no longer check the method.
+
+**A separate OpenNGC catalog, with the Messier list left alone.** Deriving the Messier
+list from OpenNGC would change the chart's data source under the orion2 and Virgo tests
+for no gain. The chart keeps drawing Messier objects only.
+
+**The Sun guard at mean precision.** About 20″ of aberration and nutation is nothing
+against the guard's 15°, so the guard compares the target precessed to the date with the
+Sun's apparent place.
+
+**The same-origin rule keeps the network setups that matter working.** A phone reaching
+the console by LAN IP passes, and so does `netsh portproxy` or WSL mirrored networking,
+because each keeps its own `Host`. The JSON content type that axum's `Json` extractor
+enforces stops the "simple" cross-site requests a browser sends without a preflight. The
+Origin check also covers `/api/solve`, whose multipart body is one of those. A route that
+only stops the telescope (feat-14's `POST /api/stop`) will be exempt, because a stop must
+never be refused.
+
 ## User Story 1 — Sky ephemeris
 
-The module is `finder::ephemeris`, which is pure. Its design is design.md
-"`finder::ephemeris`: the Sun and rise/transit/set".
+The module is `finder::ephemeris`, which is pure. It lives in `finder`, not
+`crates/math-core`, because math-core is the solver's parity path.
 
 **The Sun.** Meeus ch. 25's low-accuracy series, with the apparent correction for
 longitude.
@@ -129,7 +194,21 @@ worked example would no longer check the method.
 
 ## User Story 2 — Target catalog
 
-The module is `finder::targets`. Its design is design.md "The target catalog".
+The module is `finder::targets`. The extract it reads, `crates/finder/data/openngc.csv`,
+is already on `main` (see § Prerequisites). It is semicolon-separated with a header row:
+
+```text
+name;type;ra_deg;dec_deg;const;major_arcmin;minor_arcmin;pa_deg;mag;messier;common_names;dup_of
+```
+
+- `name` is OpenNGC's spelling (`NGC0224`, `IC0434`, `Mel022`).
+- `messier` is `M31` or empty.
+- `common_names` is comma-separated.
+- A `Dup` row has only `name`, `type` (`Dup`) and `dup_of`, naming the object it
+  duplicates.
+
+`data/README.md` records the object count (13372 objects and 651 aliases) that US2-S1
+asserts.
 
 **Loading.** `include_str!("../data/openngc.csv")` is parsed once into a `OnceLock`, as
 `catalog::messier()` is.
@@ -149,8 +228,7 @@ to 1–50. An empty or missing `q` answers 400 with the console's `{"error": ...
 
 ## User Story 3 — Observing session
 
-The module is `finder::session`. Its design is design.md "The session lives in
-`finder::session`, behind an injectable clock" and "Persistence".
+The module is `finder::session`.
 
 **The session and its clock.**
 - `Session` holds the site, minimum altitude and target behind a mutex, with an optional
@@ -183,9 +261,6 @@ in-memory session on the system clock.
 
 ## User Story 4 — Write protection and the latest pointing
 
-Its design is design.md "Same-origin writes" and "The solve sets the pointing, and keeps
-its frame for placement".
-
 **The origin and host check.** One check guards `PUT /api/session` and `POST /api/solve`:
 - an `Origin` whose host and port differ from `Host` is refused 403;
 - an absent `Origin` is allowed, which keeps curl and the Rust tests working;
@@ -210,8 +285,7 @@ site changes, and drops them when it is cleared.
 
 ## User Story 5 — Push-to
 
-The module is `finder::pushto`. Its design is design.md "Pointable, rise/set, turn/tilt
-and placement in `finder::pushto`" and "`similar_above()` and the minimum altitude".
+The module is `finder::pushto`.
 
 **Class.** The precedence is Sun guard, then below the horizon, then too low, then
 pointable.
@@ -241,8 +315,6 @@ session's minimum altitude.
 
 ## User Story 6 — The page shares the session; the Setup page
 
-Its design is design.md "The page" (Data, Adopting the browser's site, Routing).
-
 **`useSession()`.**
 - It polls `GET /api/session` every 5 s while `document.visibilityState === "visible"`,
   and once after each `put`.
@@ -265,8 +337,6 @@ own setter. `useSite` and SiteDialog keep their shapes.
 
 ## User Story 7 — Target sheet, guidance block, target mark
 
-Its design is design.md "The page" (Components, Times).
-
 **Components.**
 - `TargetSheet` follows FramePicker's dialog pattern.
 - `GuidanceBlock` uses ink only, because object colours are for objects. Times are shown
@@ -284,8 +354,6 @@ DESIGN.md's atlas language; the maintainer's Impeccable pass may refine it after
 **Last step.** Rebuild `web/dist`.
 
 ## User Story 8 — End to end
-
-Its design is design.md "End-to-end tests".
 
 **`playwright.config.ts`.**
 - The existing server starts with `--state` in a fresh folder under `target/`, and with
@@ -317,9 +385,9 @@ check with a target and on the Setup page.
 
 ## Prerequisites before this spec is flipped to `ready`
 
-1. **The OpenNGC extract is on `main`.** That means `crates/finder/data/openngc.csv`, the
-   `data/README.md` recipe with its commit and object count, and the
-   `THIRD_PARTY_NOTICES.md` row.
+1. **The OpenNGC extract is on `main`.** It is staged by the operator in PR #109:
+   `crates/finder/data/openngc.csv`, its `data/README.md` recipe with the commit and object
+   count, `scripts/data/openngc-extract.py`, and the `THIRD_PARTY_NOTICES.md` row.
 2. **The owner approvals are given.** They are listed in spec § Owner approvals, and
    flipping to `ready` records them.
 3. **The repository is wired for the Ergane merge queue.** Run `ergane init --wire`, and
