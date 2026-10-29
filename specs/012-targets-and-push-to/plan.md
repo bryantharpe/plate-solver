@@ -390,8 +390,13 @@ check with a target and on the Setup page.
    approvals).
 3. **The repository is wired for the Ergane merge queue.** Done: `ergane init --check`
    passes all 15 checks.
-4. **The coding agent can run cargo.** Ergane spec 261 (an agent can build what its gates
-   build) has landed, and the worker has been redeployed at a build that includes it.
+4. **The coding agent can run cargo.** Done: ergane#896 (0624bad0) makes the agent
+   sandbox bind the caches `ergane.yaml` declares and mount `/etc/alternatives`, and the
+   worker runs that build (`ergane-worker@0624bad0`). It is the fix Ergane spec 261
+   (ergane#893) describes, landed directly instead of through that spec. Checked on
+   2026-10-29 through the deployed agent sandbox on a plate-solver worktree:
+   `cargo check --workspace --all-targets --all-features --locked` passes, with no `CC`
+   override.
 
 ## Risks
 
