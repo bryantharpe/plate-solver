@@ -1,10 +1,12 @@
 ---
-state: draft
+state: ready
 depends_on_landed: []
 # Converted 2026-10-28 from the reviewed OpenSpec change feat-12 (#102). This trio is
 # now the feature's only specification. It stays draft until the owner has reviewed
 # it and given the approvals listed under "Owner approvals". Flipping it to `ready`
 # is the act that dispatches it. The owner approved it on 2026-10-28.
+# Flipped to ready 2026-10-29, once ergane#896 met the last prerequisite (plan.md
+# § Prerequisites, item 4).
 ---
 
 # Feature Specification: Targets and Push-To
