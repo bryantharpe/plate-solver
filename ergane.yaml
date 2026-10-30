@@ -31,12 +31,17 @@ runtime: bwrap
 # `cc` not found". `gcc` and `g++` resolve within `/usr`. CC/CXX reach the cc crate
 # (zstd-sys compiles C); the LINKER variable reaches rustc. Neither changes what is
 # compiled, so CI, which uses the runner's own `cc`, checks the same thing.
+#
+# `lint` also builds the docs with warnings denied, the command `ci.yml`'s `docs`
+# job runs. The judge sees gate results and the diff, nothing else, so a story
+# whose scenario says the docs build has no evidence for it unless a gate ran it.
 gates:
   lint: >-
     export PATH="$CARGO_HOME/bin:$PATH" RUSTFLAGS="-D warnings"
     CC=gcc CXX=g++ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc &&
     cargo fmt --all --check &&
-    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings &&
+    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features --locked
   test: >-
     export PATH="$CARGO_HOME/bin:$PATH" RUSTFLAGS="-D warnings"
     CC=gcc CXX=g++ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc &&
