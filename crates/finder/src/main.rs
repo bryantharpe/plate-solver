@@ -6,6 +6,7 @@ use std::time::Instant;
 
 use clap::Parser;
 use finder::samples::Samples;
+use finder::session::Session;
 use finder::{router, AppState};
 
 /// Serve the finder console: a page that plate-solves a frame and shows where it points.
@@ -27,6 +28,9 @@ struct Args {
     /// Address to listen on. 0.0.0.0:8080 lets a phone on the same network connect.
     #[arg(long, default_value = "127.0.0.1:8080")]
     listen: SocketAddr,
+    /// Session state folder (default: $XDG_STATE_HOME/finder or ~/.local/state/finder).
+    #[arg(long)]
+    state: Option<PathBuf>,
     /// Print the third-party notices for the embedded page and data, and exit.
     #[arg(long)]
     licenses: bool,
@@ -59,11 +63,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     eprintln!("samples: {}", samples.len());
 
+    let state_dir = args
+        .state
+        .or_else(|| {
+            std::env::var_os("XDG_STATE_HOME")
+                .filter(|path| !path.is_empty())
+                .map(|path| PathBuf::from(path).join("finder"))
+        })
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .filter(|path| !path.is_empty())
+                .map(|path| PathBuf::from(path).join(".local/state/finder"))
+        })
+        .ok_or("set HOME or XDG_STATE_HOME, or pass --state DIR")?;
+    let session = Session::with_state_file(state_dir.join("session.json"))?;
+
     let listener = tokio::net::TcpListener::bind(args.listen).await?;
     eprintln!("finder console: http://{}", listener.local_addr()?);
     if args.listen.ip().is_loopback() {
         eprintln!("(to open it from a phone, run with --listen 0.0.0.0:8080)");
     }
-    axum::serve(listener, router(AppState::new(db, samples))).await?;
+    axum::serve(
+        listener,
+        router(AppState::new(db, samples).with_session(session)),
+    )
+    .await?;
     Ok(())
 }

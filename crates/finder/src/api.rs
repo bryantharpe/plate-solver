@@ -2,11 +2,11 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use axum::body::Bytes;
 use axum::extract::multipart::{Field, MultipartError};
-use axum::extract::rejection::QueryRejection;
+use axum::extract::rejection::{JsonRejection, QueryRejection};
 use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
@@ -19,6 +19,7 @@ use tokio::sync::Semaphore;
 
 use crate::catalog::{self, SimilarReport};
 use crate::samples::{self, SampleInfo, Samples};
+use crate::session::{Clock, Session, SessionEdit, SessionError, SessionView, SystemClock};
 use crate::sky::Observer;
 use crate::solve::{self, DecodeError, SolveOptions, SolveReport};
 use crate::targets::{self, Target};
@@ -45,6 +46,8 @@ pub struct AppState {
     /// How long a request holding the gate may take to send its form.
     form_timeout: Duration,
     thumbs: Arc<Mutex<HashMap<String, Bytes>>>,
+    session: Arc<Session>,
+    clock: Arc<dyn Clock>,
 }
 
 impl AppState {
@@ -61,6 +64,8 @@ impl AppState {
             solve_gate: Arc::new(Semaphore::new(1)),
             form_timeout: FORM_READ_TIMEOUT,
             thumbs: Arc::new(Mutex::new(HashMap::new())),
+            session: Arc::new(Session::default()),
+            clock: Arc::new(SystemClock),
         }
     }
 
@@ -68,6 +73,18 @@ impl AppState {
     /// take to send its form (30 s by default). A request over it is answered 408.
     pub fn with_form_timeout(mut self, timeout: Duration) -> Self {
         self.form_timeout = timeout;
+        self
+    }
+
+    /// Share this observing session among all clients. The default is in memory.
+    pub fn with_session(mut self, session: Session) -> Self {
+        self.session = Arc::new(session);
+        self
+    }
+
+    /// Use another console clock for tests or simulations. The default is system time.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
         self
     }
 }
@@ -85,9 +102,40 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/similar", get(similar))
         .route("/api/targets", get(search_targets))
+        .route("/api/session", get(get_session).put(put_session))
         .route("/api/{*rest}", get(api_not_found))
         .fallback(get(page))
         .with_state(state)
+}
+
+async fn get_session(State(state): State<AppState>) -> Json<SessionView> {
+    Json(state.session.snapshot(state.clock.now()))
+}
+
+async fn put_session(
+    State(state): State<AppState>,
+    edit: Result<Json<SessionEdit>, JsonRejection>,
+) -> Result<Json<SessionView>, ApiError> {
+    let Json(edit) = edit.map_err(|error| {
+        let status = if error.status() == StatusCode::UNPROCESSABLE_ENTITY {
+            StatusCode::BAD_REQUEST
+        } else {
+            error.status()
+        };
+        ApiError::new(status, error.body_text())
+    })?;
+    state
+        .session
+        .edit(edit, state.clock.now())
+        .map(Json)
+        .map_err(|error| {
+            let status = match error {
+                SessionError::Invalid(_) => StatusCode::BAD_REQUEST,
+                SessionError::UnknownTarget(_) => StatusCode::NOT_FOUND,
+                SessionError::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            ApiError::new(status, error.to_string())
+        })
 }
 
 /// An error answered as JSON `{"error": "..."}`.
@@ -413,7 +461,10 @@ struct SimilarQuery {
     limit: Option<usize>,
 }
 
-async fn similar(Query(q): Query<SimilarQuery>) -> Result<Json<SimilarReport>, ApiError> {
+async fn similar(
+    State(state): State<AppState>,
+    Query(q): Query<SimilarQuery>,
+) -> Result<Json<SimilarReport>, ApiError> {
     let reference = catalog::find(&q.id).ok_or_else(|| {
         ApiError::new(
             StatusCode::NOT_FOUND,
@@ -427,15 +478,10 @@ async fn similar(Query(q): Query<SimilarQuery>) -> Result<Json<SimilarReport>, A
                     "lat must be within ±90 degrees and lon within ±180",
                 ));
             }
-            let now = || {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_or(0.0, |d| d.as_secs_f64())
-            };
             Some(Observer {
                 lat,
                 lon,
-                time: q.time.unwrap_or_else(now),
+                time: q.time.unwrap_or_else(|| state.clock.now()),
             })
         }
         (None, None) => None,
