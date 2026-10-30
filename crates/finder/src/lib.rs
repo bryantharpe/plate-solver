@@ -16,6 +16,7 @@
 pub mod api;
 pub mod catalog;
 pub mod constellation;
+pub mod ephemeris;
 pub mod grid;
 pub mod samples;
 pub mod sky;
