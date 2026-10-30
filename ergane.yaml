@@ -35,13 +35,18 @@ runtime: bwrap
 # `lint` also builds the docs with warnings denied, the command `ci.yml`'s `docs`
 # job runs. The judge sees gate results and the diff, nothing else, so a story
 # whose scenario says the docs build has no evidence for it unless a gate ran it.
+# The judge also reads that literally: a scenario that names a command is proven
+# only by that exact command, not a broader one. So `lint` runs the per-crate form
+# spec 012 names as well as the workspace build; write new scenarios to name a
+# command that is already here.
 gates:
   lint: >-
     export PATH="$CARGO_HOME/bin:$PATH" RUSTFLAGS="-D warnings"
     CC=gcc CXX=g++ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc &&
     cargo fmt --all --check &&
     cargo clippy --workspace --all-targets --all-features --locked -- -D warnings &&
-    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features --locked
+    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features --locked &&
+    RUSTDOCFLAGS="-D warnings" cargo doc -p finder --no-deps
   test: >-
     export PATH="$CARGO_HOME/bin:$PATH" RUSTFLAGS="-D warnings"
     CC=gcc CXX=g++ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc &&

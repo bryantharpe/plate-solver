@@ -47,6 +47,7 @@ jobs:
           cargo fmt --all --check
           cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
           RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features --locked
+          RUSTDOCFLAGS="-D warnings" cargo doc -p finder --no-deps
 
   test:
     name: "test"
