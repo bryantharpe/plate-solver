@@ -6,6 +6,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use axum::body::Bytes;
 use axum::extract::multipart::{Field, MultipartError};
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
@@ -20,6 +21,7 @@ use crate::catalog::{self, SimilarReport};
 use crate::samples::{self, SampleInfo, Samples};
 use crate::sky::Observer;
 use crate::solve::{self, DecodeError, SolveOptions, SolveReport};
+use crate::targets::{self, Target};
 
 /// Largest request body `/api/solve` accepts, in bytes.
 pub const SOLVE_BODY_LIMIT: usize = 32 * 1024 * 1024;
@@ -82,6 +84,7 @@ pub fn router(state: AppState) -> Router {
             post(solve).layer(DefaultBodyLimit::max(SOLVE_BODY_LIMIT)),
         )
         .route("/api/similar", get(similar))
+        .route("/api/targets", get(search_targets))
         .route("/api/{*rest}", get(api_not_found))
         .fallback(get(page))
         .with_state(state)
@@ -440,6 +443,28 @@ async fn similar(Query(q): Query<SimilarQuery>) -> Result<Json<SimilarReport>, A
     };
     let limit = q.limit.unwrap_or(8).clamp(1, MAX_SIMILAR);
     Ok(Json(catalog::similar(reference, observer.as_ref(), limit)))
+}
+
+#[derive(Deserialize)]
+struct TargetsQuery {
+    q: Option<String>,
+    limit: Option<usize>,
+}
+
+async fn search_targets(
+    query: Result<Query<TargetsQuery>, QueryRejection>,
+) -> Result<Json<Vec<&'static Target>>, ApiError> {
+    let Query(query) = query.map_err(|error| ApiError::bad_request(error.body_text()))?;
+    let q = query.q.as_deref().unwrap_or("").trim();
+    if q.is_empty() {
+        return Err(ApiError::bad_request(
+            "give a nonempty q to search for a target",
+        ));
+    }
+    Ok(Json(targets::search(
+        q,
+        query.limit.unwrap_or(20).clamp(1, 50),
+    )))
 }
 
 async fn api_not_found(uri: Uri) -> ApiError {

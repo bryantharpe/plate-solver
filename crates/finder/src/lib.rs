@@ -22,5 +22,6 @@ pub mod samples;
 pub mod sky;
 pub mod solve;
 pub mod stars;
+pub mod targets;
 
 pub use api::{router, AppState};
