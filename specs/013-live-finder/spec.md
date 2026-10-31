@@ -5,9 +5,9 @@ depends_on_landed: [012-targets-and-push-to]
 # now the feature's only specification. It stays draft until the owner has reviewed
 # it, given the approvals listed under "Owner approvals", and the operator has staged
 # the prerequisites in plan.md. Flipping it to `ready` is the act that dispatches it.
-# Refined 2026-10-31 against main at cf09362 (012's US1–US7 landed) and the factory's
+# Refined 2026-10-31 against main at 108a5a8 (012 landed in full) and the factory's
 # gates as they run today (plan.md § Plan traps and § Refinement Record). It stays
-# draft: 012 has to land, and the operator has to stage the prerequisites in plan.md.
+# draft until the prerequisites in plan.md are met.
 ---
 
 # Feature Specification: The Live Finder

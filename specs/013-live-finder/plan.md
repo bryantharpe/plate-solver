@@ -325,7 +325,7 @@ These are not changed by any story:
 - **End to end:** the default and `session` projects, their servers on 8097 and 8098, and
   `e2e/console.spec.ts` and `e2e/session.spec.ts`.
 - **`crates/grpc-service`** and `proto/` are untouched.
-- **Whole bodies and files**, read on `main` at cf09362:
+- **Whole bodies and files**, read on `main` at 108a5a8 (012 landed):
   - `session_api.rs`'s `fresh_session_and_fixed_clock_are_exact_on_repeated_reads`
     compares a fresh read with exactly `site`, `target`, `pointing`, `min_alt_deg` and
     `time`, so a new read field is left out until it has a value;
@@ -342,8 +342,20 @@ These are not changed by any story:
   `App.target.test.tsx` find the guidance block as the one `region` whose name matches
   `/Target/`, so no new labelled section on the console may name a target. `useSession`
   spreads an optional field in only when it is present.
-- **012's US8** is not on `main` yet: its `playwright.config.ts` and `e2e/session.spec.ts`
-  are re-read against this plan when 012 lands (Prerequisites, item 1).
+- **012's US8**, landed at 108a5a8:
+  - `playwright.config.ts` builds each server with one `server(port, name)` helper:
+    `cargo run --release --locked -p finder -- --listen 127.0.0.1:<port> --state <fresh
+    folder>`, with `reuseExistingServer: false`. The `default` project (8097) ignores
+    `**/session.spec.ts`, and the `session` project (8098) matches only that file.
+  - `e2e/session.spec.ts` pins the first screen with a target at 412 × 915 and
+    390 × 844: the guidance block, the title block, the chart and its legend lie in the
+    viewport in that order, and the roster starts below the legend. On `main` the legend
+    ends at 858 px and 836 px, so 390 × 844 has 8 px to spare (§ Plan traps, trap 10).
+  - It also carries a site saved on one device to another, opens `/setup` directly, and
+    finds no off-red pixel on the console with M78 or on Setup, at 412 × 915. So
+    Setup's new section keeps the red-only rule.
+  - US8 fitted the first screen by tightening the phone layout with a target: the
+    section gap is 4 px, and the chart is inset 20 px on each side.
 
 ## Decisions and the alternatives rejected
 
@@ -864,8 +876,8 @@ two for the connector, plus `simulator` as a dev-dependency.
 ## Prerequisites before this spec is flipped to `ready`
 
 1. **012 has landed**, and § Shapes that existing tests pin has been re-read against
-   012's US8 as it landed (US7 was read at cf09362). This spec's `depends_on_landed`
-   holds it back until then.
+   it. Met: 012 completed on 2026-10-31 with US8 at 108a5a8, and the shapes above were
+   re-read against US7 and US8 as they landed.
 2. **The bring-up fixtures and notes are on `main`**, staged by the operator from the Pi
    3B and its Arducam.
    - In `crates/scope-node/tests/data/`:
@@ -957,6 +969,15 @@ keeps it from recurring. They bind every story.
    the fix merges first and the story merges `origin/main`. 012's US3 cherry-picked two
    gate fixes, collided with their squash on `main` and spent a recovery cycle. *Check:* a
    story never cherry-picks an operator's commit.
+10. **The phone's first screen has 8 px to spare.** 012's US8 measured FR-033's first
+    screen in Chromium for the first time. US7's layout overflowed it by 7 px at
+    412 × 915 and 56 px at 390 × 844, and the story stopped on a question until the owner
+    let it tighten the layout. With a target on `main`, the legend now ends at 836 px of
+    844. So anything 013 adds above the legend on a phone with a target fails the `test`
+    gate, whether it is the live preview, a stale line or a taller block. *Check:* the
+    preview goes below the legend (T066), the stale state makes neither block taller
+    (T067), and US8 and US9 run `CI=1 npm run e2e` before proposing, with
+    `e2e/session.spec.ts` unchanged and green.
 
 ## Risks
 
@@ -975,13 +996,13 @@ keeps it from recurring. They bind every story.
 
 ## Refinement Record
 
-Reviewed on 2026-10-31 by the plate-solver operator against `main` at cf09362 and the
+Reviewed on 2026-10-31 by the plate-solver operator against `main` at 108a5a8 and the
 gate boundary probed in § Plan traps. Writes come from the task text; shared writes name
 the merge edge that orders them, and the 012 writers that have not landed yet.
 
 ```yaml
 version: 1
-reviewed_revision: cf0936255c83cd9b0b5c3c3be33321b14136f548
+reviewed_revision: 108a5a8d66675c53c124679087ecb48774b6b0eb
 stories:
   US1:
     tests:
@@ -1520,12 +1541,18 @@ stories:
         disposition: preserve
         assertion: "with a target, the reading order is still the guidance block, the title block, the chart and its legend, then the rest"
         decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/e2e/session.spec.ts
+        status: existing
+        disposition: preserve
+        assertion: "with M78 set, the guidance block, title block, chart and legend still fit the first screen at 412 x 915 and 390 x 844, and the console has no off-red pixel"
+        decision: "plan.md:Plan traps"
     preserved_behavior:
       - "012's ChartHeader and GuidanceBlock props stay as they are; the stale state is optional (tasks.md T067)"
       - "package.json dependencies are unchanged (spec.md US8-S6)"
     checks:
       development:
         - "cd crates/finder/web && npm test -- src/useLive.test.ts src/components/LivePreview.test.tsx src/App.live.test.tsx"
+        - "cd crates/finder/web && CI=1 npm run e2e -- --project session"
       handoff: declared_gates
       independent: declared_pipeline
       release:
@@ -1554,9 +1581,9 @@ stories:
         reason: "US9 depends_on_merged US8, and rebuilds the bundle US8 rebuilt"
       - path: crates/finder/web/src/App.tsx
         other_spec: 012-targets-and-push-to
-        other_story: US7
+        other_story: US8
         disposition: merge_order
-        reason: "013 depends_on_landed 012, whose US7 last wrote App.tsx (cf09362)"
+        reason: "013 depends_on_landed 012, whose US8 last wrote App.tsx (108a5a8)"
       - path: crates/finder/web/src/components/GuidanceBlock.tsx
         other_spec: 012-targets-and-push-to
         other_story: US7
@@ -1564,9 +1591,9 @@ stories:
         reason: "013 depends_on_landed 012, whose US7 created GuidanceBlock.tsx (cf09362)"
       - path: crates/finder/web/dist
         other_spec: 012-targets-and-push-to
-        other_story: US7
+        other_story: US8
         disposition: merge_order
-        reason: "013 depends_on_landed 012, whose US7 or US8 rebuilds the bundle last"
+        reason: "013 depends_on_landed 012, whose US8 rebuilt the bundle last (108a5a8)"
     open_questions: []
   US9:
     tests:
@@ -1600,12 +1627,18 @@ stories:
         disposition: preserve
         assertion: "the browser's stored settings behave as before"
         decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/e2e/session.spec.ts
+        status: existing
+        disposition: preserve
+        assertion: "/setup opened directly still renders Setup, and Setup still has no off-red pixel with the new section in it"
+        decision: "plan.md:Shapes that existing tests pin"
     preserved_behavior:
       - "no npm package is added (spec.md US9-S10)"
       - "every existing Vitest file is unchanged (tasks.md T074)"
     checks:
       development:
         - "cd crates/finder/web && npm test -- src/components/ScopeNodeSection.test.tsx src/components/FieldWarning.test.tsx src/components/AimTap.test.tsx src/components/SetupPage.test.tsx"
+        - "cd crates/finder/web && CI=1 npm run e2e -- --project session"
       handoff: declared_gates
       independent: declared_pipeline
       release:
@@ -1651,8 +1684,13 @@ stories:
         disposition: preserve
         assertion: "every console test passes unchanged in the default project"
         decision: "spec.md:US10-S1"
+      - path: crates/finder/web/e2e/session.spec.ts
+        status: existing
+        disposition: preserve
+        assertion: "every session test passes unchanged in the session project, on its own server on 8098"
+        decision: "spec.md:US10-S1"
     preserved_behavior:
-      - "012's default and session projects, their servers on 8097 and 8098, and e2e/session.spec.ts are unchanged (spec.md US10-S1); e2e/session.spec.ts lands with 012's US8"
+      - "012's default and session projects, their servers on 8097 and 8098, and e2e/session.spec.ts are unchanged (spec.md US10-S1)"
     checks:
       development:
         - "cd crates/finder/web && CI=1 npm run e2e"
@@ -1669,6 +1707,6 @@ stories:
         other_spec: 012-targets-and-push-to
         other_story: US8
         disposition: merge_order
-        reason: "013 depends_on_landed 012, whose US8 adds the second server and has not landed yet"
+        reason: "013 depends_on_landed 012, whose US8 last wrote it (108a5a8)"
     open_questions: []
 ```

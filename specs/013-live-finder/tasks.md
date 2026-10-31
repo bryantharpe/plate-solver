@@ -423,17 +423,23 @@ description: "Task list for 013-live-finder: The Live Finder"
   `undefined`, never `null`, so `useSession.test.ts`'s empty session stays equal. Add
   `crates/finder/web/src/useLive.ts`.
 - [ ] T066 [US8] Add `crates/finder/web/src/components/LivePreview.tsx`. Draw the live
-  report in the chart and the preview under it in `crates/finder/web/src/App.tsx`.
+  report in the chart, and put the preview below the chart's legend, in
+  `crates/finder/web/src/App.tsx`. With a target on a 390 × 844 phone the legend ends
+  8 px above the bottom of the first screen, so nothing new goes above it (plan.md
+  § Plan traps, trap 10).
 - [ ] T067 [US8] Add the optional stale state to
   `crates/finder/web/src/components/GuidanceBlock.tsx` and
-  `crates/finder/web/src/components/ChartHeader.tsx`, keeping their existing props.
+  `crates/finder/web/src/components/ChartHeader.tsx`, keeping their existing props. On a
+  phone with a target, the stale state makes neither block taller, so 012's first-screen
+  test still passes at 412 × 915 and 390 × 844.
 - [ ] T068 [US8] In `crates/finder/web`, run `npm ci`, `npm run typecheck`,
   `npm run format:check` and `npm test`, then `npm run build`. Commit the rebuilt
   `crates/finder/web/dist`, and confirm `git status --porcelain -- dist` lists nothing
   after a second `npm run build`, as the `test` gate's build-freshness step does (US8-S6).
-  Run the `lint` and `test` gates. Confirm `package.json` dependencies and every existing
-  Vitest file are unchanged. Commit the green story (FR-034, FR-035; US8-S1, US8-S2,
-  US8-S3, US8-S4, US8-S5, US8-S6).
+  Run `CI=1 npm run e2e`, with `e2e/console.spec.ts` and `e2e/session.spec.ts` unchanged
+  and green. Run the `lint` and `test` gates. Confirm `package.json` dependencies and
+  every existing Vitest file are unchanged. Commit the green story (FR-034, FR-035;
+  US8-S1, US8-S2, US8-S3, US8-S4, US8-S5, US8-S6).
 
 ## Phase 9: User Story 9 — Setup's scope node and camera section (Priority: P2)
 
@@ -470,10 +476,12 @@ description: "Task list for 013-live-finder: The Live Finder"
 - [ ] T074 [US9] In `crates/finder/web`, run `npm ci`, `npm run typecheck`,
   `npm run format:check` and `npm test`, then `npm run build`. Commit the rebuilt
   `crates/finder/web/dist`, and confirm `git status --porcelain -- dist` lists nothing
-  after a second `npm run build` (US9-S10). Run the `lint` and `test` gates. Confirm no
-  npm package was added and every existing Vitest file is unchanged. Commit the green
-  story (FR-036, FR-037, FR-038, FR-039, FR-040; US9-S1, US9-S2, US9-S3, US9-S4, US9-S5,
-  US9-S6, US9-S7, US9-S8, US9-S9, US9-S10).
+  after a second `npm run build` (US9-S10). Run `CI=1 npm run e2e`, with
+  `e2e/console.spec.ts` and `e2e/session.spec.ts` unchanged and green; the latter opens
+  `/setup` directly and finds no off-red pixel on it. Run the `lint` and `test` gates.
+  Confirm no npm package was added and every existing Vitest file is unchanged. Commit
+  the green story (FR-036, FR-037, FR-038, FR-039, FR-040; US9-S1, US9-S2, US9-S3,
+  US9-S4, US9-S5, US9-S6, US9-S7, US9-S8, US9-S9, US9-S10).
 
 ## Phase 10: User Story 10 — end to end, on the simulator (Priority: P3)
 
@@ -497,7 +505,10 @@ description: "Task list for 013-live-finder: The Live Finder"
     2026-01-16T02:00:00Z`, with a fresh `--state` under `target/` and
     `reuseExistingServer: false`, serving a `simulate` project that matches only
     `e2e/simulate.spec.ts`;
-  - make the default and `session` projects ignore it;
+  - make the default project ignore it beside `**/session.spec.ts`; the `session`
+    project already matches only its own file;
+  - pass the new flags through 012's `server(port, name)` helper as optional extra
+    arguments, so the two existing servers' commands stay as they are;
   - leave every earlier server and setting as it is (US10-S1).
 - [ ] T078 [US10] In `crates/finder/web`, run `npm ci`, `npm run typecheck`,
   `npm run format:check`, `npm test` and `CI=1 npm run e2e` (as the `test` gate runs it,
