@@ -168,3 +168,43 @@ folder. To persist explicitly, pass `Session::with_state_file(path)` to
 `AppState::with_clock`; `FixedClock` provides repeatable Unix seconds, and all
 time-dependent API defaults use that clock.
 Use `AppState::with_allowed_hosts` to configure DNS names for a library server's writes.
+
+The scope link pairs the console with one scope node. Set its host and port and its
+write-only bearer token through the same session edit:
+
+```sh
+curl -X PUT http://127.0.0.1:8080/api/session \
+  -H 'Content-Type: application/json' \
+  -d '{"node":{"address":"192.168.1.40:50051","token":"test-token"},"camera_settings":{"exposure_ms":200,"gain":4,"sigma":5}}'
+```
+
+`node` accepts partial `address` and `token` edits; `"node":null` clears both. Addresses
+are IP literals (IPv6 in brackets) or DNS names with a port from 1 to 65535. Tokens must
+be non-empty bearer tokens. Every Describe, Configure, Frames and Heartbeat call uses
+`authorization: Bearer`. Reads and edit answers return only `token_set`, never the token.
+The state file keeps the address, token and camera settings across restarts; each new
+temporary file is created mode 0600 and atomically renamed over the old state file.
+
+`camera_settings` accepts partial `exposure_ms`, `gain` and `sigma` edits. Exposure and
+gain are `"auto"` or positive numbers; sigma is 1–50. Before any setting is supplied,
+exposure and gain are automatic and detection uses cedar's 8σ threshold. A connected
+camera refuses numeric values outside its reported ranges with 400 and a JSON `error`.
+Settings are sent on each connection and whenever they change. If a new camera cannot
+accept a stored value, that control runs automatically while its stored value is kept.
+
+Once pairing is set, `GET /api/session` includes `node` with `address`, `token_set`,
+`connected`, `last_frame_age_s`, `offset_s`, `camera`, `stars` and `out_of_range`.
+`camera` reports `model`, `width`, `height`, and inclusive `{min,max}` ranges for
+`exposure_ms` and `gain`. Unknown telemetry is null. Each `out_of_range` item names
+`setting`, `stored`, `min` and `max`. `camera_settings` is omitted until a control is set,
+and `node` is omitted while there are no pairing credentials and no connection.
+
+A heartbeat runs every 250 ms. The link disconnects after one second without an answer,
+or when its frame stream ends, and retries after 0.5, 1, 2, 4 and then 5 seconds. The
+clock offset is node time less console time, from the least-delay heartbeat exchange in
+the last eight seconds. The newest star frame is retained without a queue.
+
+Library servers opt into the link with `AppState::with_link(Transport::Tcp)` after
+setting their session and clock. `Transport::connector` injects a reusable stream
+connector for in-memory tests through the same client. `AppState::link` exposes health
+and newest-frame subscriptions. Without the builder, a configured node reads disconnected.

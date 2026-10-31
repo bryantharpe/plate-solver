@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Semaphore;
 
 use crate::catalog::{self, SimilarReport};
+use crate::link::{LinkManager, Transport};
 use crate::samples::{self, SampleInfo, Samples};
 use crate::session::{Clock, Session, SessionEdit, SessionError, SessionView, SystemClock};
 use crate::sky::Observer;
@@ -49,6 +50,7 @@ pub struct AppState {
     session: Arc<Session>,
     clock: Arc<dyn Clock>,
     allowed_hosts: Arc<Vec<String>>,
+    link: Option<Arc<LinkManager>>,
 }
 
 impl AppState {
@@ -68,6 +70,7 @@ impl AppState {
             session: Arc::new(Session::default()),
             clock: Arc::new(SystemClock),
             allowed_hosts: Arc::new(Vec::new()),
+            link: None,
         }
     }
 
@@ -88,6 +91,22 @@ impl AppState {
     pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
         self.clock = clock;
         self
+    }
+
+    /// Start the session's paired scope link, using TCP or a reusable connector.
+    /// Set the session and clock before calling this builder.
+    pub fn with_link(mut self, transport: Transport) -> Self {
+        self.link = Some(Arc::new(LinkManager::start(
+            self.session.clone(),
+            self.clock.clone(),
+            transport,
+        )));
+        self
+    }
+
+    /// The running link, including its newest-frame and health subscriptions.
+    pub fn link(&self) -> Option<Arc<LinkManager>> {
+        self.link.clone()
     }
 
     /// Allow these DNS names for same-origin writes, in addition to IPs and localhost.
