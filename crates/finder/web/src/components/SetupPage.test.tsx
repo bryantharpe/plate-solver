@@ -22,7 +22,7 @@ function setup(site: { lat_deg: number; lon_deg: number } | null = null) {
 describe("Setup", () => {
   it("saves a minimum altitude of 30 degrees", async () => {
     const { onSave } = setup();
-    fireEvent.change(screen.getByLabelText("Minimum altitude"), { target: { value: "30" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Minimum altitude" }), { target: { value: "30" } });
     fireEvent.click(screen.getByRole("button", { name: "Save minimum altitude" }));
     await screen.findByText("Minimum altitude saved.");
     expect(onSave.mock.calls).toEqual([[{ min_alt_deg: 30 }]]);
@@ -30,7 +30,7 @@ describe("Setup", () => {
 
   it.each(["90", "-1", "", "not a number", "Infinity"])("refuses minimum altitude %s and says 0–80°", (value) => {
     const { onSave } = setup();
-    fireEvent.change(screen.getByLabelText("Minimum altitude"), { target: { value } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Minimum altitude" }), { target: { value } });
     fireEvent.click(screen.getByRole("button", { name: "Save minimum altitude" }));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByRole("status").textContent).toContain("0–80°");
@@ -38,13 +38,17 @@ describe("Setup", () => {
 
   it.each(["0", "80"])("accepts the minimum altitude boundary %s", async (value) => {
     const { onSave } = setup();
-    fireEvent.change(screen.getByLabelText("Minimum altitude"), { target: { value } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Minimum altitude" }), { target: { value } });
     fireEvent.click(screen.getByRole("button", { name: "Save minimum altitude" }));
     await screen.findByText("Minimum altitude saved.");
     expect(onSave).toHaveBeenCalledWith({ min_alt_deg: Number(value) });
   });
 
-  it.each([["95", "0"], ["40", "181"], ["", "-75"]])("refuses site %s, %s and gives the ranges", (lat, lon) => {
+  it.each([
+    ["95", "0"],
+    ["40", "181"],
+    ["", "-75"],
+  ])("refuses site %s, %s and gives the ranges", (lat, lon) => {
     const { onSave } = setup();
     fireEvent.change(screen.getByLabelText("Latitude"), { target: { value: lat } });
     fireEvent.change(screen.getByLabelText("Longitude"), { target: { value: lon } });
@@ -61,17 +65,21 @@ describe("Setup", () => {
     await screen.findByText("Site saved.");
     expect(onSave).toHaveBeenCalledWith({ site: { lat_deg: 40, lon_deg: -75 } });
     expect(window.localStorage.getItem("finder.site")).toBeNull();
-    rerender(<SetupPage session={{ ...INITIAL, site: { lat_deg: 40, lon_deg: -75 } }} onSave={onSave} onBack={() => {}} />);
+    rerender(
+      <SetupPage session={{ ...INITIAL, site: { lat_deg: 40, lon_deg: -75 } }} onSave={onSave} onBack={() => {}} />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Forget the site" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ site: null }));
   });
 
   it("fills the device's coordinates and saves them only when asked", async () => {
     vi.stubGlobal("isSecureContext", true);
-    vi.stubGlobal("navigator", { geolocation: {
-      getCurrentPosition: (ok: (p: { coords: { latitude: number; longitude: number } }) => void) =>
-        ok({ coords: { latitude: 51.4779, longitude: -0.0015 } }),
-    } });
+    vi.stubGlobal("navigator", {
+      geolocation: {
+        getCurrentPosition: (ok: (p: { coords: { latitude: number; longitude: number } }) => void) =>
+          ok({ coords: { latitude: 51.4779, longitude: -0.0015 } }),
+      },
+    });
     const { onSave } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Use this device's location" }));
     expect((screen.getByLabelText("Latitude") as HTMLInputElement).value).toBe("51.478");
@@ -88,15 +96,26 @@ describe("Setup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use this device's location" }));
     expect(screen.getByRole("status").textContent).toMatch(/HTTPS.*Enter it by hand/);
     vi.stubGlobal("isSecureContext", true);
-    vi.stubGlobal("navigator", { geolocation: {
-      getCurrentPosition: (_ok: unknown, fail: (e: { message: string }) => void) => fail({ message: "Permission denied" }),
-    } });
+    vi.stubGlobal("navigator", {
+      geolocation: {
+        getCurrentPosition: (_ok: unknown, fail: (e: { message: string }) => void) =>
+          fail({ message: "Permission denied" }),
+      },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Use this device's location" }));
     expect(screen.getByRole("status").textContent).toMatch(/Permission denied.*Enter it by hand/);
   });
 
   it("shows a failed save instead of claiming it was saved", async () => {
-    render(<SetupPage session={INITIAL} onSave={async () => { throw new Error("Console unavailable"); }} onBack={() => {}} />);
+    render(
+      <SetupPage
+        session={INITIAL}
+        onSave={async () => {
+          throw new Error("Console unavailable");
+        }}
+        onBack={() => {}}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save minimum altitude" }));
     await screen.findByText("Console unavailable");
     expect(screen.queryByText("Minimum altitude saved.")).toBeNull();
@@ -105,11 +124,15 @@ describe("Setup", () => {
   it("receives session changes while leaving an unfinished edit alone on an unchanged poll", () => {
     const { onSave, rerender } = setup({ lat_deg: 40, lon_deg: -75 });
     fireEvent.change(screen.getByLabelText("Latitude"), { target: { value: "41" } });
-    rerender(<SetupPage session={{ ...INITIAL, site: { lat_deg: 40, lon_deg: -75 } }} onSave={onSave} onBack={() => {}} />);
+    rerender(
+      <SetupPage session={{ ...INITIAL, site: { lat_deg: 40, lon_deg: -75 } }} onSave={onSave} onBack={() => {}} />,
+    );
     expect((screen.getByLabelText("Latitude") as HTMLInputElement).value).toBe("41");
-    rerender(<SetupPage session={{ site: { lat_deg: 50, lon_deg: -1 }, min_alt_deg: 30 }} onSave={onSave} onBack={() => {}} />);
+    rerender(
+      <SetupPage session={{ site: { lat_deg: 50, lon_deg: -1 }, min_alt_deg: 30 }} onSave={onSave} onBack={() => {}} />,
+    );
     expect((screen.getByLabelText("Latitude") as HTMLInputElement).value).toBe("50");
-    expect((screen.getByLabelText("Minimum altitude") as HTMLInputElement).value).toBe("30");
+    expect((screen.getByRole("textbox", { name: "Minimum altitude" }) as HTMLInputElement).value).toBe("30");
   });
 });
 
@@ -120,9 +143,18 @@ function serveSession() {
       if (init?.method === "PUT") session = { ...session, ...JSON.parse(String(init.body)) };
       return new Response(JSON.stringify(session));
     }
-    const body = url.startsWith("/api/solve") ? ORION2 : url.startsWith("/api/similar") ? SIMILAR_M42 : {
-      status: "ok", version: "0.1.0", database: { catalog: "hip_main", stars: 42212, patterns: 1, min_fov: 10, max_fov: 30 }, samples: 21,
-    };
+    const body = url.startsWith("/api/samples")
+      ? [{ name: "orion2.jpg", label: "Orion2" }]
+      : url.startsWith("/api/solve")
+        ? ORION2
+        : url.startsWith("/api/similar")
+          ? SIMILAR_M42
+          : {
+              status: "ok",
+              version: "0.1.0",
+              database: { catalog: "hip_main", stars: 42212, patterns: 1, min_fov: 10, max_fov: 30 },
+              samples: 21,
+            };
     return new Response(JSON.stringify(body));
   });
   vi.stubGlobal("fetch", fetch);
@@ -141,7 +173,7 @@ describe("Setup routing and suggestions", () => {
     expect(push).toHaveBeenCalledWith(null, "", "/setup");
     expect(window.location.pathname).toBe("/setup");
     expect(screen.getByRole("heading", { name: "Setup" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Minimum altitude"), { target: { value: "30" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Minimum altitude" }), { target: { value: "30" } });
     fireEvent.click(screen.getByRole("button", { name: "Save minimum altitude" }));
     await screen.findByText("Minimum altitude saved.");
     expect(api.session().min_alt_deg).toBe(30);
@@ -169,7 +201,15 @@ describe("Setup routing and suggestions", () => {
 
   it("labels every down suggestion below 30° and keeps the horizon mark in readable ink", async () => {
     vi.stubGlobal("fetch", async () => new Response(JSON.stringify(SIMILAR_M42)));
-    render(<NextTargets reference={ORION2.objects[0]!} nearby={[]} site={{ lat: 40, lon: -75 }} minAlt={30} onSetSite={() => {}} />);
+    render(
+      <NextTargets
+        reference={ORION2.objects[0]!}
+        nearby={[]}
+        site={{ lat: 40, lon: -75 }}
+        minAlt={30}
+        onSetSite={() => {}}
+      />,
+    );
     await screen.findByText("Like M42: other diffuse nebulae");
     const down = SIMILAR_M42.suggestions.filter((s) => s.up === false);
     expect(down.length).toBeGreaterThan(0);

@@ -93,7 +93,9 @@ describe("the observing session (the API contract is the oracle; times are exact
 
   it("reports a refused edit without refetching or replacing the session", async () => {
     const fetch = vi.fn(async (_url: string, init?: RequestInit) =>
-      init?.method === "PUT" ? new Response(JSON.stringify({ error: "Site refused" }), { status: 403 }) : response(EMPTY),
+      init?.method === "PUT"
+        ? new Response(JSON.stringify({ error: "Site refused" }), { status: 403 })
+        : response(EMPTY),
     );
     vi.stubGlobal("fetch", fetch);
     const { result } = renderHook(() => useSession());
@@ -118,7 +120,7 @@ describe("the observing session (the API contract is the oracle; times are exact
         }
         return response(session);
       }
-      return response(HEALTH);
+      return response(url.startsWith("/api/samples") ? [{ name: "orion2.jpg", label: "Orion2" }] : HEALTH);
     });
     const first = render(createElement(App));
     await waitFor(() => expect(window.localStorage.getItem("finder.site")).toBeNull());
@@ -135,7 +137,13 @@ describe("the observing session (the API contract is the oracle; times are exact
   it("keeps an existing session site instead of adopting the browser's site", async () => {
     window.localStorage.setItem("finder.site", JSON.stringify({ lat: 40, lon: -75 }));
     const fetch = vi.fn(async (url: string) =>
-      response(url === "/api/session" ? { ...EMPTY, site: { lat_deg: -33, lon_deg: 151 } } : HEALTH),
+      response(
+        url === "/api/session"
+          ? { ...EMPTY, site: { lat_deg: -33, lon_deg: 151 } }
+          : url.startsWith("/api/samples")
+            ? [{ name: "orion2.jpg", label: "Orion2" }]
+            : HEALTH,
+      ),
     );
     vi.stubGlobal("fetch", fetch);
     render(createElement(App));
@@ -147,7 +155,9 @@ describe("the observing session (the API contract is the oracle; times are exact
   it("keeps the browser's site if the initial session read fails", async () => {
     window.localStorage.setItem("finder.site", JSON.stringify({ lat: 40, lon: -75 }));
     const fetch = vi.fn(async (url: string) =>
-      url === "/api/session" ? new Response("unavailable", { status: 503 }) : response(HEALTH),
+      url === "/api/session"
+        ? new Response("unavailable", { status: 503 })
+        : response(url.startsWith("/api/samples") ? [{ name: "orion2.jpg", label: "Orion2" }] : HEALTH),
     );
     vi.stubGlobal("fetch", fetch);
     render(createElement(App));
