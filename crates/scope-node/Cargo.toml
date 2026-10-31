@@ -1,0 +1,26 @@
+[package]
+name = "scope-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Scope node camera adapters, capture and star detection."
+
+[dependencies]
+star-detection = { version = "0.1.0", path = "../star-detection" }
+scope-link = { version = "0.1.0", path = "../scope-link" }
+tokio = { version = "1.53.1", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "sync", "time"] }
+serde = { version = "1.0", features = ["derive"] }
+# Strict TOML configuration; the only newly introduced format dependency.
+toml = { version = "0.9", default-features = false, features = ["parse", "serde", "display"] }
+# Incremental rpicam JSON metadata (already in the workspace lockfile).
+serde_json = "1.0"
+# SensorTimestamp's epoch, plus safe creation of the private metadata FIFO.
+rustix = { version = "1.1.4", features = ["time", "fs"] }
+clap = { version = "4.6", default-features = false, features = ["std", "help", "usage", "error-context", "derive"] }
+
+[dev-dependencies]
+plate-solver = { version = "0.1.0", path = "../plate-solver" }
+image = { version = "0.25.1", default-features = false, features = ["png"] }
+tokio = { version = "1.53.1", features = ["test-util"] }
