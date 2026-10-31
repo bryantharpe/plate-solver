@@ -10,7 +10,7 @@ description: "Task list for 013-live-finder: The Live Finder"
   in `crates/scope-node/README.md`;
 - the `finder-page` job installs protoc;
 - the owner approvals in spec.md are given;
-- the coding agent can run cargo.
+- the coding agent can run cargo (met since ergane#896, 2026-10-28).
 
 **Rules for every story:**
 - Never edit an existing test, golden, `scripts/ci/`, `.github/` or `CODEOWNERS`.
@@ -19,6 +19,17 @@ description: "Task list for 013-live-finder: The Live Finder"
 - No `unsafe`, and no `.cargo/config.toml`.
 - Hardware is reached only through the operator's saved fixtures, a fake `rpicam-vid` on
   `PATH`, and the simulator.
+- Run only what the gates and the toolchain provide. The sandbox has no `cargo machete`
+  or `cargo deny`; the merge queue runs both, so a new dependency is used by the code or
+  sits in a `cargo-machete` ignore with its reason.
+- Write to Rust 1.96, the MSRV. The gates build on stable; only CI's `msrv` job builds on
+  1.96.
+- Keep the story's diff under 64 KiB, `Cargo.lock` included (`dist/` shows only as changed
+  files). The judge reads the diff and both gates' output within one 128 KiB budget, and
+  refuses evidence past it.
+- A test binds `127.0.0.1:0`. Only `playwright.config.ts` names a fixed port (8097–8099).
+- A new field of a session read, or of the state file, is left out until it has a value
+  (spec.md § Edge Cases).
 
 ## Phase 1: User Story 1 — the scope link (Priority: P1)
 
@@ -57,11 +68,11 @@ description: "Task list for 013-live-finder: The Live Finder"
   `crates/scope-link/src/auth.rs`.
 - [ ] T009 [US1] Implement the in-memory transport in `crates/scope-link/src/memory.rs`:
   `tokio::io::duplex`, `TokioIo`, `connect_with_connector` and `serve_with_incoming`.
-- [ ] T010 [US1] Run the `lint` and `test` gates,
-  `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features` and
-  `cargo machete`. Confirm `proto/` and `crates/grpc-service` are unchanged. Commit the
-  green story (FR-001, FR-002, FR-003; US1-S1, US1-S2, US1-S3, US1-S4, US1-S5, US1-S6,
-  US1-S7).
+- [ ] T010 [US1] Run the `lint` and `test` gates (`lint` builds the docs with warnings
+  denied). Confirm that every dependency in `crates/scope-link/Cargo.toml` is used or sits
+  in its `cargo-machete` ignore, and that `proto/` and `crates/grpc-service` are
+  unchanged. Commit the green story (FR-001, FR-002, FR-003; US1-S1, US1-S2, US1-S3,
+  US1-S4, US1-S5, US1-S6, US1-S7).
 
 ## Phase 2: User Story 2 — the node's camera port, Arducam adapter, detection and config (Priority: P1)
 
@@ -100,7 +111,8 @@ description: "Task list for 013-live-finder: The Live Finder"
 - [ ] T016 [US2] Implement the camera port in `crates/scope-node/src/camera.rs`: the
   `Camera` trait, `CameraInfo`, `GrayFrame`, `Settings`, `check_range` and the error types.
   Implement the database-free `simulated` camera in `crates/scope-node/src/synthetic.rs`,
-  and `NodeClock` in `crates/scope-node/src/clock.rs`.
+  and `NodeClock` in `crates/scope-node/src/clock.rs`. Declare the modules in
+  `crates/scope-node/src/lib.rs`.
 - [ ] T017 [US2] Implement the Arducam adapter in `crates/scope-node/src/arducam/`:
   - `listing.rs`;
   - `yuv.rs` (stride framing);
@@ -120,8 +132,8 @@ description: "Task list for 013-live-finder: The Live Finder"
     command line;
   - the systemd unit (`Restart=always`, a dedicated user in the `video` group);
   - the config file at mode 0600 (US2-S9).
-- [ ] T021 [US2] Run the `lint` and `test` gates, `cargo doc --workspace --no-deps
-  --all-features` with `-D warnings`, and `cargo machete`. Confirm three things:
+- [ ] T021 [US2] Run the `lint` and `test` gates. Confirm four things:
+  - every dependency in `crates/scope-node/Cargo.toml` is used;
   - `scope-node`'s `[dependencies]` name no `plate-solver`, `pattern-database` or
     `finder`;
   - there is no `.cargo/config.toml`;
@@ -154,8 +166,9 @@ description: "Task list for 013-live-finder: The Live Finder"
 ### Implementation
 
 - [ ] T024 [US3] Create `crates/simulator/Cargo.toml` with `scope-node`, `scope-link`,
-  `pattern-database`, `math-core` and `tokio`, and `plate-solver` as a dev-dependency.
-  Update `Cargo.lock`.
+  `pattern-database`, `math-core` and `tokio`, and as dev-dependencies `plate-solver` and
+  `tokio` with `test-util` (which `start_paused` needs). Update `Cargo.lock`. Declare the
+  modules in `crates/simulator/src/lib.rs`.
 - [ ] T025 [US3] Implement the optics, the true directions and `point_eyepiece_at` in
   `crates/simulator/src/optics.rs`. Implement alt/az to J2000 and the parallactic roll in
   `crates/simulator/src/sky.rs` (US3-S5).
@@ -165,9 +178,9 @@ description: "Task list for 013-live-finder: The Live Finder"
 - [ ] T027 [US3] Implement `VirtualClock` in `crates/simulator/src/clock.rs`. Implement
   `SimCamera` behind `scope_node::Camera` in `crates/simulator/src/camera.rs`, with
   settable ranges (default 1–2000 ms, gain 1–16).
-- [ ] T028 [US3] Run the `lint` and `test` gates, `cargo doc` with `-D warnings`, and
-  `cargo machete`. Commit the green story (FR-009, FR-010, FR-011; US3-S1, US3-S2, US3-S3,
-  US3-S4, US3-S5, US3-S6).
+- [ ] T028 [US3] Run the `lint` and `test` gates, and confirm that every dependency in
+  `crates/simulator/Cargo.toml` is used. Commit the green story (FR-009, FR-010, FR-011;
+  US3-S1, US3-S2, US3-S3, US3-S4, US3-S5, US3-S6).
 
 ## Phase 4: User Story 4 — the node's frames, previews, settings and auto-exposure (Priority: P1)
 
@@ -204,7 +217,8 @@ description: "Task list for 013-live-finder: The Live Finder"
 - [ ] T031 [US4] Implement the auto-exposure controller in
   `crates/scope-node/src/exposure.rs`. Implement scaling and JPEG encoding with `image`'s
   `jpeg` feature in `crates/scope-node/src/preview.rs`. Add `image` to
-  `crates/scope-node/Cargo.toml` and update `Cargo.lock`.
+  `crates/scope-node/Cargo.toml` and update `Cargo.lock`. Declare both modules, and
+  `service`, in `crates/scope-node/src/lib.rs`.
 - [ ] T032 [US4] Implement `NodeService` in `crates/scope-node/src/service.rs`, over the
   capture loop in `crates/scope-node/src/capture.rs`:
   - `Describe`;
@@ -217,11 +231,13 @@ description: "Task list for 013-live-finder: The Live Finder"
 - [ ] T034 [US4] Implement `SimNode` in `crates/simulator/src/node.rs` (the real
   `NodeService` over `SimCamera`, with a settable frame interval, in memory or on loopback
   TCP). Implement the push, stop and start frames, and unresponsive controls in
-  `crates/simulator/src/controls.rs`.
-- [ ] T035 [US4] Run the `lint` and `test` gates, `cargo doc` with `-D warnings`, and
-  `cargo machete`. Confirm `crates/scope-node/tests/cli.rs` is still green. Commit the
-  green story (FR-012, FR-013, FR-014, FR-015, FR-016; US4-S1, US4-S2, US4-S3, US4-S4,
-  US4-S5, US4-S6, US4-S7, US4-S8, US4-S9, US4-S10).
+  `crates/simulator/src/controls.rs`. Declare both in `crates/simulator/src/lib.rs`. Add
+  `tonic` to `crates/simulator/Cargo.toml` for the loopback server, and update
+  `Cargo.lock`.
+- [ ] T035 [US4] Run the `lint` and `test` gates, and confirm that `image` and `tonic` are
+  used. Confirm `crates/scope-node/tests/cli.rs` is still green. Commit the green story
+  (FR-012, FR-013, FR-014, FR-015, FR-016; US4-S1, US4-S2, US4-S3, US4-S4, US4-S5, US4-S6,
+  US4-S7, US4-S8, US4-S9, US4-S10).
 
 ## Phase 5: User Story 5 — the link client, and the session's node and camera settings (Priority: P1)
 
@@ -253,7 +269,8 @@ description: "Task list for 013-live-finder: The Live Finder"
 ### Implementation
 
 - [ ] T039 [US5] Add `scope-link`, `tonic`, `tower` and `hyper-util` to
-  `crates/finder/Cargo.toml`, and `simulator` as a dev-dependency. Update `Cargo.lock`.
+  `crates/finder/Cargo.toml`, and as dev-dependencies `simulator` and `tokio` with
+  `test-util` (which `start_paused` needs). Update `Cargo.lock`.
 - [ ] T040 [US5] Implement `LinkManager` and `LinkStatus` in a new
   `crates/finder/src/link.rs`:
   - the transport choice (TCP address or connector);
@@ -266,16 +283,19 @@ description: "Task list for 013-live-finder: The Live Finder"
   - the node's address and token (write-only, `token_set`);
   - the camera settings with their validation;
   - the out-of-range rule;
-  - 0600 atomic writes.
+  - 0600 atomic writes;
+  - `node` and `camera_settings` left out of the read, and out of the state file, until
+    set, so `tests/session_api.rs`'s fresh read and `tests/session_cli.rs`'s three-key
+    file stay green unchanged.
 - [ ] T042 [US5] Extend `crates/finder/src/api.rs`: the `node` and `camera_settings` read
   fields, the `PUT` fields with `deny_unknown_fields` behind the same-origin check, and
   `AppState::with_link`. Start the link in `crates/finder/src/main.rs`. Document the new
   fields in `crates/finder/README.md`.
-- [ ] T043 [US5] Run the `lint` and `test` gates, `cargo doc` with `-D warnings`, and
-  `cargo machete`. Confirm 012's test files and `crates/finder/tests/api.rs` are
-  unchanged (US5-S12). Commit the green story (FR-017, FR-018, FR-019, FR-020, FR-021,
-  FR-022; US5-S1, US5-S2, US5-S3, US5-S4, US5-S5, US5-S6, US5-S7, US5-S8, US5-S9, US5-S10,
-  US5-S11, US5-S12).
+- [ ] T043 [US5] Run the `lint` and `test` gates, and confirm that every dependency added
+  to `crates/finder/Cargo.toml` is used. Confirm 012's test files and
+  `crates/finder/tests/api.rs` are unchanged (US5-S12). Commit the green story (FR-017,
+  FR-018, FR-019, FR-020, FR-021, FR-022; US5-S1, US5-S2, US5-S3, US5-S4, US5-S5, US5-S6,
+  US5-S7, US5-S8, US5-S9, US5-S10, US5-S11, US5-S12).
 
 ## Phase 6: User Story 6 — live solving, the aim point and fresh pointings (Priority: P1)
 
@@ -319,16 +339,16 @@ description: "Task list for 013-live-finder: The Live Finder"
 
   Add `pub mod live;` to `crates/finder/src/lib.rs`.
 - [ ] T050 [US6] Extend `crates/finder/src/session.rs` with the aim point (kept,
-  resettable), the pointing's `source` and `frame_id`, and the `field` report. Extend
-  `crates/finder/src/pushto.rs` with the 5 s stale rule for live pointings.
+  resettable), the pointing's `source` and `frame_id`, and the `field` report, leaving
+  `aim` and `field` out of the read, and the aim point out of the state file, until set.
+  Extend `crates/finder/src/pushto.rs` with the 5 s stale rule for live pointings.
 - [ ] T051 [US6] Extend `crates/finder/src/api.rs` with `POST`/`DELETE /api/aim` behind
   the same-origin check, the `aim` and `field` read fields, and `AppState::with_live`.
   Start the live task in `crates/finder/src/main.rs`. Document the routes in
   `crates/finder/README.md`.
-- [ ] T052 [US6] Run the `lint` and `test` gates and `cargo doc` with `-D warnings`.
-  Confirm 012's test files are unchanged. Commit the green story (FR-023, FR-024, FR-025,
-  FR-026, FR-027, FR-028; US6-S1, US6-S2, US6-S3, US6-S4, US6-S5, US6-S6, US6-S7, US6-S8,
-  US6-S9, US6-S10, US6-S11, US6-S12).
+- [ ] T052 [US6] Run the `lint` and `test` gates. Confirm 012's test files are unchanged.
+  Commit the green story (FR-023, FR-024, FR-025, FR-026, FR-027, FR-028; US6-S1, US6-S2,
+  US6-S3, US6-S4, US6-S5, US6-S6, US6-S7, US6-S8, US6-S9, US6-S10, US6-S11, US6-S12).
 
 ## Phase 7: User Story 7 — `finder --simulate`, its controls and the live stream (Priority: P1)
 
@@ -374,9 +394,9 @@ description: "Task list for 013-live-finder: The Live Finder"
 - [ ] T060 [US7] Add `GET /api/live` (axum `Sse` over the broadcast, keep-alive 15 s) and
   `GET /api/live/preview.jpg` to `crates/finder/src/api.rs`. Document `--simulate`,
   `--sim-start` and the routes in `crates/finder/README.md`.
-- [ ] T061 [US7] Run the `lint` and `test` gates, `cargo doc` with `-D warnings`, and
-  `cargo machete`. Commit the green story (FR-029, FR-030, FR-031, FR-032, FR-033; US7-S1,
-  US7-S2, US7-S3, US7-S4, US7-S5, US7-S6, US7-S7, US7-S8, US7-S9, US7-S10, US7-S11).
+- [ ] T061 [US7] Run the `lint` and `test` gates, and confirm that `futures-util` and
+  `simulator` are used. Commit the green story (FR-029, FR-030, FR-031, FR-032, FR-033;
+  US7-S1, US7-S2, US7-S3, US7-S4, US7-S5, US7-S6, US7-S7, US7-S8, US7-S9, US7-S10, US7-S11).
 
 ## Phase 8: User Story 8 — the live chart and a stale pointing (Priority: P2)
 
@@ -399,7 +419,8 @@ description: "Task list for 013-live-finder: The Live Finder"
 ### Implementation
 
 - [ ] T065 [US8] Add the live report, `node`, `camera_settings`, `aim`, `field` and
-  `stale` types, all optional, to `crates/finder/web/src/api.ts`. Add
+  `stale` types, all optional, to `crates/finder/web/src/api.ts`. A missing field reads as
+  `undefined`, never `null`, so `useSession.test.ts`'s empty session stays equal. Add
   `crates/finder/web/src/useLive.ts`.
 - [ ] T066 [US8] Add `crates/finder/web/src/components/LivePreview.tsx`. Draw the live
   report in the chart and the preview under it in `crates/finder/web/src/App.tsx`.
@@ -408,10 +429,11 @@ description: "Task list for 013-live-finder: The Live Finder"
   `crates/finder/web/src/components/ChartHeader.tsx`, keeping their existing props.
 - [ ] T068 [US8] In `crates/finder/web`, run `npm ci`, `npm run typecheck`,
   `npm run format:check` and `npm test`, then `npm run build`. Commit the rebuilt
-  `crates/finder/web/dist`, and confirm `git status` shows it matches the rebuild, as CI's
-  freshness check does (US8-S6). Run the `lint` and `test` gates. Confirm `package.json`
-  dependencies and every existing Vitest file are unchanged. Commit the green story
-  (FR-034, FR-035; US8-S1, US8-S2, US8-S3, US8-S4, US8-S5, US8-S6).
+  `crates/finder/web/dist`, and confirm `git status --porcelain -- dist` lists nothing
+  after a second `npm run build`, as the `test` gate's build-freshness step does (US8-S6).
+  Run the `lint` and `test` gates. Confirm `package.json` dependencies and every existing
+  Vitest file are unchanged. Commit the green story (FR-034, FR-035; US8-S1, US8-S2,
+  US8-S3, US8-S4, US8-S5, US8-S6).
 
 ## Phase 9: User Story 9 — Setup's scope node and camera section (Priority: P2)
 
@@ -438,16 +460,20 @@ description: "Task list for 013-live-finder: The Live Finder"
 - [ ] T072 [US9] Add `crates/finder/web/src/components/ScopeNodeSection.tsx`,
   `FieldWarning.tsx` and `AimTap.tsx`, and their aim and put helpers in
   `crates/finder/web/src/api.ts`. Host them in
-  `crates/finder/web/src/components/SetupPage.tsx`, keeping 012's Setup tests green.
+  `crates/finder/web/src/components/SetupPage.tsx`, keeping 012's Setup tests green: any
+  new `SetupPage` prop is optional, and no new control takes an accessible name those
+  tests look up ("Save site", "Use this device's location", "Forget the site",
+  "Minimum altitude", "Save minimum altitude", "Back to console").
 - [ ] T073 [US9] Record the live chart, the preview, the stale state, the scope node and
   camera section and the aim-point tap in `DESIGN.md` and `.impeccable/design.json`, as
   built (US9-S9).
 - [ ] T074 [US9] In `crates/finder/web`, run `npm ci`, `npm run typecheck`,
   `npm run format:check` and `npm test`, then `npm run build`. Commit the rebuilt
-  `crates/finder/web/dist`, and confirm it matches the rebuild (US9-S10). Run the `lint`
-  and `test` gates. Confirm no npm package was added and every existing Vitest file is
-  unchanged. Commit the green story (FR-036, FR-037, FR-038, FR-039, FR-040; US9-S1,
-  US9-S2, US9-S3, US9-S4, US9-S5, US9-S6, US9-S7, US9-S8, US9-S9, US9-S10).
+  `crates/finder/web/dist`, and confirm `git status --porcelain -- dist` lists nothing
+  after a second `npm run build` (US9-S10). Run the `lint` and `test` gates. Confirm no
+  npm package was added and every existing Vitest file is unchanged. Commit the green
+  story (FR-036, FR-037, FR-038, FR-039, FR-040; US9-S1, US9-S2, US9-S3, US9-S4, US9-S5,
+  US9-S6, US9-S7, US9-S8, US9-S9, US9-S10).
 
 ## Phase 10: User Story 10 — end to end, on the simulator (Priority: P3)
 
@@ -474,10 +500,10 @@ description: "Task list for 013-live-finder: The Live Finder"
   - make the default and `session` projects ignore it;
   - leave every earlier server and setting as it is (US10-S1).
 - [ ] T078 [US10] In `crates/finder/web`, run `npm ci`, `npm run typecheck`,
-  `npm run format:check`, `npm test` and `npm run e2e`, with `e2e/console.spec.ts` and
-  `e2e/session.spec.ts` unchanged and green. Run the `lint` and `test` gates. Commit the
-  green story (FR-041, FR-042; US10-S1, US10-S2, US10-S3, US10-S4, US10-S5, US10-S6,
-  US10-S7).
+  `npm run format:check`, `npm test` and `CI=1 npm run e2e` (as the `test` gate runs it,
+  so no server is reused), with `e2e/console.spec.ts` and `e2e/session.spec.ts` unchanged
+  and green. Run the `lint` and `test` gates. Commit the green story (FR-041, FR-042;
+  US10-S1, US10-S2, US10-S3, US10-S4, US10-S5, US10-S6, US10-S7).
 
 ## Execution Order
 
@@ -494,6 +520,9 @@ one.
   and `src/main.rs`.
 - **US8 and US9** both rebuild `crates/finder/web/dist` and edit `src/api.ts`.
 - **US10** drives the finished page.
+- **US2 → US4 and US5 → US7** are stated as edges too, though the chain implies them: US4
+  extends US2's node files, and US7 changes `crates/finder/Cargo.toml` and `Cargo.lock`
+  after US5.
 - **`[P]`** marks nothing here: every task within a story shares a file with another.
 - **Out of scope for every story:** `crates/math-core`, `crates/grpc-service`, `proto/`,
   `scripts/ci/`, `.github/`, existing tests, and the bring-up fixtures.
