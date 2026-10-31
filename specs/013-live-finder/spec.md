@@ -63,7 +63,7 @@ settings and the aim point, and Setup gains a scope node and camera section.
   the chain is also the only order that never races on the lockfile.
 - Q: Where do the bring-up facts and fixtures come from? → A: The operator takes them at
   the telescope, before this spec is ready, and stages them on `main`:
-  - a saved `rpicam-hello --list-cameras` listing;
+  - a saved `rpicam-hello --list-cameras -v` listing, with the camera's controls;
   - a short saved `rpicam-vid` YUV420 stream with padded rows, and its JSON metadata;
   - a saved gray frame from the finder camera, with stars in it;
   - `fixtures.json`, which records what the files hold: the camera's model, size and
@@ -209,9 +209,9 @@ found them itself.
 1. **Given** a camera behind the port that reports an exposure range, **When** a test asks
    for an exposure longer than that range, **Then** it asserts that the port refuses with
    an error naming the range, and that no frame is taken.
-2. **Given** the saved `rpicam-hello --list-cameras` output, **When** a test parses it,
-   **Then** it asserts that the adapter reports the sensor model, its full size and every
-   mode's size exactly as `fixtures.json` records them.
+2. **Given** the saved `rpicam-hello --list-cameras -v` output, **When** a test parses it,
+   **Then** it asserts that the adapter reports the sensor model, its full size, every
+   mode's size, and its exposure and gain ranges exactly as `fixtures.json` records them.
 3. **Given** the saved YUV420 stream, whose row stride is wider than its width, and its
    saved metadata, at the width, height and stride `fixtures.json` records, **When** a
    test reads it, **Then** it asserts that each frame's gray
@@ -726,7 +726,8 @@ every earlier test unchanged and green, plus the new `e2e/simulate.spec.ts` in t
 - **FR-005**: The rpicam adapter SHALL run `rpicam-vid` as a subprocess writing YUV420
   frames and their metadata, and take each frame's Y plane at the row stride the camera
   writes, with exposure start from the sensor timestamp and end from the exposure time.
-  It SHALL read the camera's model and modes from `rpicam-hello --list-cameras`. When the
+  It SHALL read the camera's model and modes, and its exposure and gain ranges (the
+  `ExposureTime` and `AnalogueGain` controls), from `rpicam-hello --list-cameras -v`. When the
   subprocess exits, it SHALL report the error and its stderr, and the node SHALL restart
   the camera without restarting the service. **Refs**: Raspberry Pi camera documentation
   (rpicam-apps); libcamera's `SensorTimestamp`;

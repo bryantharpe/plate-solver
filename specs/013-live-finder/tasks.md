@@ -89,7 +89,8 @@ description: "Task list for 013-live-finder: The Live Finder"
 - [ ] T012 [US2] Write a failing `crates/scope-node/tests/rpicam.rs` on
   `fixtures/scope-node/`, taking every expected camera value from its `fixtures.json`,
   never from a literal:
-  - the listing parses to the sensor model, its full size and every mode (US2-S2);
+  - the listing parses to the sensor model, its full size, every mode, and the exposure
+    and gain ranges (US2-S2);
   - the padded stream, at `fixtures.json`'s width, height and stride, gives the Y plane
     byte for byte, with the saved timestamps (US2-S3);
   - a fake `rpicam-vid` script, written to a temporary folder put first on `PATH`,
@@ -109,17 +110,20 @@ description: "Task list for 013-live-finder: The Live Finder"
 
 - [ ] T015 [US2] Create `crates/scope-node/Cargo.toml`:
   - a library and a `scope-node` binary;
-  - `star-detection`, `scope-link`, `tokio`, `serde`, `toml` and `clap`;
+  - `star-detection`, `scope-link`, `tokio`, `serde`, `toml`, `clap`, and `rustix`
+    with its `time` feature, for `NodeClock`;
   - `plate-solver` as a dev-dependency.
 
   Update `Cargo.lock` (US2-S9).
 - [ ] T016 [US2] Implement the camera port in `crates/scope-node/src/camera.rs`: the
   `Camera` trait, `CameraInfo`, `GrayFrame`, `Settings`, `check_range` and the error types.
   Implement the database-free `simulated` camera in `crates/scope-node/src/synthetic.rs`,
-  and `NodeClock` in `crates/scope-node/src/clock.rs`. Declare the modules in
+  and `NodeClock` in `crates/scope-node/src/clock.rs`, reading `CLOCK_MONOTONIC` with
+  `rustix::time::clock_gettime`. Declare the modules in
   `crates/scope-node/src/lib.rs`.
 - [ ] T017 [US2] Implement the rpicam adapter in `crates/scope-node/src/rpicam/`:
-  - `listing.rs`;
+  - `listing.rs` (`--list-cameras -v`: model, size, modes, and the `ExposureTime` and
+    `AnalogueGain` ranges);
   - `yuv.rs` (stride framing, the width rounded up to 64 bytes);
   - `metadata.rs` (the JSON array's objects read one by one; `SensorTimestamp`,
     `ExposureTime`);

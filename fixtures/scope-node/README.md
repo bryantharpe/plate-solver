@@ -10,7 +10,11 @@ They live here, outside `crates/`, because the workspace loads every folder unde
 
 ## The files
 
-- **`list-cameras.txt`**: `rpicam-hello --list-cameras`, as captured.
+- **`list-cameras.txt`**: `rpicam-hello --list-cameras -v`, as captured. The verbose
+  listing repeats the plain one's camera and modes, then lists the camera's controls,
+  where `ExposureTime` (µs) and `AnalogueGain` give the ranges the camera port reports:
+  130 µs to 3.07 s, and gain 1 to 63.94. rpicam lists the controls for the largest mode.
+  It was taken later on 2026-10-31 than the stream, on the same camera.
 - **`stream.yuv`**: `rpicam-vid --codec yuv420`, 3 frames of 1296 × 972, as captured.
   1296 × 972 is the smallest mode whose rows are padded. Each row is 1344 bytes, 48 past
   the width, so a frame is 1344 × 972 × 3/2 = 1,959,552 bytes: the Y plane's 972 rows of
@@ -32,8 +36,8 @@ They live here, outside `crates/`, because the workspace loads every folder unde
   fall below its threshold. `fixtures.json` records the frame as synthetic, and the
   operator's bring-up kit keeps the generator and each star's true centre. A night
   frame of real stars replaces it.
-- **`fixtures.json`**: what the files hold. It gives the camera's model, size and modes,
-  the stride alignment, the stream's size, stride, frame count, frame bytes and padding
+- **`fixtures.json`**: what the files hold. It gives the camera's model, size, modes, and
+  exposure and gain ranges, the stride alignment, the stream's size, stride, frame count, frame bytes and padding
   values, each frame's `SensorTimestamp` (ns) and `ExposureTime` (µs), and the finder
   frame's size, source and synthetic stars.
 
