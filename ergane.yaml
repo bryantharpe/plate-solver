@@ -39,27 +39,53 @@ runtime: bwrap
 # only by that exact command, not a broader one. So `lint` runs the per-crate form
 # spec 012 names as well as the workspace build; write new scenarios to name a
 # command that is already here.
+#
+# `test` also runs `ci.yml`'s `finder-page` checks, in the same order and from
+# the same directory: `npm ci`, typecheck, the Prettier check, the Vitest suite,
+# the build-freshness check (a fresh `npm run build` leaves `dist/` exactly as
+# committed), and the Playwright suite against the release binary. Without them a
+# page story's Vitest and Playwright scenarios had no gate evidence at all.
+# Playwright runs with CI=1, as in CI, so it starts its own servers rather than
+# reusing whatever already listens on 8097, and the release build reuses the
+# worktree's own target directory.
+#
+# Each command builds into the worktree's own `target/`. A target directory
+# shared between worktrees let one story's gate run another story's test binary:
+# cargo hashes workspace crates by their path relative to the workspace, so two
+# worktrees of this repository write the same artifact names, and a build from
+# the other worktree that was newer than this one's sources looked fresh.
+# (Epic-012's US4 ran US6's finder tests that way on 2026-10-31.)
 gates:
   lint: >-
-    export PATH="$CARGO_HOME/bin:$PATH" RUSTFLAGS="-D warnings"
+    export PATH="$CARGO_HOME/bin:$PATH" CARGO_TARGET_DIR="$PWD/target"
+    RUSTFLAGS="-D warnings"
     CC=gcc CXX=g++ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc &&
     cargo fmt --all --check &&
     cargo clippy --workspace --all-targets --all-features --locked -- -D warnings &&
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features --locked &&
     RUSTDOCFLAGS="-D warnings" cargo doc -p finder --no-deps
   test: >-
-    export PATH="$CARGO_HOME/bin:$PATH" RUSTFLAGS="-D warnings"
+    export PATH="$CARGO_HOME/bin:$PATH" CARGO_TARGET_DIR="$PWD/target"
+    RUSTFLAGS="-D warnings"
     CC=gcc CXX=g++ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc &&
     cargo test --workspace --all-targets --all-features --locked &&
-    cargo test --workspace --locked --doc
+    cargo test --workspace --locked --doc &&
+    cd crates/finder/web &&
+    npm ci --no-audit --no-fund &&
+    npm run typecheck &&
+    npm run format:check &&
+    npm test &&
+    npm run build &&
+    git status --porcelain -- dist | (! grep .) &&
+    CI=1 npm run e2e
 
-# A warm build runs both gates in under a minute on the factory host. A cold one
-# compiles tonic, prost and image from scratch, and a second node gating at the
-# same time waits on cargo's lock on the shared target directory. Leave headroom
-# rather than charge a lock wait to a node's attempt budget.
+# A warm `test` runs in a few minutes. The first gate in a fresh worktree compiles
+# tonic, prost and image from scratch, twice: once for the debug tests and once
+# for the release binary Playwright serves. Leave headroom rather than charge a
+# cold build to a node's attempt budget.
 timeouts:
   lint: 1200
-  test: 1800
+  test: 3600
 
 # Writable binds into the gate boundary, each paired with the variable that
 # points the toolchain at it.
@@ -74,16 +100,34 @@ timeouts:
 #     CARGO_HOME=~/.cache/ergane/rust/cargo RUSTUP_HOME=~/.cache/ergane/rust/rustup \
 #       ~/.cache/ergane/rust/cargo/bin/rustup update stable
 #
-# The shared target directory keeps every node from recompiling ~3.6 GB of
-# dependencies. Fingerprints include the source path, so each worktree rebuilds
-# the workspace crates while reusing everything from crates.io.
+# There is deliberately no shared CARGO_TARGET_DIR (see the gates above): agents
+# and gates both build into the worktree's own `target/`, at the cost of one cold
+# build per story. The npm cache and the Playwright browsers are shared because
+# they are keyed by content (package integrity hashes, browser revision), not by
+# path. The gate does not install browsers: `playwright install` refuses this
+# host's Ubuntu release, so the operator seeds the revision the lockfile's
+# Playwright pins (1.56.1 -> chromium 1194, with its headless shell and ffmpeg
+# 1011). A story that changes the Playwright version fails e2e until the operator
+# seeds the new revision. Seed with:
+#
+#     PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 \
+#     PLAYWRIGHT_BROWSERS_PATH=~/.cache/ergane/ms-playwright/plate-solver \
+#       npx --prefix crates/finder/web playwright install chromium
+#
+# If that hangs at "extracting archive" (Playwright 1.56's extractor under Node
+# 24), fetch chromium-linux.zip and chromium-headless-shell-linux.zip from
+# cdn.playwright.dev/dbazure/download/playwright/builds/chromium/<rev>/, unzip them
+# into chromium-<rev>/ and chromium_headless_shell-<rev>/, and touch
+# INSTALLATION_COMPLETE and DEPENDENCIES_VALIDATED in each.
 caches:
   - path: ~/.cache/ergane/rust/cargo
     env: CARGO_HOME
   - path: ~/.cache/ergane/rust/rustup
     env: RUSTUP_HOME
-  - path: ~/.cache/ergane/cargo-target/plate-solver
-    env: CARGO_TARGET_DIR
+  - path: ~/.cache/ergane/npm/plate-solver
+    env: npm_config_cache
+  - path: ~/.cache/ergane/ms-playwright/plate-solver
+    env: PLAYWRIGHT_BROWSERS_PATH
 
 # Story-sized Rust diffs carry tests and goldens beside the code. The 64 KiB
 # default refuses them after the gates have passed; this keeps a ceiling while

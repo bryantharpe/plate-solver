@@ -58,7 +58,24 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: crates/finder/web/package-lock.json
       - name: "test"
         run: |
           cargo test --workspace --all-targets --all-features --locked
           cargo test --workspace --locked --doc
+      # The finder-page half of the `test` gate, as ci.yml's finder-page job runs it.
+      - name: "test: finder page"
+        working-directory: crates/finder/web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run format:check
+          npm test
+          npm run build
+          git status --porcelain -- dist | (! grep .)
+          npx playwright install --with-deps chromium
+          npm run e2e
