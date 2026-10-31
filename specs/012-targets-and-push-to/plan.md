@@ -402,7 +402,7 @@ check with a target and on the Setup page.
 
 | Risk | Mitigation |
 |---|---|
-| A page story passes the cargo gates but fails `finder-page` in the queue. | Each page story's tasks run the npm checks before proposing. The queue failure is reported back to the node's ladder. |
+| A page story passes the cargo gates but fails `finder-page` in the queue. | The `test` gate runs the `finder-page` checks too, so a failure comes back through the node's own gates before the queue. Each page story's tasks also run them before proposing. |
 | The OpenNGC extract grows the binary by about 1 MB. | Accepted: the pattern database dwarfs it. |
 | Last write wins between devices. | One observer and a few edits a night. The mutex keeps each edit whole, and the 5 s poll shows the result. |
 | The Sun guard depends on the console's clock. | A wrong clock misplaces the Sun by 1° per 4 minutes of error, inside the 15° margin for any plausible error. |
