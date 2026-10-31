@@ -249,6 +249,36 @@ export async function getHealth(): Promise<Health> {
   return json(await fetch("/api/health"));
 }
 
+export interface NodeCameraEdit {
+  node?: { address?: string; token?: string } | null;
+  camera_settings?: Partial<NonNullable<ObservingSession["camera_settings"]>>;
+}
+
+/** Pairing tokens are write-only; an empty token field is omitted by the caller. */
+export async function putNodeCamera(edit: NodeCameraEdit): Promise<ObservingSession> {
+  return json(
+    await fetch("/api/session", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(edit),
+    }),
+  );
+}
+
+export async function setAim(frame_id: number, x: number, y: number): Promise<ObservingSession> {
+  return json(
+    await fetch("/api/aim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ frame_id, x, y }),
+    }),
+  );
+}
+
+export async function resetAim(): Promise<ObservingSession> {
+  return json(await fetch("/api/aim", { method: "DELETE" }));
+}
+
 export async function getSamples(): Promise<Sample[]> {
   return json(await fetch("/api/samples"));
 }

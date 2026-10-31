@@ -286,6 +286,20 @@ An off-frame target uses the existing DirectionArrow, on the ray from the chart 
 ### Setup page — built
 The `/setup` page edits the shared observing session: site latitude and longitude, typed or taken from the device, and minimum altitude from 0° to 80°. It uses labelled 44px ruled fields, ink links and buttons, hairline separators and a doubled-rule title block. Saving and clearing the site use the session hook; validation and failed requests stay readable in ink. The top bar's Setup link opens it, and its Back to console action returns to the chart. The same paper and ink tokens make it red on black at night.
 
+### Live chart and preview — built
+While the scope link is connected, live events feed the existing chart, its title block, stars and target guidance. Pointing sequence numbers keep a newer uploaded solve on screen until a newer live solve arrives. The five legend chips are unchanged. The occasional JPEG preview sits below the chart and its legend, inside `.photo` so the night edition passes it through the luminance-to-red filter. It keeps the last preview between photographs. Nothing is added above the phone's legend.
+
+### Stale pointing — built
+More than 5 s after a live pointing, the guidance block replaces its directions with “Pointing stale” and “Waiting for a live solve.” The chart title replaces its solved-time clause with “Pointing stale.” These replacements use existing lines and ink tokens. A 250 ms timer uses the console time supplied by session reads and live events; the next live solve restores guidance. Uploaded pointings keep their existing behaviour.
+
+### Scope node and camera — built
+Below the site and minimum altitude on Setup, an ink-only section shows Connected or Disconnected, the camera model and the latest star count. Session reads update link and camera information; live events update the count. Labelled 44px ruled fields hold the address, a password token, exposure in ms, gain and detection threshold in σ. The token starts empty on every device, says “A token is set” when paired, is omitted from a save when left empty, and clears after a successful save. Exposure and gain accept `auto` or a positive value; the threshold accepts 1–50 or `auto` for cedar's 8 σ. One Save scope node and camera action writes all entered fields. Drafts survive live events, and failures stay readable beside the fields. Stored exposure or gain outside the connected camera's range names the value and range and explains that the camera uses automatic while the stored value is kept.
+
+The camera's last solved field is printed beside the loaded database's range. Within 1° of either end or outside it, an ink warning says a database built for the camera's field may be needed. After 30 s without a solve from frames with at least 10 stars, the warning says the camera's field may be outside that range and a matching database may be needed. An unsolved field is labelled “not solved yet.”
+
+### Aim-point tap — built
+Setup's Aim point section asks the observer to centre a star in the eyepiece and tap it on the live preview. The full-width ruled photograph uses `.photo` in the night edition. Each tap scales from the displayed image rectangle to that preview's full-frame pixels and sends its frame id; later frames without a preview do not change that coordinate system. The console snaps to a star. A refusal such as “no star is close enough to the tap,” or an expired frame, stays visible in ink and leaves the aim point unchanged. Unloaded or failed photographs accept no tap. The saved pixel coordinates are printed above the preview; Reset aim point immediately returns them to “frame centre,” even before a preview arrives. Moving the finder camera is the cue to reset.
+
 ## Do's and Don'ts
 
 ### Do:
