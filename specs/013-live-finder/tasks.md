@@ -6,9 +6,9 @@ description: "Task list for 013-live-finder: The Live Finder"
 
 **Prerequisites** (plan.md § Prerequisites):
 - 012 has landed;
-- the bring-up fixtures are in `crates/scope-node/tests/data/`, and the bring-up notes are
-  in `crates/scope-node/README.md`;
-- the `finder-page` job installs protoc;
+- the bring-up fixtures, their `fixtures.json` and the bring-up notes are in
+  `fixtures/scope-node/`;
+- the `finder-page` job installs protoc (met by #126, at 7f487e5);
 - the owner approvals in spec.md are given;
 - the coding agent can run cargo (met since ergane#896, 2026-10-28);
 - `npm run e2e` waits its turn on one host-wide lock (met by #125, at 80cbd51).
@@ -78,18 +78,19 @@ description: "Task list for 013-live-finder: The Live Finder"
   unchanged. Commit the green story (FR-001, FR-002, FR-003; US1-S1, US1-S2, US1-S3,
   US1-S4, US1-S5, US1-S6, US1-S7).
 
-## Phase 2: User Story 2 — the node's camera port, Arducam adapter, detection and config (Priority: P1)
+## Phase 2: User Story 2 — the node's camera port, rpicam adapter, detection and config (Priority: P1)
 
 ### Tests first
 
 - [ ] T011 [US2] Write failing in-module tests in a new `crates/scope-node/src/camera.rs`.
   The `simulated` synthetic camera refuses an exposure past its range with an error naming
   the range, and takes no frame (US2-S1).
-- [ ] T012 [US2] Write a failing `crates/scope-node/tests/arducam.rs` on
-  `crates/scope-node/tests/data/`:
-  - the listing parses to the sensor model, every mode and the active mode (US2-S2);
-  - the padded stream gives the Y plane byte for byte, with the saved timestamps
-    (US2-S3);
+- [ ] T012 [US2] Write a failing `crates/scope-node/tests/rpicam.rs` on
+  `fixtures/scope-node/`, taking every expected camera value from its `fixtures.json`,
+  never from a literal:
+  - the listing parses to the sensor model, its full size and every mode (US2-S2);
+  - the padded stream, at `fixtures.json`'s width, height and stride, gives the Y plane
+    byte for byte, with the saved timestamps (US2-S3);
   - a fake `rpicam-vid` script, written to a temporary folder put first on `PATH`,
     replays the stream and exits. The error and its stderr are reported, and the capture
     loop restarts the camera in the same process (US2-S4).
@@ -107,8 +108,7 @@ description: "Task list for 013-live-finder: The Live Finder"
 
 - [ ] T015 [US2] Create `crates/scope-node/Cargo.toml`:
   - a library and a `scope-node` binary;
-  - `star-detection`, `scope-link`, `tokio`, `serde`, `toml` and `clap`, plus `rustix`
-    only if the bring-up notes name `CLOCK_BOOTTIME`;
+  - `star-detection`, `scope-link`, `tokio`, `serde`, `toml` and `clap`;
   - `plate-solver` as a dev-dependency.
 
   Update `Cargo.lock` (US2-S9).
@@ -117,10 +117,11 @@ description: "Task list for 013-live-finder: The Live Finder"
   Implement the database-free `simulated` camera in `crates/scope-node/src/synthetic.rs`,
   and `NodeClock` in `crates/scope-node/src/clock.rs`. Declare the modules in
   `crates/scope-node/src/lib.rs`.
-- [ ] T017 [US2] Implement the Arducam adapter in `crates/scope-node/src/arducam/`:
+- [ ] T017 [US2] Implement the rpicam adapter in `crates/scope-node/src/rpicam/`:
   - `listing.rs`;
-  - `yuv.rs` (stride framing);
-  - `metadata.rs` (`SensorTimestamp`, `ExposureTime`);
+  - `yuv.rs` (stride framing, the width rounded up to 64 bytes);
+  - `metadata.rs` (the JSON array's objects read one by one; `SensorTimestamp`,
+    `ExposureTime`);
   - `mod.rs`, which spawns `rpicam-vid` from `PATH` with plan.md's arguments, keeps
     stderr, and reports exit.
 - [ ] T018 [US2] Implement `crates/scope-node/src/detect.rs`. It holds
@@ -130,8 +131,8 @@ description: "Task list for 013-live-finder: The Live Finder"
   `crates/scope-node/src/capture.rs`. Implement the config (`deny_unknown_fields`, errors
   naming the key, the masked print) in `crates/scope-node/src/config.rs`. Implement
   `--config` and `--check-config` in `crates/scope-node/src/main.rs`.
-- [ ] T020 [US2] Add to `crates/scope-node/README.md`, below the operator's bring-up
-  notes and without changing them:
+- [ ] T020 [US2] Write `crates/scope-node/README.md`, linking the operator's bring-up
+  notes in `fixtures/scope-node/README.md`:
   - the static `aarch64-unknown-linux-musl` build, with its target and flags on the
     command line;
   - the systemd unit (`Restart=always`, a dedicated user in the `video` group);
@@ -548,4 +549,5 @@ is verified or in the merge queue.
   after US5.
 - **`[P]`** marks nothing here: every task within a story shares a file with another.
 - **Out of scope for every story:** `crates/math-core`, `crates/grpc-service`, `proto/`,
-  `scripts/ci/`, `.github/`, existing tests, and the bring-up fixtures.
+  `scripts/ci/`, `.github/`, existing tests, and the bring-up fixtures in
+  `fixtures/scope-node/`.

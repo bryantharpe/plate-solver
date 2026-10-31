@@ -24,7 +24,8 @@ finder camera on the tube. A scope node on the telescope captures frames and fin
 stars; the console solves them (ADR-0001). This feature specifies:
 
 - the scope link between the console and the node, paired by a token;
-- the scope node, a service for the Raspberry Pi 3B with an Arducam behind a camera port;
+- the scope node, a service for the Raspberry Pi 3B with a Raspberry Pi camera behind a camera
+  port;
 - a simulator, a full stand-in scope node for the desk and CI, run as `finder --simulate`;
 - the live loop: solving the newest frame, timing each pointing at mid-exposure, the live
   chart, and the 5 s freshness rule for guidance;
@@ -45,7 +46,7 @@ settings and the aim point, and Setup gains a scope node and camera section.
 - Q: How is the change sliced for the factory? → A: Into ten stories, each a vertical
   slice that lands its own tests, in one chain:
   - the scope link (`crates/scope-link`);
-  - the node's camera port, Arducam adapter, detection and config (`crates/scope-node`);
+  - the node's camera port, rpicam adapter, detection and config (`crates/scope-node`);
   - the simulator's optics, rendered sky and virtual clock (`crates/simulator`);
   - the node's frame service, previews, settings and auto-exposure, proven on the
     simulator;
@@ -62,12 +63,19 @@ settings and the aim point, and Setup gains a scope node and camera section.
   - a saved `rpicam-hello --list-cameras` listing;
   - a short saved `rpicam-vid` YUV420 stream with padded rows, and its JSON metadata;
   - a saved gray frame from the finder camera;
-  - the bring-up notes in `crates/scope-node/README.md`: the camera's model and modes,
-    the row stride, which monotonic clock `SensorTimestamp` uses, the finder camera's
-    measured field of view, detection time per frame on the Pi 3B, and Wi-Fi throughput.
+  - `fixtures.json`, which records what the files hold: the camera's model, size and
+    modes, the stream's width, height, row stride and frame count, and each frame's
+    timestamp and exposure;
+  - the bring-up notes: the camera's model and modes, the row stride, which monotonic
+    clock `SensorTimestamp` uses, the finder camera's measured field of view, detection
+    time per frame on the Pi 3B, and Wi-Fi throughput.
 
-  A saved stream is several hundred kilobytes at least, past what a story should carry,
-  and none of it can be produced without the hardware. US2 builds on the fixtures.
+  They live in `fixtures/scope-node/`, outside `crates/`, because a folder under
+  `crates/` without a `Cargo.toml` breaks every cargo command in the workspace. A saved
+  stream is several hundred kilobytes at least, past what a story should carry, and none
+  of it can be produced without the hardware. US2 builds on the fixtures, and its tests
+  take every camera value from `fixtures.json`, so new fixtures from another camera
+  change no test.
 - Q: Who changes `ci.yml`? → A: Nobody in a story. `finder` will build generated gRPC code
   before its end-to-end tests, so the `finder-page` job needs the same "Install protoc"
   step the Rust jobs have. The owner approves it (approval 1) and the operator lands it
@@ -174,10 +182,10 @@ in-memory transport.
 
 ---
 
-### User Story 2 - The scope node's camera port, the Arducam adapter, the console's stars, and its config (Priority: P1)
+### User Story 2 - The scope node's camera port, the rpicam adapter, the console's stars, and its config (Priority: P1)
 
 As the scope node, I take frames only through a camera port, so another camera is an
-adapter rather than a respec. The Arducam adapter runs `rpicam-vid` and reads its YUV420
+adapter rather than a respec. The rpicam adapter runs `rpicam-vid` and reads its YUV420
 stream and metadata. I find stars exactly as the console does, and I am configured by a
 file I refuse to start on if it holds a typo.
 
@@ -187,8 +195,9 @@ found them itself.
 
 **Independent Test**: `cargo test -p scope-node --locked` runs:
 - the unit tests in `crates/scope-node/src/camera.rs` and `src/config.rs`;
-- `crates/scope-node/tests/arducam.rs`, on the saved listing and stream in
-  `crates/scope-node/tests/data/`, with a fake `rpicam-vid` script put first on `PATH`;
+- `crates/scope-node/tests/rpicam.rs`, on the saved listing and stream in
+  `fixtures/scope-node/`, checked against that folder's `fixtures.json`, with a fake
+  `rpicam-vid` script put first on `PATH`;
 - `crates/scope-node/tests/detect.rs`, on the saved finder frame;
 - `crates/scope-node/tests/cli.rs`, which runs the built `scope-node` binary.
 
@@ -198,10 +207,11 @@ found them itself.
    for an exposure longer than that range, **Then** it asserts that the port refuses with
    an error naming the range, and that no frame is taken.
 2. **Given** the saved `rpicam-hello --list-cameras` output, **When** a test parses it,
-   **Then** it asserts that the adapter reports the sensor model, every mode's size and the
-   active mode exactly as listed.
+   **Then** it asserts that the adapter reports the sensor model, its full size and every
+   mode's size exactly as `fixtures.json` records them.
 3. **Given** the saved YUV420 stream, whose row stride is wider than its width, and its
-   saved metadata, **When** a test reads it, **Then** it asserts that each frame's gray
+   saved metadata, at the width, height and stride `fixtures.json` records, **When** a
+   test reads it, **Then** it asserts that each frame's gray
    image equals the saved Y plane byte for byte without the padding, and that its exposure
    start and end equal the saved timestamp and the timestamp plus the exposure time.
 4. **Given** a fake `rpicam-vid` first on `PATH` that replays the saved stream and then
@@ -226,7 +236,7 @@ found them itself.
    - `crates/scope-node/README.md` documents the static `aarch64-unknown-linux-musl`
      build with its target and flags on the command line, the systemd unit
      (`Restart=always`, a dedicated user in the `video` group) and the config file's mode
-     0600;
+     0600, and links the operator's bring-up notes in `fixtures/scope-node/README.md`;
    - the repository gains no `.cargo/config.toml`.
 
 ---
@@ -710,9 +720,9 @@ every earlier test unchanged and green, plus the new `e2e/simulate.spec.ts` in t
   an exposure or gain outside the reported range with an error naming the range. Every
   camera SHALL be reached through an adapter behind this port. **Refs**: ADR-0001 (ports
   and adapters); GLOSSARY.md (camera port, camera adapter).
-- **FR-005**: The Arducam adapter SHALL run `rpicam-vid` as a subprocess writing YUV420
-  frames and their metadata, and take each frame's Y plane at the stride the camera
-  reports, with exposure start from the sensor timestamp and end from the exposure time.
+- **FR-005**: The rpicam adapter SHALL run `rpicam-vid` as a subprocess writing YUV420
+  frames and their metadata, and take each frame's Y plane at the row stride the camera
+  writes, with exposure start from the sensor timestamp and end from the exposure time.
   It SHALL read the camera's model and modes from `rpicam-hello --list-cameras`. When the
   subprocess exits, it SHALL report the error and its stderr, and the node SHALL restart
   the camera without restarting the service. **Refs**: Raspberry Pi camera documentation
@@ -723,7 +733,7 @@ every earlier test unchanged and green, plus the new `e2e/simulate.spec.ts` in t
   same detection settings the node's centroids equal the console's. **Refs**:
   star-detection's parity with cedar-detect; `plate_solver::DetectParams::cedar()`.
 - **FR-007**: The scope node SHALL read its listen address, token, camera adapter
-  (`arducam` or `simulated`) and starting camera settings from a config file, and SHALL
+  (`rpicam` or `simulated`) and starting camera settings from a config file, and SHALL
   refuse to start on an unknown key or a bad value, naming it. `scope-node --check-config`
   SHALL print the config it would run with, the token masked as `****`, and exit.
   **Refs**: systemd.service(5); GLOSSARY.md (scope node).
@@ -939,11 +949,12 @@ every earlier test unchanged and green, plus the new `e2e/simulate.spec.ts` in t
 ## Assumptions
 
 - **The bring-up fixtures and notes are staged by the operator** before this spec is
-  flipped to `ready`: in `crates/scope-node/tests/data/`, the saved camera listing, the
-  short saved YUV420 stream with padded rows and its JSON metadata, and a saved gray frame
-  from the finder camera; in `crates/scope-node/README.md`, the camera's model and modes,
-  the row stride, which monotonic clock `SensorTimestamp` uses, the measured field of
-  view, detection time per frame on the Pi 3B and Wi-Fi throughput.
+  flipped to `ready`, in `fixtures/scope-node/`: the saved camera listing, the short saved
+  YUV420 stream with padded rows and its JSON metadata, a saved gray frame from the finder
+  camera, `fixtures.json`, and in its `README.md` the camera's model and modes, the row
+  stride, which monotonic clock `SensorTimestamp` uses, the measured field of view,
+  detection time per frame on the Pi 3B and Wi-Fi throughput. When the finder's own camera
+  replaces the bring-up camera, the operator swaps these files, and no story changes.
 - **The `finder-page` job's "Install protoc" step is on `main`** (owner approval 1),
   landed by the operator before this spec is flipped to `ready`.
 - **The factory's coding agent can run cargo.** It has since ergane#896 (2026-10-28), and
