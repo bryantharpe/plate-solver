@@ -5,6 +5,9 @@ depends_on_landed: [012-targets-and-push-to]
 # now the feature's only specification. It stays draft until the owner has reviewed
 # it, given the approvals listed under "Owner approvals", and the operator has staged
 # the prerequisites in plan.md. Flipping it to `ready` is the act that dispatches it.
+# Refined 2026-10-31 against main at 108a5a8 (012 landed in full) and the factory's
+# gates as they run today (plan.md § Plan traps and § Refinement Record). It stays
+# draft until the prerequisites in plan.md are met.
 ---
 
 # Feature Specification: The Live Finder
@@ -78,6 +81,30 @@ settings and the aim point, and Setup gains a scope node and camera section.
   bring-up, building and checking the static `aarch64-unknown-linux-musl` binary, a
   pattern database for the finder camera's field if it falls outside 10–30°, and the
   on-sky checklist. They are listed under Assumptions.
+
+### Session 2026-10-31
+
+- Q: What evidence does the judge credit? → A: Only the gate results and the story's
+  diff, which share one 128 KiB budget. A Then clause that names a check proves it only
+  if a declared gate runs that check, letter for letter, so the page stories'
+  build-freshness scenarios name the `test` gate's own commands, as 012's do.
+- Q: Do the new session fields change what 012's tests pin? → A: No. `node`,
+  `camera_settings`, `aim` and `field` are left out of a session read until they have a
+  value, and the state file holds the node, the camera settings and the aim point only
+  once they are set. A fresh session reads exactly as 012's tests pin it, and a session
+  that never pairs a node writes 012's three-key file.
+- Q: Can the factory's `test` gate run protoc and a third Playwright server? → A: Yes,
+  with no change to the gate. plan.md § Plan traps gives the evidence, and the one
+  condition on the host: nothing else may listen on 8097–8099 while a story's gates run.
+- Q: Can any of the ten stories build at the same time? → A: Yes, the two page stories.
+  This replaces "in one chain" in the slicing answer above. The first seven stories stay
+  a chain, because each compiles against the crate or feature the one before it adds.
+  US8 and US9 write only `crates/finder/web/**`, which no Rust story touches, and their
+  tests fake the server from plan.md § Interfaces, so they build beside the first track.
+  US10 joins the two tracks. The factory runs up to two stories at once, so the longest
+  path drops from ten stories to eight. Each builder has its own worktree, but every
+  builder and gate shares the host's ports, so two end-to-end runs must not meet
+  (plan.md, Prerequisite 6).
 
 ## Owner approvals
 
@@ -492,8 +519,8 @@ consumes US7's stream.
   `src/App.live.test.tsx`;
 - every existing test is unchanged.
 
-Then the build-freshness check that CI's `finder-page` job runs passes on the rebuilt
-`web/dist`.
+Then the `test` gate's build-freshness step passes on the rebuilt `web/dist` (the same
+check CI's `finder-page` job runs).
 
 **Acceptance Scenarios**:
 
@@ -512,9 +539,9 @@ Then the build-freshness check that CI's `finder-page` job runs passes on the re
    passes 5 s old by the console's clock, **Then** a Vitest test under fake timers asserts
    that within 1 s the guidance block and the chart say the pointing is stale and show no
    turn or tilt.
-6. **Given** the rebuilt `web/dist`, **When** CI's build-freshness check runs, **Then** the
-   committed build is the build of this source, and `package.json` dependencies are
-   unchanged.
+6. **Given** the rebuilt `web/dist`, **When** the `test` gate runs `npm run build` and then
+   `git status --porcelain -- dist`, **Then** it lists nothing: the committed build is the
+   build of this source, and `package.json` dependencies are unchanged.
 
 ---
 
@@ -534,7 +561,7 @@ because it consumes US5's and US6's session fields.
   `src/components/FieldWarning.test.tsx` and `src/components/AimTap.test.tsx`;
 - every existing test, including the Setup page's from 012, is unchanged.
 
-Then the build-freshness check passes on the rebuilt `web/dist`.
+Then the `test` gate's build-freshness step passes on the rebuilt `web/dist`.
 
 **Acceptance Scenarios**:
 
@@ -565,8 +592,9 @@ Then the build-freshness check passes on the rebuilt `web/dist`.
 9. **Given** `DESIGN.md` and `.impeccable/design.json`, **When** they are read, **Then**
    they describe the live chart, the preview under the frame, the stale state, Setup's
    scope node and camera section and the aim-point tap, as built.
-10. **Given** the rebuilt `web/dist`, **When** CI's build-freshness check runs, **Then** the
-    committed build is the build of this source, and no npm package was added.
+10. **Given** the rebuilt `web/dist`, **When** the `test` gate runs `npm run build` and then
+    `git status --porcelain -- dist`, **Then** it lists nothing: the committed build is the
+    build of this source, and no npm package was added.
 
 ---
 
@@ -580,9 +608,9 @@ aim-point tap, and the red-only night rule on the live chart.
 **Why this priority**: These tests confirm in a real browser what the unit tests prove
 piece by piece. They come last because they exercise every story before them.
 
-**Independent Test**: In `crates/finder/web`, `npm run e2e` runs every earlier test
-unchanged and green, plus the new `e2e/simulate.spec.ts` in the `simulate` project and
-`e2e/live-off.spec.ts` in the default project.
+**Independent Test**: In `crates/finder/web`, the `test` gate's `CI=1 npm run e2e` runs
+every earlier test unchanged and green, plus the new `e2e/simulate.spec.ts` in the
+`simulate` project and `e2e/live-off.spec.ts` in the default project.
 
 **Acceptance Scenarios**:
 
@@ -640,6 +668,11 @@ unchanged and green, plus the new `e2e/simulate.spec.ts` in the `simulate` proje
   - A telescope pointed below the horizon renders a frame with no stars; it is still a
     frame, with an id and times.
   - Simulator controls never exist outside `--simulate`, whatever the request.
+- **The session's new fields:**
+  - A read leaves out `node`, `camera_settings`, `aim` and `field` until each has a value,
+    and the page reads a missing field as unset.
+  - The state file holds the node, the camera settings and the aim point only once they
+    are set. A state file that 012 wrote loads unchanged.
 
 ## Requirements *(mandatory)*
 
@@ -747,20 +780,25 @@ unchanged and green, plus the new `e2e/simulate.spec.ts` in the `simulate` proje
 - **FR-018**: The session SHALL hold the scope node's address and token, set by
   `PUT /api/session` like its other fields. The token SHALL be write-only: reads SHALL
   say only whether one is set. The state file SHALL keep both, readable and writable by
-  its owner only. An address that is not a host and port SHALL be refused with 400.
-  **Refs**: FR-001; 012's checked edits and state file.
+  its owner only, and only once they are set, so a session that never pairs a node
+  writes the same file 012 writes. An address that is not a host and port SHALL be
+  refused with 400. **Refs**: FR-001; 012's checked edits and state file.
 - **FR-019**: The session SHALL hold the finder camera's exposure (automatic, or
   milliseconds within the camera's range), gain (automatic, or a value within its range)
   and detection threshold, keep them across restarts, and send them to the node when they
-  change and when it connects. A value outside a connected camera's range SHALL be
-  refused with 400 naming the range. **Refs**: FR-014; FR-015.
+  change and when it connects. Until one of them is set, a read SHALL leave
+  `camera_settings` out, and the node SHALL run with automatic exposure and gain and
+  cedar's threshold. A value outside a connected camera's range SHALL be refused with 400
+  naming the range. **Refs**: FR-014; FR-015.
 - **FR-020**: When a node connects whose camera's range excludes a stored exposure or
   gain, the console SHALL send automatic for that setting, keep the stored value, and
   report in the session that the stored value is outside the camera's range. **Refs**:
   FR-019.
 - **FR-021**: `GET /api/session` SHALL carry a `node` with the address, `token_set`,
   `connected`, the latest frame's age, the clock offset, the camera's model and ranges,
-  and the latest frame's star count. **Refs**: plan.md § Interfaces.
+  and the latest frame's star count. While the session holds no node address or token
+  and no node is connected, the read SHALL leave `node` out, so a fresh session reads as
+  012 pins it. **Refs**: plan.md § Interfaces.
 - **FR-022**: The console's link client SHALL reach the simulator through exactly the
   calls and code it uses for a real node, so the console cannot tell them apart. **Refs**:
   FR-016.
@@ -784,15 +822,17 @@ unchanged and green, plus the new `e2e/simulate.spec.ts` in the `simulate` proje
   and StarSense's calibration (research note §2).
 - **FR-026**: The session SHALL hold the aim point as a pixel position in the finder
   camera's frame, kept across restarts until it is reset; with none set, the frame centre
-  SHALL be used. **Refs**: GLOSSARY.md (aim point); 012's latest pointing.
+  SHALL be used, and a read SHALL leave `aim` out. **Refs**: GLOSSARY.md (aim point);
+  012's latest pointing.
 - **FR-027**: A pointing from the live loop SHALL go stale for push-to guidance once it is
   more than 5 s old by the console's clock, whether or not the node is still connected,
   and the guidance SHALL then say that the pointing is stale instead of giving a turn and
   tilt. **Refs**: 012's turn and tilt, and its rule that a pointing goes stale only where
   a requirement says so; FR-017.
-- **FR-028**: `GET /api/session` SHALL report the latest solved field of view, the loaded
-  database's field range, and how long frames holding at least 10 stars have gone
-  unsolved. **Refs**: 012's database report in `/api/health`; FR-037.
+- **FR-028**: Once the live loop has received a frame, `GET /api/session` SHALL report the
+  latest solved field of view, the loaded database's field range, and how long frames
+  holding at least 10 stars have gone unsolved. Before then the read SHALL leave `field`
+  out. **Refs**: 012's database report in `/api/health`; FR-037.
 
 **`finder --simulate`** (US7):
 
@@ -904,9 +944,9 @@ unchanged and green, plus the new `e2e/simulate.spec.ts` in the `simulate` proje
   view, detection time per frame on the Pi 3B and Wi-Fi throughput.
 - **The `finder-page` job's "Install protoc" step is on `main`** (owner approval 1),
   landed by the operator before this spec is flipped to `ready`.
-- **The factory's coding agent can run cargo** before this spec is flipped to `ready`.
-  Every story from US1 to US7 changes `Cargo.lock`, and US2 adds `toml`, which no hand
-  edit of the lockfile can produce.
+- **The factory's coding agent can run cargo.** It has since ergane#896 (2026-10-28), and
+  012's stories built and tested with it. Every story from US1 to US7 changes
+  `Cargo.lock`, and US2 adds `toml`, which no hand edit of the lockfile can produce.
 - **Outside the factory, at the telescope:**
   - building the static `aarch64-unknown-linux-musl` binary in WSL and checking that
     `file` reports a static aarch64 binary;
@@ -928,12 +968,19 @@ unchanged and green, plus the new `e2e/simulate.spec.ts` in the `simulate` proje
   the node's config file; `image`'s JPEG encoder in `scope-node` for previews. Each must
   build on Rust 1.96 and pass `cargo-deny` and `cargo-machete`.
 - **The factory's gates and CI:**
-  - The factory's local gates are `lint` and `test`, which are cargo only.
-  - The page stories (US8, US9) must also pass `npm run typecheck`,
-    `npm run format:check`, `npm test` and the build-freshness check, and the end-to-end
-    story (US10) must pass `npm run e2e`.
-  - All of these run in CI's required `finder-page` check in the merge queue, and every
-    story's tasks run them before proposing.
+  - The factory's local gates are `lint` and `test`. `lint` runs rustfmt, clippy and the
+    docs builds with warnings denied. `test` runs the cargo tests and doctests and then,
+    in `crates/finder/web`, the checks CI's required `finder-page` job runs: `npm ci`,
+    `npm run typecheck`, `npm run format:check`, `npm test`, `npm run build` followed by
+    the build-freshness step (`git status --porcelain -- dist` lists nothing), and
+    `CI=1 npm run e2e`. Every story's gate results carry them.
+  - `crates/finder/web/dist/**` is marked generated in `.gitattributes`, so a rebuilt
+    bundle appears in a story's diff as changed files rather than as minified text.
+  - The merge queue runs every `ci.yml` job. Some have no factory counterpart: the
+    coverage floor, the cedar e2e eval and canary, `cargo machete`, `cargo deny`, the
+    secret scan and the build on Rust 1.96 (`msrv`). The factory builds on stable Rust,
+    and its toolchain holds neither cargo tool.
+  - Every story's tasks still run the gates' checks before proposing.
 
 ## Work Graph
 
@@ -951,7 +998,7 @@ US3:
   implements: [FR-009, FR-010, FR-011]
 US4:
   depends_on: []
-  depends_on_merged: [US3]
+  depends_on_merged: [US3, US2]
   implements: [FR-012, FR-013, FR-014, FR-015, FR-016]
 US5:
   depends_on: []
@@ -963,11 +1010,12 @@ US6:
   implements: [FR-023, FR-024, FR-025, FR-026, FR-027, FR-028]
 US7:
   depends_on: []
-  depends_on_merged: [US6]
+  depends_on_merged: [US6, US5]
   implements: [FR-029, FR-030, FR-031, FR-032, FR-033]
 US8:
   depends_on: []
-  depends_on_merged: [US7]
+  depends_on_merged: []
+  concurrent_with: [US7]
   implements: [FR-034, FR-035]
 US9:
   depends_on: []
@@ -975,7 +1023,7 @@ US9:
   implements: [FR-036, FR-037, FR-038, FR-039, FR-040]
 US10:
   depends_on: []
-  depends_on_merged: [US9]
+  depends_on_merged: [US9, US7]
   implements: [FR-041, FR-042]
 ```
 
@@ -987,14 +1035,29 @@ creates:
 | US2 | US1: `scope-node` serves `scope-link`'s service and both change `Cargo.lock` |
 | US3 | US2: the simulator's camera is an adapter behind `scope-node`'s camera port |
 | US4 | US3: the node's service is proven over the simulated camera in `crates/simulator/tests/` |
+| US4 | US2: it extends the node files US2 creates: `crates/scope-node/Cargo.toml`, `src/lib.rs`, `src/capture.rs` and `src/main.rs` |
 | US5 | US4: the console's link client is tested against the simulator's node service |
 | US6 | US5: the live loop reads frames from the link client and settings from the session |
 | US7 | US6: `--simulate` runs the live loop on the in-process simulator |
-| US8 | US7: the page draws the `/api/live` stream |
+| US7 | US5: it changes `crates/finder/Cargo.toml` and `Cargo.lock` again, after US5, the last story to change them |
 | US9 | US8: it adds to the page US8 changed and rebuilds the `web/dist` US8 rebuilt |
 | US10 | US9: it drives the finished page |
+| US10 | US7: it drives that page on `finder --simulate`, which US7 adds |
 
-The chain is deliberate. The first seven stories each add or change a crate's
-`Cargo.toml` and the shared `Cargo.lock`, and US5 to US7 all edit `crates/finder/src/api.rs`
-and `src/session.rs`; the page stories both rebuild `web/dist`. No two stories may run
-together without sharing a file.
+The graph has two tracks, and the factory can build a story from each at the same time.
+The first seven stories are a chain: each compiles against the crate or feature the one
+before it adds, each changes `Cargo.lock`, and US5 to US7 all edit
+`crates/finder/src/api.rs` and `src/session.rs`. The page stories, US8 and US9, write only
+`crates/finder/web/**`, which no Rust story touches, and their tests fake the server from
+plan.md § Interfaces, so they build beside the first track. US9 follows US8 because both
+edit `web/src/api.ts` and rebuild `web/dist`. US10 joins the tracks: it drives the
+finished page on the simulator.
+
+`concurrent_with: [US7]` on US8 overrides one edge the factory would otherwise infer. Both
+stories' tasks name the route `/api/live/preview.jpg`, which it reads as a shared file;
+they share no file. Building two stories at once also needs plan.md's Prerequisite 6, so
+that two end-to-end runs never contend for the same ports.
+
+The edges from US2 to US4 and from US5 to US7 add no order the chain does not already
+give. They name the two pairs of stories that share a file without being neighbours, so
+that every shared file has a stated order (plan.md § Refinement Record).

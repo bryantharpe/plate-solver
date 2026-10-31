@@ -55,7 +55,9 @@ settings and the aim point, and is now written mode 0600. The node reads
   `--locked`. Unit tests are in-module, and integration tests are in new files under each
   crate's `tests/`.
 - Every live test runs under `#[tokio::test(start_paused = true)]`, with the simulator and
-  the console in one runtime over an in-memory transport.
+  the console in one runtime over an in-memory transport. `start_paused` needs tokio's
+  `test-util` feature, which no manifest enables today, so `simulator` and `finder` add it
+  to their `tokio` dev-dependency. A feature changes no entry in `Cargo.lock`.
 - Vitest and Playwright in `crates/finder/web`.
 
 **Target Platform**:
@@ -236,19 +238,25 @@ Centroid   { double x, double y, double brightness }   // full-frame pixels
 **`GET /api/session`** gains:
 
 ```text
-node: { address: string|null, token_set: bool, connected: bool,
-        last_frame_age_s: number|null, offset_s: number|null,
-        camera: {model, width, height, exposure_ms: {min, max}, gain: {min, max}} | null,
-        stars: number|null,
-        out_of_range: [{setting: "exposure_ms"|"gain", stored: number, min, max}] }
-camera_settings: { exposure_ms: "auto"|number, gain: "auto"|number, sigma: number }
-aim: {x, y} | null
-field: { fov_deg: number|null, db_min_fov_deg, db_max_fov_deg, unsolved_s: number }
+node?: { address: string|null, token_set: bool, connected: bool,
+         last_frame_age_s: number|null, offset_s: number|null,
+         camera: {model, width, height, exposure_ms: {min, max}, gain: {min, max}} | null,
+         stars: number|null,
+         out_of_range: [{setting: "exposure_ms"|"gain", stored: number, min, max}] }
+                        // absent: no node address or token set, and no node connected
+camera_settings?: { exposure_ms: "auto"|number, gain: "auto"|number, sigma: number }
+                        // absent: none set (automatic, automatic, cedar's 8σ)
+aim?: {x, y}            // absent: none set (the frame centre)
+field?: { fov_deg: number|null, db_min_fov_deg, db_max_fov_deg, unsolved_s: number }
+                        // absent: the live loop has received no frame
 pointing: { …012's fields…, source: "upload"|"live", frame_id? }
 guidance: { …012's fields…, stale?: true }    // stale: no turn_deg or tilt_deg
 ```
 
-The token is never in any answer.
+The token is never in any answer. Every new field is left out until it has a value,
+rather than read as `null`: `crates/finder/tests/session_api.rs` compares a fresh read's
+whole body with 012's five fields, and the oracle rule keeps that test as it is
+(§ Shapes that existing tests pin).
 
 **`PUT /api/session`** also takes these fields:
 - `node?: {address?, token?} | null`, where `null` clears both;
@@ -317,6 +325,37 @@ These are not changed by any story:
 - **End to end:** the default and `session` projects, their servers on 8097 and 8098, and
   `e2e/console.spec.ts` and `e2e/session.spec.ts`.
 - **`crates/grpc-service`** and `proto/` are untouched.
+- **Whole bodies and files**, read on `main` at 108a5a8 (012 landed):
+  - `session_api.rs`'s `fresh_session_and_fixed_clock_are_exact_on_repeated_reads`
+    compares a fresh read with exactly `site`, `target`, `pointing`, `min_alt_deg` and
+    `time`, so a new read field is left out until it has a value;
+  - `session_cli.rs` asserts that a session holding a site, a minimum altitude and a
+    target writes a state file of exactly those three keys, so the node, the camera
+    settings and the aim point are written only once set. `StoredSession` keeps
+    `deny_unknown_fields`, and its new fields default when absent, so 012's files load;
+  - `useSession.test.ts` pins the empty session with `toEqual`, which passes over a
+    missing or `undefined` key but not a `null` one;
+  - `SetupPage.test.tsx` renders `SetupPage` with `session`, `put` and `onBack` only, and
+    finds its controls by role and accessible name, which `getBy…` needs to be unique.
+- **012's US7**, landed at cf09362: `GuidanceBlock` takes `session` and an optional
+  `onSetup`, and derives everything from `session.guidance`. Its tests and
+  `App.target.test.tsx` find the guidance block as the one `region` whose name matches
+  `/Target/`, so no new labelled section on the console may name a target. `useSession`
+  spreads an optional field in only when it is present.
+- **012's US8**, landed at 108a5a8:
+  - `playwright.config.ts` builds each server with one `server(port, name)` helper:
+    `cargo run --release --locked -p finder -- --listen 127.0.0.1:<port> --state <fresh
+    folder>`, with `reuseExistingServer: false`. The `default` project (8097) ignores
+    `**/session.spec.ts`, and the `session` project (8098) matches only that file.
+  - `e2e/session.spec.ts` pins the first screen with a target at 412 × 915 and
+    390 × 844: the guidance block, the title block, the chart and its legend lie in the
+    viewport in that order, and the roster starts below the legend. On `main` the legend
+    ends at 858 px and 836 px, so 390 × 844 has 8 px to spare (§ Plan traps, trap 10).
+  - It also carries a site saved on one device to another, opens `/setup` directly, and
+    finds no off-red pixel on the console with M78 or on Setup, at 412 × 915. So
+    Setup's new section keeps the red-only rule.
+  - US8 fitted the first screen by tightening the phone layout with a target: the
+    section gap is 4 px, and the chart is inset 20 px on each side.
 
 ## Decisions and the alternatives rejected
 
@@ -357,6 +396,10 @@ no story may edit `.github/`.
   generate gRPC code in one repository, and the check itself needs protoc.
 - *Rejected:* `protoc-bin-vendored`. It puts prebuilt binaries in the dependency graph for
   one job's convenience.
+- The factory needs no change for it. Its `test` gate already builds `grpc-service` with
+  the host's `/usr/bin/protoc` (libprotoc 3.21.12), inside the `/usr` the gate boundary
+  binds, and `ergane-gates.yml`'s `test` job installs protoc. Only `ci.yml`'s
+  `finder-page` job lacks the step (§ Plan traps, trap 7).
 
 **The node keeps one monotonic clock.**
 - Exposure times and heartbeat t1 and t2 come from the same monotonic clock: whichever
@@ -577,7 +620,9 @@ exposure ← exposure · (30 / max(N, 1))^0.7
   1–65535 and no whitespace.
 - **The token** is a non-empty string, written only. A read gives `token_set`.
 - **The state file** is written mode 0600: the temporary file is created 0600, then
-  renamed over the old one. An existing file's mode is tightened on the next write.
+  renamed over the old one. An existing file's mode is tightened on the next write. The
+  node, the camera settings and the aim point are written only once set, and default
+  when absent, so a state file 012 wrote loads unchanged.
 - **The exposure and gain** are each `"auto"` or a positive number. With a camera
   connected, a number outside its range is refused with 400 naming the range. With none
   connected, any positive number is kept.
@@ -794,6 +839,8 @@ two for the connector, plus `simulator` as a dev-dependency.
   012 makes the session server's, and `reuseExistingServer: false`.
 - It serves a `simulate` project, which matches only `e2e/simulate.spec.ts`. The default
   and `session` projects ignore that file.
+- The `test` gate already runs `CI=1 npm run e2e`, so the third server is gate evidence
+  with no change to the gate (§ Plan traps, traps 6 and 7).
 
 **`e2e/simulate.spec.ts`.**
 - It runs serially and sets the site and M78 first.
@@ -807,27 +854,30 @@ two for the connector, plus `simulator` as a dev-dependency.
 
 ## Verification (every story, before proposing)
 
-- **The factory gates** (`ergane.yaml`):
-  - `lint` = `cargo fmt --all --check` and
-    `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`;
-  - `test` = `cargo test --workspace --all-targets --all-features --locked` and
-    `cargo test --workspace --locked --doc`.
-- **Rust stories** (US1–US7) also run
-  `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features`, and
-  `cargo machete` when they add a dependency.
-- **US5 onwards** must keep `finder-page` green: from US5, `cargo run -p finder` builds
-  `scope-link`, which relies on the operator's protoc step.
-- **Page stories** (US8, US9), in `crates/finder/web`: `npm ci`, `npm run typecheck`,
-  `npm run format:check` and `npm test`. Then `npm run build`, and confirm that
-  `git status` shows `dist/` matching the rebuild (CI's freshness check).
-- **US10** also runs `npm run e2e`, which builds the release binary.
-- **CI in the merge queue** runs all of the above and more: coverage at 80%, the cedar
-  e2e eval and canary, msrv, docs, deny, machete and the secret scan. A story is not done
-  until it would pass them.
+- **The factory gates** (`ergane.yaml`, as of 3fc6a24):
+  - `lint` = `cargo fmt --all --check`,
+    `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
+    `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features --locked`
+    and `RUSTDOCFLAGS="-D warnings" cargo doc -p finder --no-deps`;
+  - `test` = `cargo test --workspace --all-targets --all-features --locked`,
+    `cargo test --workspace --locked --doc`, and then, in `crates/finder/web`, `npm ci`,
+    `npm run typecheck`, `npm run format:check`, `npm test`, `npm run build`,
+    `git status --porcelain -- dist` (which must list nothing) and `CI=1 npm run e2e`.
+
+  Every story runs both, Rust and page stories alike, and the judge sees their results.
+- **US5 onwards** must keep CI's `finder-page` green: from US5, `cargo run -p finder`
+  builds `scope-link`, which relies on the operator's protoc step.
+- **CI in the merge queue** runs every `ci.yml` job. Some have no factory counterpart:
+  coverage at 80%, the cedar e2e eval and canary, `cargo machete`, `cargo deny`, the
+  secret scan, and the build on Rust 1.96 (`msrv`). The sandbox has neither cargo tool
+  and builds on stable, so a story meets those checks by construction (§ Plan traps,
+  trap 5). A story is not done until it would pass them.
 
 ## Prerequisites before this spec is flipped to `ready`
 
-1. **012 has landed.** This spec's `depends_on_landed` holds it back until then.
+1. **012 has landed**, and § Shapes that existing tests pin has been re-read against
+   it. Met: 012 completed on 2026-10-31 with US8 at 108a5a8, and the shapes above were
+   re-read against US7 and US8 as they landed.
 2. **The bring-up fixtures and notes are on `main`**, staged by the operator from the Pi
    3B and its Arducam.
    - In `crates/scope-node/tests/data/`:
@@ -848,12 +898,98 @@ two for the connector, plus `simulator` as a dev-dependency.
      - detection time per frame on the Pi 3B;
      - Wi-Fi throughput.
 3. **The `finder-page` job installs protoc** (owner approval 1). The operator lands the
-   same "Install protoc" step the Rust jobs use in `.github/workflows/ci.yml`.
+   same "Install protoc" step the Rust jobs use in `.github/workflows/ci.yml`. The
+   factory's `test` gate and `ergane-gates.yml` need no change.
 4. **The owner approvals are given.** They are listed in spec § Owner approvals, and
    flipping to `ready` records them.
-5. **The factory's coding agent can run cargo.** Every story from US1 to US7 changes
-   `Cargo.lock`, and US2 adds `toml`, which a hand edit cannot lock. Until the agent's
-   sandbox can run cargo, these stories cannot be written blind against `--locked` gates.
+5. **The factory's coding agent can run cargo.** Met since ergane#896 (deployed
+   2026-10-28): 012's stories built and tested with it. Every story from US1 to US7
+   changes `Cargo.lock`, and US2 adds `toml`, which a hand edit cannot lock.
+6. **Two end-to-end runs never meet.** Two stories build at once (spec.md § Work Graph),
+   and every builder and gate binds 8097–8099 when it runs `npm run e2e`. The operator
+   lands a change to `crates/finder/web/package.json`, approved by the owner, that makes
+   the `e2e` script hold one host-wide lock for the run: `flock` on a file in
+   `$PLAYWRIGHT_BROWSERS_PATH`, the Playwright cache that every builder and every gate
+   binds from the same host folder. A run that finds the lock taken waits for it. If it
+   cannot land, the operator puts `depends_on_merged: [US7]` back on US8 before 013 is
+   flipped, and the stories run as one chain.
+
+## Plan traps
+
+Lessons from building 012 on this factory, each with its mechanism and the check that
+keeps it from recurring. They bind every story.
+
+1. **Gate evidence or nothing.** The judge credits only the gate results and the story's
+   diff. A Then clause that names a check only CI runs, or a test no gate runs, fails
+   correct work: 012's page scenarios did, until #118 put the `finder-page` checks in the
+   `test` gate and #119 restated the scenarios. *Check:* every Then clause names a
+   committed test, or a command a gate runs; US8-S6 and US9-S10 name the `test` gate's
+   build-freshness commands.
+2. **A named command is read literally.** The judge refused 012's US3 docs scenario until
+   the `lint` gate ran the exact `cargo doc -p finder --no-deps` it named; a broader
+   command did not count (#113, #114). *Check:* a scenario that names a command copies it
+   from `ergane.yaml` verbatim.
+3. **One evidence budget.** The story's diff and both gates' output share the judge's
+   128 KiB, each gate's output tail can be 32 KiB, and evidence past the budget is
+   refused before the judge reads it. 012's stories were 22–44 KB of diff each. *Check:*
+   a story keeps its diff under 64 KiB, `Cargo.lock` included (`dist/` is `-diff` and
+   shows only as changed files), measured before proposing with
+   `git diff <base> -- . ':(exclude)crates/finder/web/dist' | wc -c`. US4, US6 and US7
+   are the largest; one that cannot fit escalates rather than dropping a test.
+4. **An additive field still breaks a whole-body test.** 012's US5 added `guidance` to
+   session reads, and the existing `partial_edits_and_null_keep_every_other_field`
+   compared whole bodies, so the story stopped on a question until the owner approved a
+   one-line change (question 8a357f48cda5). *Check:* 013's new session fields are left out
+   until they have a value (§ Interfaces), the tests in § Shapes that existing tests pin
+   stay as they are, and no story edits an existing test.
+5. **The sandbox has only the gates' tools.** A step that needs a tool the sandbox lacks
+   stops the story on a question, and in a chain a question stops the epic: 012's
+   builders asked, story after story, about the `ergane` CLI their sandbox lacks. The
+   factory's toolchain is stable Rust (1.99.1) with rustfmt and clippy, Node 24 and the
+   seeded Chromium. It has no `cargo-machete`, no `cargo-deny` and no 1.96 toolchain.
+   *Check:* no task runs a tool outside the gates. A new dependency is used, or sits in a
+   `cargo-machete` ignore with its reason, and builds on Rust 1.96, because only the merge
+   queue checks either.
+6. **The gate's ports are the host's.** The gate boundary and the builder's sandbox both
+   unshare only the PID namespace. Each builder has its own worktree, but not its own
+   network, so every e2e run binds the host's 127.0.0.1:8097, 8098 and 8099. A console
+   left running on one of them, or a second e2e run at the same time, fails the run
+   before a test starts (`reuseExistingServer: false`). The factory runs one gate at a
+   time across the host, but a builder runs `npm run e2e` in its own sandbox, so with two
+   stories building, two runs can meet. *Check:* the operator keeps 8097–8099 free on the
+   factory host while a story builds; every e2e run goes through `npm run e2e`, which
+   waits its turn (Prerequisite 6), never `npx playwright` directly; a test binds
+   `127.0.0.1:0`, and only `playwright.config.ts` names a fixed port.
+7. **The gate can run it.** A probe on 2026-10-31 ran one gate through Ergane's own
+   `run_gates`, inside the real gate boundary with this repository's caches, on `main` at
+   5f61b89, and passed. In it, `/usr/bin/protoc` compiled a proto3 `optional`,
+   server-streaming service. Three Playwright web servers on 8097–8099 started in one
+   `CI=1` run, and Chromium 1194 loaded each. A `#!/bin/sh` script in a temporary folder
+   ran first on `PATH`, as US2-S4's fake `rpicam-vid` will. (Operator's record:
+   `~/ergane-ops/plate-solver/probes/2026-10-31-gate-boundary/`.) *Check:* nothing beyond
+   trap 6. A story that changes the Playwright version fails e2e until the operator seeds
+   its browser, because `playwright install` refuses this host's Ubuntu 26.04
+   (`ergane.yaml` § caches).
+8. **Each worktree builds on its own.** A shared `CARGO_TARGET_DIR` let one story's gate
+   run another story's test binary, so every gate now builds in the worktree's own
+   `target/` (#118). A cold story compiles the workspace twice, once for the tests and
+   once for the release binary Playwright serves. *Check:* no story sets
+   `CARGO_TARGET_DIR`, and a test's temporary state goes under `target/` (ignored) or the
+   system's temporary folder, as 012's tests put theirs. A gate that leaves an unignored
+   path behind is reported as having dirtied the worktree.
+9. **Fixes land on `main` first.** When the operator fixes a gate or this spec mid-epic,
+   the fix merges first and the story merges `origin/main`. 012's US3 cherry-picked two
+   gate fixes, collided with their squash on `main` and spent a recovery cycle. *Check:* a
+   story never cherry-picks an operator's commit.
+10. **The phone's first screen has 8 px to spare.** 012's US8 measured FR-033's first
+    screen in Chromium for the first time. US7's layout overflowed it by 7 px at
+    412 × 915 and 56 px at 390 × 844, and the story stopped on a question until the owner
+    let it tighten the layout. With a target on `main`, the legend now ends at 836 px of
+    844. So anything 013 adds above the legend on a phone with a target fails the `test`
+    gate, whether it is the live preview, a stale line or a taller block. *Check:* the
+    preview goes below the legend (T066), the stale state makes neither block taller
+    (T067), and US8 and US9 run `CI=1 npm run e2e` before proposing, with
+    `e2e/session.spec.ts` unchanged and green.
 
 ## Risks
 
@@ -868,4 +1004,722 @@ two for the connector, plus `simulator` as a dev-dependency.
 | The token travels in clear on the house Wi-Fi. | It keeps out other devices and mistakes. 014's stop needs no token, so safety never depends on it. |
 | Paused-time tests could advance virtual time while a `spawn_blocking` solve runs, dropping frames that should be solved. | Tokio does not auto-advance paused time while a blocking task is in flight. US6's first test asserts every frame is solved, which would catch a regression. |
 | The `ci.yml` step is not landed, and `finder-page` cannot build `finder` from US5 on. | It is a prerequisite (item 3), not a story task. |
-| A page story passes the cargo gates but fails `finder-page` in the queue. | Each page story's tasks run the npm checks before proposing. The queue failure is reported back to the node's ladder. |
+| A story passes the gates but fails a check only the queue runs (coverage, the cedar eval, `cargo machete`, `cargo deny`, the secret scan, `msrv`). | The `test` gate runs `finder-page`'s checks, so those no longer differ. The rest are met by construction (§ Plan traps, trap 5), and a queue failure is reported back to the node's ladder. |
+| The page track is built against § Interfaces before US5–US7 exist, and US10 is the first story to run both together. | § Interfaces pins every field the page reads, US8's live event is written from it, and a mismatch US10 finds goes back to the story that drifted. |
+
+## Refinement Record
+
+Reviewed on 2026-10-31 by the plate-solver operator against `main` at 108a5a8 and the
+gate boundary probed in § Plan traps. Writes come from the task text; shared writes name
+the merge edge that orders them, and the 012 writers that have not landed yet.
+
+```yaml
+version: 1
+reviewed_revision: 108a5a8d66675c53c124679087ecb48774b6b0eb
+stories:
+  US1:
+    tests:
+      - path: crates/scope-link/src/clock.rs
+        status: new
+        disposition: add
+        assertion: "exchanges A and B give delays of 0.040 s and 0.120 s and A's offset of +0.050 s; a least-delay exchange 9 s old leaves the window, and node time 200.100 s maps to 200.050 s; each within 1 µs"
+        decision: "spec.md:US1-S3"
+      - path: crates/scope-link/src/auth.rs
+        status: new
+        disposition: add
+        assertion: "tokens_match accepts only the equal token, and refuses one that differs in its last byte and one of another length"
+        decision: "spec.md:US1-S7"
+      - path: crates/scope-link/tests/link.rs
+        status: new
+        disposition: add
+        assertion: "no token and wrong-token are answered UNAUTHENTICATED with no frame sent; test-token opens the stream and frames arrive"
+        decision: "spec.md:US1-S1"
+      - path: crates/grpc-service/tests/service_acceptance.rs
+        status: existing
+        disposition: preserve
+        assertion: "the public plate_solver gRPC service still answers as before, because proto/ and crates/grpc-service are not touched"
+        decision: "spec.md:US1-S6"
+    preserved_behavior:
+      - "proto/ and crates/grpc-service are unchanged (spec.md US1-S6, FR-002)"
+      - "Cargo.lock keeps every existing entry at its version and gains the scope-link package"
+    checks:
+      development:
+        - "cargo test -p scope-link --locked"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan, through the merge queue's ci.yml jobs, among them unused-deps for the cargo-machete ignore and msrv for Rust 1.96"
+    writes:
+      - Cargo.lock
+      - crates/scope-link/Cargo.toml
+      - crates/scope-link/build.rs
+      - crates/scope-link/proto/scope_node/v1/scope_node.proto
+      - crates/scope-link/src/lib.rs
+      - crates/scope-link/src/auth.rs
+      - crates/scope-link/src/clock.rs
+      - crates/scope-link/src/memory.rs
+      - crates/scope-link/tests/link.rs
+    shared_writes:
+      - path: Cargo.lock
+        other_spec: 013-live-finder
+        other_story: US2
+        disposition: merge_order
+        reason: "US2 depends_on_merged US1, so US2 locks toml on top of US1's lockfile"
+    open_questions: []
+  US2:
+    tests:
+      - path: crates/scope-node/src/camera.rs
+        status: new
+        disposition: add
+        assertion: "the simulated camera refuses an exposure past its range with an error naming the range, and takes no frame"
+        decision: "spec.md:US2-S1"
+      - path: crates/scope-node/tests/arducam.rs
+        status: new
+        disposition: add
+        assertion: "the saved listing parses to the model, every mode and the active mode; the padded stream gives each Y plane byte for byte with the saved times; a fake rpicam-vid that exits is reported with its stderr and restarted in the same process"
+        decision: "spec.md:US2-S3"
+      - path: crates/scope-node/tests/detect.rs
+        status: new
+        disposition: add
+        assertion: "the saved finder frame gives identical centroid lists through the node and through detect_stars with DetectParams::cedar(), and DetectSettings::cedar() equals DetectParams::cedar() field for field"
+        decision: "spec.md:US2-S5"
+      - path: crates/scope-node/tests/cli.rs
+        status: new
+        disposition: add
+        assertion: "--check-config prints every setting with the token masked and never test-token, and exits 0; exposre_ms and a gain of loud each exit nonzero naming the key"
+        decision: "spec.md:US2-S7"
+      - path: crates/star-detection/tests/parity.rs
+        status: existing
+        disposition: preserve
+        assertion: "star-detection still agrees with cedar-detect; the node calls it and never forks it"
+        decision: "spec.md:FR-006"
+    preserved_behavior:
+      - "the operator's fixtures in crates/scope-node/tests/data/ and bring-up notes in crates/scope-node/README.md are unchanged (tasks.md T020, T021)"
+      - "the repository has no .cargo/config.toml, which scripts/ci/e2e-eval.sh refuses (spec.md FR-008)"
+      - "scope-node's [dependencies] name no plate-solver, pattern-database or finder (spec.md US2-S9, SC-005)"
+    checks:
+      development:
+        - "cargo test -p scope-node --locked"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan; outside the factory, the static aarch64-unknown-linux-musl build and the on-sky checklist (spec.md Assumptions)"
+    writes:
+      - Cargo.lock
+      - crates/scope-node/Cargo.toml
+      - crates/scope-node/README.md
+      - crates/scope-node/src/lib.rs
+      - crates/scope-node/src/camera.rs
+      - crates/scope-node/src/synthetic.rs
+      - crates/scope-node/src/clock.rs
+      - crates/scope-node/src/arducam/mod.rs
+      - crates/scope-node/src/arducam/listing.rs
+      - crates/scope-node/src/arducam/yuv.rs
+      - crates/scope-node/src/arducam/metadata.rs
+      - crates/scope-node/src/detect.rs
+      - crates/scope-node/src/capture.rs
+      - crates/scope-node/src/config.rs
+      - crates/scope-node/src/main.rs
+      - crates/scope-node/tests/arducam.rs
+      - crates/scope-node/tests/detect.rs
+      - crates/scope-node/tests/cli.rs
+    shared_writes:
+      - path: Cargo.lock
+        other_spec: 013-live-finder
+        other_story: US3
+        disposition: merge_order
+        reason: "US3 depends_on_merged US2"
+      - path: crates/scope-node/Cargo.toml
+        other_spec: 013-live-finder
+        other_story: US4
+        disposition: merge_order
+        reason: "US4 depends_on_merged US2 as well as US3, and adds image"
+      - path: crates/scope-node/src/lib.rs
+        other_spec: 013-live-finder
+        other_story: US4
+        disposition: merge_order
+        reason: "US4 depends_on_merged US2, and declares service, preview and exposure"
+      - path: crates/scope-node/src/capture.rs
+        other_spec: 013-live-finder
+        other_story: US4
+        disposition: merge_order
+        reason: "US4 depends_on_merged US2, and extends the capture loop"
+      - path: crates/scope-node/src/main.rs
+        other_spec: 013-live-finder
+        other_story: US4
+        disposition: merge_order
+        reason: "US4 depends_on_merged US2, and adds serving beside --check-config"
+    open_questions: []
+  US3:
+    tests:
+      - path: crates/simulator/src/optics.rs
+        status: new
+        disposition: add
+        assertion: "the default optics are a 1456 x 1088 sensor, a 12 degree field and the eyepiece at (700, 420), each settable"
+        decision: "spec.md:US3-S5"
+      - path: crates/simulator/src/clock.rs
+        status: new
+        disposition: add
+        assertion: "a paused-time VirtualClock started at 2026-01-16T02:00:00Z reads 1768528810 exactly after 10 s"
+        decision: "spec.md:US3-S6"
+      - path: crates/simulator/src/render.rs
+        status: new
+        disposition: add
+        assertion: "the same direction, time, exposure and frame number render byte-identical frames, and the next frame number changes the noise"
+        decision: "spec.md:US3-S4"
+      - path: crates/simulator/src/sky.rs
+        status: new
+        disposition: add
+        assertion: "the inverse of alt/az gives back the RA and Dec of Meeus's example 13.b"
+        decision: "plan.md:Decisions and the alternatives rejected (The simulator, Sky to camera)"
+      - path: crates/simulator/tests/sky.rs
+        status: new
+        disposition: add
+        assertion: "SimCamera reports its model, size and ranges; a frame at alt 50, az 120 from 40 N, 75 W at 2026-01-16 02:00 UT solves within 30 arcseconds of the true camera direction; a star put in the eyepiece is detected at (700, 420) within 0.3 px"
+        decision: "spec.md:US3-S2"
+      - path: crates/finder/src/sky.rs
+        status: existing
+        disposition: preserve
+        assertion: "the Meeus 13.b test of sky::alt_az passes unchanged; the simulator re-implements the inverse in its own crate"
+        decision: "plan.md:Shapes that existing tests pin"
+    preserved_behavior:
+      - "crates/math-core is used and not changed (constitution Principle IV)"
+      - "crates/finder is untouched; the simulator cannot depend on it"
+    checks:
+      development:
+        - "cargo test -p simulator --locked"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan, through the merge queue; the coverage floor now counts the simulator crate (spec.md SC-003)"
+    writes:
+      - Cargo.lock
+      - crates/simulator/Cargo.toml
+      - crates/simulator/src/lib.rs
+      - crates/simulator/src/optics.rs
+      - crates/simulator/src/sky.rs
+      - crates/simulator/src/noise.rs
+      - crates/simulator/src/render.rs
+      - crates/simulator/src/clock.rs
+      - crates/simulator/src/camera.rs
+      - crates/simulator/tests/sky.rs
+    shared_writes:
+      - path: Cargo.lock
+        other_spec: 013-live-finder
+        other_story: US4
+        disposition: merge_order
+        reason: "US4 depends_on_merged US3"
+      - path: crates/simulator/Cargo.toml
+        other_spec: 013-live-finder
+        other_story: US4
+        disposition: merge_order
+        reason: "US4 depends_on_merged US3, and adds tonic for the loopback server"
+      - path: crates/simulator/src/lib.rs
+        other_spec: 013-live-finder
+        other_story: US4
+        disposition: merge_order
+        reason: "US4 depends_on_merged US3, and declares node and controls"
+    open_questions: []
+  US4:
+    tests:
+      - path: crates/scope-node/src/exposure.rs
+        status: new
+        disposition: add
+        assertion: "the controller clamps each step to x4, holds within 25-40 stars, moves gain only at the exposure cap or when exposure is fixed, and never touches a fixed setting"
+        decision: "spec.md:FR-015"
+      - path: crates/scope-node/src/preview.rs
+        status: new
+        disposition: add
+        assertion: "a preview is at most 640 px on its longer side, and at most one is sent per 5 s unless asked"
+        decision: "spec.md:FR-013"
+      - path: crates/simulator/tests/node.rs
+        status: new
+        disposition: add
+        assertion: "over the in-memory link in paused time, frames carry every field with ids per exposure and 200 brightest centroids; previews obey the 5 s limit and RequestPreview; settings apply from the second frame; auto-exposure settles 5 stars to 25-40 within 6 frames; Describe agrees over memory and loopback TCP"
+        decision: "spec.md:US4-S1"
+    preserved_behavior:
+      - "crates/scope-node/tests/cli.rs, added by US2, stays green unchanged: --check-config still masks the token and exits 0 (tasks.md T033, T035)"
+      - "with no settings sent, every frame reports cedar's detection settings (spec.md US4-S5)"
+      - "a setting the console fixed is never moved by auto-exposure (spec.md US4-S8)"
+    checks:
+      development:
+        - "cargo test -p scope-node --locked"
+        - "cargo test -p simulator --locked --test node"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan, through the merge queue"
+    writes:
+      - Cargo.lock
+      - crates/scope-node/Cargo.toml
+      - crates/scope-node/src/lib.rs
+      - crates/scope-node/src/exposure.rs
+      - crates/scope-node/src/preview.rs
+      - crates/scope-node/src/service.rs
+      - crates/scope-node/src/capture.rs
+      - crates/scope-node/src/main.rs
+      - crates/simulator/Cargo.toml
+      - crates/simulator/src/lib.rs
+      - crates/simulator/src/node.rs
+      - crates/simulator/src/controls.rs
+      - crates/simulator/tests/node.rs
+    shared_writes:
+      - path: Cargo.lock
+        other_spec: 013-live-finder
+        other_story: US5
+        disposition: merge_order
+        reason: "US5 depends_on_merged US4"
+    open_questions: []
+  US5:
+    tests:
+      - path: crates/finder/tests/link.rs
+        status: new
+        disposition: add
+        assertion: "against the simulator in paused time: at least 40 heartbeats in 10 s; disconnected 1 s (within 0.1 s) after the last heartbeat and back within 5.5 s; only Describe, Frames, Heartbeat and Configure, each with the bearer token; stored settings sent on connect; node in the session read while connected"
+        decision: "spec.md:US5-S2"
+      - path: crates/finder/tests/session_node.rs
+        status: new
+        disposition: add
+        assertion: "the read gives the address and token_set true with test-token nowhere in it; a bad address and an out-of-range exposure answer 400 and change nothing; a foreign Origin answers 403"
+        decision: "spec.md:US5-S4"
+      - path: crates/finder/tests/session_node_cli.rs
+        status: new
+        disposition: add
+        assertion: "the address, token and camera settings survive a restart exactly, in a state file of mode 0600"
+        decision: "spec.md:US5-S5"
+      - path: crates/finder/tests/session_api.rs
+        status: existing
+        disposition: preserve
+        assertion: "a fresh read is still exactly site, target, pointing, min_alt_deg and time, because node and camera_settings are absent until set"
+        decision: "spec.md:FR-021"
+      - path: crates/finder/tests/session_cli.rs
+        status: existing
+        disposition: preserve
+        assertion: "a session holding only a site, a minimum altitude and a target still writes a three-key state file, and 012's files still load"
+        decision: "spec.md:FR-018"
+      - path: crates/finder/tests/session_writes.rs
+        status: existing
+        disposition: preserve
+        assertion: "a foreign Origin, a rebound Host and a non-JSON body are still refused with 403 and 415, and the node edits pass through the same check"
+        decision: "spec.md:US5-S12"
+      - path: crates/finder/tests/api.rs
+        status: existing
+        disposition: preserve
+        assertion: "AppState::new, AppState::shared and router keep their shapes, and /api/health its body"
+        decision: "plan.md:Shapes that existing tests pin"
+    preserved_behavior:
+      - "012's test files and tests/api.rs are unchanged (spec.md US5-S12)"
+      - "the token appears in no read, answer or log, and is written only to the 0600 state file (spec.md FR-018, Edge Cases)"
+    checks:
+      development:
+        - "cargo test -p finder --locked --test link --test session_node --test session_node_cli"
+        - "cargo test -p finder --locked --test session_api --test session_cli --test session_writes"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan; from this story on, ci.yml's finder-page job needs the Install protoc step (owner approval 1, plan.md Prerequisites item 3)"
+    writes:
+      - Cargo.lock
+      - crates/finder/Cargo.toml
+      - crates/finder/README.md
+      - crates/finder/src/lib.rs
+      - crates/finder/src/link.rs
+      - crates/finder/src/session.rs
+      - crates/finder/src/api.rs
+      - crates/finder/src/main.rs
+      - crates/finder/tests/link.rs
+      - crates/finder/tests/session_node.rs
+      - crates/finder/tests/session_node_cli.rs
+    shared_writes:
+      - path: crates/finder/src/lib.rs
+        other_spec: 013-live-finder
+        other_story: US6
+        disposition: merge_order
+        reason: "US6 depends_on_merged US5"
+      - path: crates/finder/src/session.rs
+        other_spec: 013-live-finder
+        other_story: US6
+        disposition: merge_order
+        reason: "US6 depends_on_merged US5"
+      - path: crates/finder/src/api.rs
+        other_spec: 013-live-finder
+        other_story: US6
+        disposition: merge_order
+        reason: "US6 depends_on_merged US5"
+      - path: crates/finder/src/main.rs
+        other_spec: 013-live-finder
+        other_story: US6
+        disposition: merge_order
+        reason: "US6 depends_on_merged US5"
+      - path: crates/finder/README.md
+        other_spec: 013-live-finder
+        other_story: US6
+        disposition: merge_order
+        reason: "US6 depends_on_merged US5"
+      - path: Cargo.lock
+        other_spec: 013-live-finder
+        other_story: US7
+        disposition: merge_order
+        reason: "US7 depends_on_merged US5 as well as US6; US6 changes no dependency"
+      - path: crates/finder/Cargo.toml
+        other_spec: 013-live-finder
+        other_story: US7
+        disposition: merge_order
+        reason: "US7 depends_on_merged US5, and moves simulator into the dependencies"
+    open_questions: []
+  US6:
+    tests:
+      - path: crates/finder/tests/live.rs
+        status: new
+        disposition: add
+        assertion: "in one paused runtime, every frame is solved within 30 arcseconds of the true eyepiece direction; the newest frame always wins; the field estimate carries and resets after three failures; mid-exposure maps through the link offset; a tap 6 px off calibrates the aim point to (700, 420); unsolved_s and the field report"
+        decision: "spec.md:US6-S1"
+      - path: crates/finder/tests/aim_api.rs
+        status: new
+        disposition: add
+        assertion: "a tap more than 10 px from every centroid answers 422 and leaves the aim point; DELETE /api/aim returns pointings to the frame centre"
+        decision: "spec.md:US6-S6"
+      - path: crates/finder/tests/freshness_api.rs
+        status: new
+        disposition: add
+        assertion: "a live pointing 5.1 s old gives stale guidance with no turn or tilt, connected or not, and the next solve restores them"
+        decision: "spec.md:US6-S9"
+      - path: crates/finder/tests/aim_cli.rs
+        status: new
+        disposition: add
+        assertion: "the aim point (700, 420) survives a restart exactly, and the reset leaves none"
+        decision: "spec.md:US6-S8"
+      - path: crates/finder/tests/pointing_api.rs
+        status: existing
+        disposition: preserve
+        assertion: "an uploaded frame's pointing keeps the RA, Dec, time and alt/az 012 pins, and the site still recomputes it"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/tests/pushto_api.rs
+        status: existing
+        disposition: preserve
+        assertion: "a pointing from an uploaded frame never goes stale, and guidance keeps 012's fields"
+        decision: "spec.md:FR-027"
+      - path: crates/finder/src/solve.rs
+        status: existing
+        disposition: preserve
+        assertion: "defaults_match_the_solve_image_example still pins SolveOptions' defaults; the live loop sets fov per solve"
+        decision: "plan.md:Shapes that existing tests pin"
+    preserved_behavior:
+      - "solve_frame keeps its signature and behaviour (plan.md US6)"
+      - "012's test files are unchanged (tasks.md T052)"
+    checks:
+      development:
+        - "cargo test -p finder --locked --test live --test aim_api --test freshness_api --test aim_cli"
+        - "cargo test -p finder --locked --test pointing_api --test pushto_api"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan, through the merge queue, including the cedar e2e eval, which the solver's unchanged path must still pass"
+    writes:
+      - crates/finder/README.md
+      - crates/finder/src/lib.rs
+      - crates/finder/src/solve.rs
+      - crates/finder/src/sky.rs
+      - crates/finder/src/live.rs
+      - crates/finder/src/session.rs
+      - crates/finder/src/pushto.rs
+      - crates/finder/src/api.rs
+      - crates/finder/src/main.rs
+      - crates/finder/tests/live.rs
+      - crates/finder/tests/aim_api.rs
+      - crates/finder/tests/freshness_api.rs
+      - crates/finder/tests/aim_cli.rs
+    shared_writes:
+      - path: crates/finder/src/lib.rs
+        other_spec: 013-live-finder
+        other_story: US7
+        disposition: merge_order
+        reason: "US7 depends_on_merged US6"
+      - path: crates/finder/src/api.rs
+        other_spec: 013-live-finder
+        other_story: US7
+        disposition: merge_order
+        reason: "US7 depends_on_merged US6"
+      - path: crates/finder/src/main.rs
+        other_spec: 013-live-finder
+        other_story: US7
+        disposition: merge_order
+        reason: "US7 depends_on_merged US6"
+      - path: crates/finder/README.md
+        other_spec: 013-live-finder
+        other_story: US7
+        disposition: merge_order
+        reason: "US7 depends_on_merged US6"
+    open_questions: []
+  US7:
+    tests:
+      - path: crates/finder/tests/simulate_cli.rs
+        status: new
+        disposition: add
+        assertion: "--simulate --sim-start keeps the session's time within 2 s and frames arrive; it never connects to the session's address; --sim-start alone exits nonzero naming it; the default state file stays byte for byte and the simulate folder is written"
+        decision: "spec.md:US7-S3"
+      - path: crates/finder/tests/sim_api.rs
+        status: new
+        disposition: add
+        assertion: "a push to alt 40, az 200 solves within 30 arcseconds of it; every /api/sim path answers 404 outside simulate mode; frames stop and start; true directions read back; a foreign Origin answers 403 and nothing moves"
+        decision: "spec.md:US7-S6"
+      - path: crates/finder/tests/live_stream.rs
+        status: new
+        disposition: add
+        assertion: "two solves give two live events carrying their reports, and /api/live/preview.jpg?seq=N answers the JPEG"
+        decision: "spec.md:US7-S10"
+      - path: crates/finder/tests/e2e_live.rs
+        status: new
+        disposition: add
+        assertion: "from the first frame through eyepiece_on_star and a tap 6 px off to M78's guidance, the aim point is within 0.5 px and the turn and tilt within 30 arcseconds on the sky"
+        decision: "spec.md:US7-S11"
+      - path: crates/finder/tests/session_cli.rs
+        status: existing
+        disposition: preserve
+        assertion: "outside --simulate the session is still written to the default XDG file"
+        decision: "spec.md:FR-030"
+      - path: crates/finder/tests/cli.rs
+        status: existing
+        disposition: preserve
+        assertion: "--licenses still prints exactly the notices"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/tests/session_writes.rs
+        status: existing
+        disposition: preserve
+        assertion: "the same-origin check the simulator routes reuse still refuses foreign Origins and rebound Hosts"
+        decision: "spec.md:FR-031"
+    preserved_behavior:
+      - "a virtual clock never reaches a real node: --sim-start without --simulate is refused before anything binds (spec.md FR-029)"
+      - "012's test files are unchanged"
+    checks:
+      development:
+        - "cargo test -p finder --locked --test simulate_cli --test sim_api --test live_stream --test e2e_live"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan, through the merge queue"
+    writes:
+      - Cargo.lock
+      - crates/finder/Cargo.toml
+      - crates/finder/README.md
+      - crates/finder/src/lib.rs
+      - crates/finder/src/simulate.rs
+      - crates/finder/src/main.rs
+      - crates/finder/src/api.rs
+      - crates/finder/tests/simulate_cli.rs
+      - crates/finder/tests/sim_api.rs
+      - crates/finder/tests/live_stream.rs
+      - crates/finder/tests/e2e_live.rs
+    shared_writes: []
+    open_questions: []
+  US8:
+    tests:
+      - path: crates/finder/web/src/useLive.test.ts
+        status: new
+        disposition: add
+        assertion: "no EventSource with no node or a disconnected one; one opened on connect and closed on disconnect; under fake timers, stale within 1 s of passing 5 s old"
+        decision: "spec.md:US8-S2"
+      - path: crates/finder/web/src/components/LivePreview.test.tsx
+        status: new
+        disposition: add
+        assertion: "the preview image comes from /api/live/preview.jpg?seq=N, inside the element that carries the .photo red-only filter"
+        decision: "spec.md:US8-S4"
+      - path: crates/finder/web/src/App.live.test.tsx
+        status: new
+        disposition: add
+        assertion: "a recorded live event draws its pointing and stars in the chart; with M78 set and the pointing past 5 s, the guidance block and the chart say stale and show no turn or tilt"
+        decision: "spec.md:US8-S3"
+      - path: crates/finder/web/src/App.test.tsx
+        status: existing
+        disposition: preserve
+        assertion: "every App case passes unchanged; its fetch mock answers /api/session with the health body, so no EventSource opens"
+        decision: "spec.md:US8-S1"
+      - path: crates/finder/web/src/useSession.test.ts
+        status: existing
+        disposition: preserve
+        assertion: "the empty session still equals site null, min_alt_deg undefined and target null, and polling stays at every 5 s while visible"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/src/components/Chart.test.tsx
+        status: existing
+        disposition: preserve
+        assertion: "the legend's chips and the existing chart layers are unchanged"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/src/components/GuidanceBlock.test.tsx
+        status: existing
+        disposition: preserve
+        assertion: "012's guidance cases pass unchanged: the block still renders from session alone, and is still the one region named for the target"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/src/App.target.test.tsx
+        status: existing
+        disposition: preserve
+        assertion: "with a target, the reading order is still the guidance block, the title block, the chart and its legend, then the rest"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/e2e/session.spec.ts
+        status: existing
+        disposition: preserve
+        assertion: "with M78 set, the guidance block, title block, chart and legend still fit the first screen at 412 x 915 and 390 x 844, and the console has no off-red pixel"
+        decision: "plan.md:Plan traps"
+    preserved_behavior:
+      - "012's ChartHeader and GuidanceBlock props stay as they are; the stale state is optional (tasks.md T067)"
+      - "package.json dependencies are unchanged (spec.md US8-S6)"
+    checks:
+      development:
+        - "cd crates/finder/web && npm test -- src/useLive.test.ts src/components/LivePreview.test.tsx src/App.live.test.tsx"
+        - "cd crates/finder/web && CI=1 npm run e2e -- --project session"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan; the maintainer's Impeccable review of the live chart after US9 lands, outside the factory (spec.md Assumptions)"
+    writes:
+      - crates/finder/web/dist
+      - crates/finder/web/src/api.ts
+      - crates/finder/web/src/useLive.ts
+      - crates/finder/web/src/useLive.test.ts
+      - crates/finder/web/src/App.tsx
+      - crates/finder/web/src/App.live.test.tsx
+      - crates/finder/web/src/components/LivePreview.tsx
+      - crates/finder/web/src/components/LivePreview.test.tsx
+      - crates/finder/web/src/components/GuidanceBlock.tsx
+      - crates/finder/web/src/components/ChartHeader.tsx
+    shared_writes:
+      - path: crates/finder/web/src/api.ts
+        other_spec: 013-live-finder
+        other_story: US9
+        disposition: merge_order
+        reason: "US9 depends_on_merged US8"
+      - path: crates/finder/web/dist
+        other_spec: 013-live-finder
+        other_story: US9
+        disposition: merge_order
+        reason: "US9 depends_on_merged US8, and rebuilds the bundle US8 rebuilt"
+      - path: crates/finder/web/src/App.tsx
+        other_spec: 012-targets-and-push-to
+        other_story: US8
+        disposition: merge_order
+        reason: "013 depends_on_landed 012, whose US8 last wrote App.tsx (108a5a8)"
+      - path: crates/finder/web/src/components/GuidanceBlock.tsx
+        other_spec: 012-targets-and-push-to
+        other_story: US7
+        disposition: merge_order
+        reason: "013 depends_on_landed 012, whose US7 created GuidanceBlock.tsx (cf09362)"
+      - path: crates/finder/web/dist
+        other_spec: 012-targets-and-push-to
+        other_story: US8
+        disposition: merge_order
+        reason: "013 depends_on_landed 012, whose US8 rebuilt the bundle last (108a5a8)"
+    open_questions: []
+  US9:
+    tests:
+      - path: crates/finder/web/src/components/ScopeNodeSection.test.tsx
+        status: new
+        disposition: add
+        assertion: "the token field stays empty and says a token is set, with no token in any request or answer; it shows connected, the model and the star count, updated by live events; a stored 2000 ms reads as outside the range; one PUT carries address, token, exposure, gain and sigma"
+        decision: "spec.md:US9-S1"
+      - path: crates/finder/web/src/components/FieldWarning.test.tsx
+        status: new
+        disposition: add
+        assertion: "12 degrees against 10-30 shows no warning; 10.5 degrees warns; 30 s unsolved warns that the field may be outside the database's range"
+        decision: "spec.md:US9-S4"
+      - path: crates/finder/web/src/components/AimTap.test.tsx
+        status: new
+        disposition: add
+        assertion: "a tap posts the scaled pixel with the frame id, the 422 message is shown, and reset clears the aim point"
+        decision: "spec.md:US9-S7"
+      - path: crates/finder/web/src/components/SetupPage.test.tsx
+        status: existing
+        disposition: preserve
+        assertion: "012's Setup cases pass unchanged: SetupPage still renders with session, put and onBack alone, and its controls keep unique accessible names"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/src/components/SiteDialog.test.tsx
+        status: existing
+        disposition: preserve
+        assertion: "site entry and its range messages are unchanged"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/src/settings.test.ts
+        status: existing
+        disposition: preserve
+        assertion: "the browser's stored settings behave as before"
+        decision: "plan.md:Shapes that existing tests pin"
+      - path: crates/finder/web/e2e/session.spec.ts
+        status: existing
+        disposition: preserve
+        assertion: "/setup opened directly still renders Setup, and Setup still has no off-red pixel with the new section in it"
+        decision: "plan.md:Shapes that existing tests pin"
+    preserved_behavior:
+      - "no npm package is added (spec.md US9-S10)"
+      - "every existing Vitest file is unchanged (tasks.md T074)"
+    checks:
+      development:
+        - "cd crates/finder/web && npm test -- src/components/ScopeNodeSection.test.tsx src/components/FieldWarning.test.tsx src/components/AimTap.test.tsx src/components/SetupPage.test.tsx"
+        - "cd crates/finder/web && CI=1 npm run e2e -- --project session"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan; the maintainer's Impeccable review of Setup's new section, outside the factory (spec.md Assumptions)"
+    writes:
+      - DESIGN.md
+      - .impeccable/design.json
+      - crates/finder/web/dist
+      - crates/finder/web/src/api.ts
+      - crates/finder/web/src/components/SetupPage.tsx
+      - crates/finder/web/src/components/ScopeNodeSection.tsx
+      - crates/finder/web/src/components/ScopeNodeSection.test.tsx
+      - crates/finder/web/src/components/FieldWarning.tsx
+      - crates/finder/web/src/components/FieldWarning.test.tsx
+      - crates/finder/web/src/components/AimTap.tsx
+      - crates/finder/web/src/components/AimTap.test.tsx
+    shared_writes:
+      - path: DESIGN.md
+        other_spec: 012-targets-and-push-to
+        other_story: US7
+        disposition: merge_order
+        reason: "013 depends_on_landed 012, whose US7 records its parts in DESIGN.md"
+      - path: .impeccable/design.json
+        other_spec: 012-targets-and-push-to
+        other_story: US7
+        disposition: merge_order
+        reason: "013 depends_on_landed 012, whose US7 records its parts in design.json"
+    open_questions: []
+  US10:
+    tests:
+      - path: crates/finder/web/e2e/simulate.spec.ts
+        status: new
+        disposition: add
+        assertion: "on the simulate server: the chart follows a push within 2 s and a post-push preview appears within 5.5 s; stopped frames give the stale state within 6 s; Setup shows connected, the model and 25-40 stars; the night pixel check passes; the aim tap lands at (700, 420) within 0.5 px"
+        decision: "spec.md:US10-S2"
+      - path: crates/finder/web/e2e/live-off.spec.ts
+        status: new
+        disposition: add
+        assertion: "on the default server with no node, no request goes to /api/live and the page reaches network idle"
+        decision: "spec.md:US10-S7"
+      - path: crates/finder/web/e2e/console.spec.ts
+        status: existing
+        disposition: preserve
+        assertion: "every console test passes unchanged in the default project"
+        decision: "spec.md:US10-S1"
+      - path: crates/finder/web/e2e/session.spec.ts
+        status: existing
+        disposition: preserve
+        assertion: "every session test passes unchanged in the session project, on its own server on 8098"
+        decision: "spec.md:US10-S1"
+    preserved_behavior:
+      - "012's default and session projects, their servers on 8097 and 8098, and e2e/session.spec.ts are unchanged (spec.md US10-S1)"
+    checks:
+      development:
+        - "cd crates/finder/web && CI=1 npm run e2e"
+      handoff: declared_gates
+      independent: declared_pipeline
+      release:
+        - "release owner: Bryan; 8097-8099 free on the factory host while it builds (plan.md Plan traps, trap 6); the on-sky checklist outside the factory"
+    writes:
+      - crates/finder/web/playwright.config.ts
+      - crates/finder/web/e2e/simulate.spec.ts
+      - crates/finder/web/e2e/live-off.spec.ts
+    shared_writes:
+      - path: crates/finder/web/playwright.config.ts
+        other_spec: 012-targets-and-push-to
+        other_story: US8
+        disposition: merge_order
+        reason: "013 depends_on_landed 012, whose US8 last wrote it (108a5a8)"
+    open_questions: []
+```
