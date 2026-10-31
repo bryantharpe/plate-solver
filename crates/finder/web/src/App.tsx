@@ -123,7 +123,7 @@ export function App() {
         is in the field. Without one, keep the field roster under the title.
       */}
           <main
-            className={`page-width grid gap-x-10 gap-y-4 px-4 pt-3 pb-16 sm:gap-y-5 sm:px-5 sm:pt-4 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] ${session.target ? "lg:grid-rows-[auto_auto_auto_1fr_auto]" : "lg:grid-rows-[auto_auto_1fr_auto]"} lg:gap-y-8 lg:px-10 lg:pt-8`}
+            className={`page-width grid gap-x-10 gap-y-4 px-4 pt-3 pb-16 sm:gap-y-5 sm:px-5 sm:pt-4 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] ${session.target ? "max-sm:gap-y-1 lg:grid-rows-[auto_auto_auto_1fr_auto]" : "lg:grid-rows-[auto_auto_1fr_auto]"} lg:gap-y-8 lg:px-10 lg:pt-8`}
           >
             {session.target && (
               <div className="lg:col-span-2 lg:row-start-1">
