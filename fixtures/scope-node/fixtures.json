@@ -22,7 +22,15 @@
         "width": 2592,
         "height": 1944
       }
-    ]
+    ],
+    "exposure_time_us": {
+      "min": 130,
+      "max": 3066985
+    },
+    "analogue_gain": {
+      "min": 1.0,
+      "max": 63.9375
+    }
   },
   "stride_alignment": 64,
   "stream": {
