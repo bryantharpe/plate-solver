@@ -88,6 +88,11 @@ impl Drop for Folder {
 }
 #[test]
 fn node_credentials_and_camera_settings_survive_restart_in_owner_only_state() {
+    assert_restart_preserves_settings(200.0);
+    assert_restart_preserves_settings(2000.0);
+}
+
+fn assert_restart_preserves_settings(exposure_ms: f64) {
     use std::os::unix::fs::PermissionsExt;
     let folder = Folder(Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
         "../../target/session-node-cli-{}",
@@ -99,7 +104,7 @@ fn node_credentials_and_camera_settings_survive_restart_in_owner_only_state() {
     // A prior permissive file and an interrupted temporary write must be tightened.
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
     std::fs::write(path.with_added_extension("tmp"), "interrupted").unwrap();
-    let read=server.request(Some(json!({"node":{"address":"192.168.1.40:50051","token":"test-token"},"camera_settings":{"exposure_ms":200,"gain":4,"sigma":5}})));
+    let read=server.request(Some(json!({"node":{"address":"192.168.1.40:50051","token":"test-token"},"camera_settings":{"exposure_ms":exposure_ms,"gain":4,"sigma":5}})));
     assert!(!read.to_string().contains("test-token"));
     assert_eq!(
         std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
@@ -113,7 +118,7 @@ fn node_credentials_and_camera_settings_survive_restart_in_owner_only_state() {
     assert!(!read.to_string().contains("test-token"));
     assert_eq!(
         read["camera_settings"],
-        json!({"exposure_ms":200.0,"gain":4.0,"sigma":5.0})
+        json!({"exposure_ms":exposure_ms,"gain":4.0,"sigma":5.0})
     );
     let stored: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     assert_eq!(stored["node"]["token"], "test-token");
