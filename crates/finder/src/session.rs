@@ -9,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
+use crate::pushto::{self, Guidance};
 use crate::sky::{self, Frame, Observer};
 use crate::targets::{self, Target};
 
@@ -127,6 +128,9 @@ pub struct SessionView {
     pub pointing: Option<Pointing>,
     /// Unix seconds from the application's clock.
     pub time: f64,
+    /// The selected target's guidance, derived at this read's console time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guidance: Option<Guidance>,
 }
 
 #[derive(Clone)]
@@ -156,6 +160,15 @@ impl Values {
             target: self.target,
             pointing: self.pointing.clone(),
             time,
+            guidance: self.target.map(|target| {
+                pushto::guidance(
+                    target,
+                    self.site,
+                    self.min_alt_deg,
+                    time,
+                    self.pointing.as_ref(),
+                )
+            }),
         }
     }
 }

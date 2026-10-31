@@ -204,7 +204,7 @@ pub struct Suggestion {
     pub alt_deg: Option<f64>,
     /// Azimuth in degrees from north through east, when an observer was given.
     pub az_deg: Option<f64>,
-    /// Whether it is at least [`MIN_ALTITUDE_DEG`] up, when an observer was given.
+    /// Whether it is at least the requested minimum altitude up, when an observer was given.
     pub up: Option<bool>,
 }
 
@@ -229,6 +229,17 @@ pub fn similar(
     observer: Option<&Observer>,
     limit: usize,
 ) -> SimilarReport {
+    similar_above(reference, observer, limit, 15.0)
+}
+
+/// Objects like `reference`, ranking those at or above `min_alt_deg` first.
+/// Family, exclusion radius and distance ordering are the same as [`similar`].
+pub fn similar_above(
+    reference: &DeepSkyObject,
+    observer: Option<&Observer>,
+    limit: usize,
+    min_alt_deg: f64,
+) -> SimilarReport {
     let families = reference.family.similar();
     let mut suggestions: Vec<Suggestion> = messier()
         .iter()
@@ -241,7 +252,7 @@ pub fn similar(
                 separation_deg,
                 alt_deg: place.map(|p| p.0),
                 az_deg: place.map(|p| p.1),
-                up: place.map(|p| p.0 >= MIN_ALTITUDE_DEG),
+                up: place.map(|p| p.0 >= min_alt_deg),
             }
         })
         .filter(|s| s.separation_deg >= SAME_VIEW_DEG)

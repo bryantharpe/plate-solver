@@ -11,6 +11,28 @@ use math_core::UnitVector;
 use serde::Serialize;
 
 use crate::catalog::{kind_of, Family};
+use crate::pushto::{self, Class};
+use crate::session::Site;
+
+/// One search result, classed at the console's time for the observing session.
+#[derive(Debug, Serialize)]
+pub struct SearchResult {
+    /// The canonical catalog object.
+    #[serde(flatten)]
+    pub object: &'static Target,
+    /// Pointability now, with the same precedence as the session guidance.
+    pub class: Class,
+}
+
+impl SearchResult {
+    /// Class one result using the site, minimum altitude and time of a single read.
+    pub fn at(object: &'static Target, site: Option<Site>, min_alt_deg: f64, time: f64) -> Self {
+        Self {
+            object,
+            class: pushto::class(object, site, min_alt_deg, time),
+        }
+    }
+}
 
 /// One canonical OpenNGC object, shared by its designation, Messier id and aliases.
 #[derive(Debug, Clone, Serialize)]

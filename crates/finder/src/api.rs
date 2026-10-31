@@ -22,7 +22,7 @@ use crate::samples::{self, SampleInfo, Samples};
 use crate::session::{Clock, Session, SessionEdit, SessionError, SessionView, SystemClock};
 use crate::sky::Observer;
 use crate::solve::{self, DecodeError, SolveOptions, SolveReport};
-use crate::targets::{self, Target};
+use crate::targets::{self, SearchResult};
 
 /// Largest request body `/api/solve` accepts, in bytes.
 pub const SOLVE_BODY_LIMIT: usize = 32 * 1024 * 1024;
@@ -572,6 +572,7 @@ async fn similar(
             format!("no Messier object {:?}", q.id),
         )
     })?;
+    let session = state.session.snapshot(state.clock.now());
     let observer = match (q.lat, q.lon) {
         (Some(lat), Some(lon)) => {
             if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
@@ -582,14 +583,23 @@ async fn similar(
             Some(Observer {
                 lat,
                 lon,
-                time: q.time.unwrap_or_else(|| state.clock.now()),
+                time: q.time.unwrap_or(session.time),
             })
         }
-        (None, None) => None,
+        (None, None) => session.site.map(|site| Observer {
+            lat: site.lat_deg,
+            lon: site.lon_deg,
+            time: q.time.unwrap_or(session.time),
+        }),
         _ => return Err(ApiError::bad_request("give both lat and lon, or neither")),
     };
     let limit = q.limit.unwrap_or(8).clamp(1, MAX_SIMILAR);
-    Ok(Json(catalog::similar(reference, observer.as_ref(), limit)))
+    Ok(Json(catalog::similar_above(
+        reference,
+        observer.as_ref(),
+        limit,
+        session.min_alt_deg,
+    )))
 }
 
 #[derive(Deserialize)]
@@ -599,8 +609,9 @@ struct TargetsQuery {
 }
 
 async fn search_targets(
+    State(state): State<AppState>,
     query: Result<Query<TargetsQuery>, QueryRejection>,
-) -> Result<Json<Vec<&'static Target>>, ApiError> {
+) -> Result<Json<Vec<SearchResult>>, ApiError> {
     let Query(query) = query.map_err(|error| ApiError::bad_request(error.body_text()))?;
     let q = query.q.as_deref().unwrap_or("").trim();
     if q.is_empty() {
@@ -608,10 +619,13 @@ async fn search_targets(
             "give a nonempty q to search for a target",
         ));
     }
-    Ok(Json(targets::search(
-        q,
-        query.limit.unwrap_or(20).clamp(1, 50),
-    )))
+    let session = state.session.snapshot(state.clock.now());
+    Ok(Json(
+        targets::search(q, query.limit.unwrap_or(20).clamp(1, 50))
+            .into_iter()
+            .map(|object| SearchResult::at(object, session.site, session.min_alt_deg, session.time))
+            .collect(),
+    ))
 }
 
 async fn api_not_found(uri: Uri) -> ApiError {

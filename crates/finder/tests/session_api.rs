@@ -136,6 +136,7 @@ async fn partial_edits_and_null_keep_every_other_field() {
     expected["min_alt_deg"] = json!(30.0);
     assert_eq!(put(&app, json!({"min_alt_deg": 30})).await, expected);
     expected["target"] = Value::Null;
+    expected.as_object_mut().unwrap().remove("guidance");
     assert_eq!(put(&app, json!({"target": null})).await, expected);
     expected["site"] = Value::Null;
     assert_eq!(put(&app, json!({"site": null})).await, expected);
