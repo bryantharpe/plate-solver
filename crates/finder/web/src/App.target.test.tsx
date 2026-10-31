@@ -66,11 +66,11 @@ describe("the page with a target", () => {
     const guidance = await screen.findByRole("region", { name: /Target/ });
     expect(guidance.textContent).toContain("M31");
     expect(guidance.textContent).toContain("Andromeda Galaxy");
-    expect(screen.queryByRole("dialog", { name: "Choose a target" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Choose a target" })).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Choose target" }));
     fireEvent.click(screen.getByRole("button", { name: "Clear target" }));
     await waitFor(() => expect(screen.queryByRole("region", { name: /Target/ })).toBeNull());
-    expect(screen.queryByRole("dialog", { name: "Choose a target" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Choose a target" })).toBeNull());
     const chart = container.querySelector("figure.chart")!;
     const [roster] = screen.getAllByText("Alnilam, Alnitak, Mintaka");
     expect(before(roster!, chart)).toBe(true);
