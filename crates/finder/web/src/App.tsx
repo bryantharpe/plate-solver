@@ -4,11 +4,13 @@ import { Chart, DEFAULT_LAYERS, type Layers } from "./components/Chart";
 import { ChartHeader, ChartHeaderPlaceholder } from "./components/ChartHeader";
 import { FieldList, FieldRoster } from "./components/FieldList";
 import { FramePicker, SampleGrid } from "./components/FramePicker";
+import { GuidanceBlock } from "./components/GuidanceBlock";
 import { Upload } from "./components/Icons";
 import { NextTargets } from "./components/NextTargets";
 import { SetupPage } from "./components/SetupPage";
 import { SurveyView } from "./components/SurveyView";
 import { TopBar } from "./components/TopBar";
+import { TargetSheet } from "./components/TargetSheet";
 import { useLastSample, useNight, useSite } from "./settings";
 import { useSolve } from "./useSolve";
 import { useSession } from "./useSession";
@@ -41,6 +43,7 @@ export function App() {
   const [lastSample, setLastSample] = useLastSample();
   const { state, run } = useSolve();
   const [picker, setPicker] = useState(false);
+  const [targetSheet, setTargetSheet] = useState(false);
   const [path, setPath] = useState(() => window.location.pathname);
   useEffect(() => {
     const popped = () => setPath(window.location.pathname);
@@ -99,6 +102,7 @@ export function App() {
         site={site}
         night={night}
         onFrame={() => setPicker(true)}
+        onTarget={() => setTargetSheet(true)}
         onSite={() => navigate("/setup")}
         onSetup={() => navigate("/setup")}
         onHome={() => navigate("/")}
@@ -115,13 +119,21 @@ export function App() {
       ) : (
         <>
           {/*
-        One column on a phone, in reading order: where it points and what is in it, the
-        chart, then the rest. On a wide screen the chart takes the right column and stays
-        in view while the left one scrolls.
+        With a target, guidance and the title lead, followed by the chart, then what
+        is in the field. Without one, keep the field roster under the title.
       */}
-          <main className="page-width grid gap-x-10 gap-y-4 px-4 pt-3 pb-16 sm:gap-y-5 sm:px-5 sm:pt-4 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-8 lg:px-10 lg:pt-8">
+          <main
+            className={`page-width grid gap-x-10 gap-y-4 px-4 pt-3 pb-16 sm:gap-y-5 sm:px-5 sm:pt-4 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] ${session.target ? "lg:grid-rows-[auto_auto_auto_1fr_auto]" : "lg:grid-rows-[auto_auto_1fr_auto]"} lg:gap-y-8 lg:px-10 lg:pt-8`}
+          >
+            {session.target && (
+              <div className="lg:col-span-2 lg:row-start-1">
+                <GuidanceBlock session={session} onSetup={() => navigate("/setup")} />
+              </div>
+            )}
             {state.phase !== "idle" && (
-              <div className="space-y-3 sm:space-y-4 lg:col-start-1 lg:row-start-1">
+              <div
+                className={`space-y-3 sm:space-y-4 lg:col-start-1 ${session.target ? "lg:row-start-2" : "lg:row-start-1"}`}
+              >
                 {report ? (
                   <ChartHeader
                     report={report}
@@ -136,7 +148,7 @@ export function App() {
                 ) : (
                   <ChartHeaderPlaceholder busy={busy} label={label} />
                 )}
-                {report?.pointing && <FieldRoster report={report} />}
+                {report?.pointing && !session.target && <FieldRoster report={report} />}
                 {state.phase === "error" && (
                   <ErrorNote message={state.message} onRetry={() => run(state.source, settings)} />
                 )}
@@ -144,13 +156,13 @@ export function App() {
             )}
 
             {state.phase === "idle" && (
-              <div className="lg:col-span-2 lg:row-start-1">
+              <div className={`lg:col-span-2 ${session.target ? "lg:row-start-2" : "lg:row-start-1"}`}>
                 <FirstRun onPick={(name) => open({ kind: "sample", name })} onUpload={() => setPicker(true)} />
               </div>
             )}
 
             {state.phase !== "idle" && (
-              <div className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
+              <div className={`lg:col-start-2 lg:row-span-3 ${session.target ? "lg:row-start-2" : "lg:row-start-1"}`}>
                 <div className="lg:sticky lg:top-24">
                   <Chart
                     report={report}
@@ -159,19 +171,25 @@ export function App() {
                     busy={busy}
                     layers={layers}
                     onLayers={setLayers}
+                    session={session}
                   />
                 </div>
               </div>
             )}
 
             {report?.pointing && (
-              <div className="pt-3 lg:col-start-1 lg:row-start-2 lg:pt-0">
+              <div
+                className={`space-y-3 pt-3 lg:col-start-1 ${session.target ? "lg:row-start-3" : "lg:row-start-2"} lg:pt-0`}
+              >
+                {session.target && <FieldRoster report={report} />}
                 <FieldList report={report} selected={reference?.id ?? null} onSelect={setSelected} />
               </div>
             )}
 
             {report?.pointing && (
-              <div className="space-y-10 pt-5 lg:col-start-1 lg:row-start-3 lg:pt-0">
+              <div
+                className={`space-y-10 pt-5 lg:col-start-1 ${session.target ? "lg:row-start-4" : "lg:row-start-3"} lg:pt-0`}
+              >
                 <NextTargets
                   reference={reference}
                   nearby={report.nearby}
@@ -183,7 +201,9 @@ export function App() {
               </div>
             )}
 
-            <footer className="pt-5 text-sm text-ink-2 lg:col-span-2 lg:row-start-4 lg:pt-0">
+            <footer
+              className={`pt-5 text-sm text-ink-2 lg:col-span-2 ${session.target ? "lg:row-start-5" : "lg:row-start-4"} lg:pt-0`}
+            >
               {health
                 ? `Database: ${health.database.catalog}, ${health.database.stars.toLocaleString("en-US")} stars, fields ${health.database.min_fov}–${health.database.max_fov}° · finder ${health.version}`
                 : "Finder"}
@@ -202,6 +222,7 @@ export function App() {
           open(source);
         }}
       />
+      <TargetSheet open={targetSheet} target={session.target ?? null} put={put} onClose={() => setTargetSheet(false)} />
     </div>
   );
 }

@@ -17,11 +17,20 @@ function serve(initial: Target | null = SESSION.target ?? null) {
       if (init?.method === "PUT") target = JSON.parse(String(init.body)).target === null ? null : M31;
       return new Response(JSON.stringify({ ...SESSION, target }));
     }
-    const body = url.startsWith("/api/targets?") ? [{ ...M31, class: "pointable" }]
-      : url === "/api/solve" ? { ...ORION2, pointing_seq: 7 }
-      : url.startsWith("/api/similar") ? SIMILAR_M42
-      : url === "/api/samples" ? [{ name: "orion2.jpg", label: "Orion2" }]
-      : { status: "ok", version: "0.1.0", database: { catalog: "hip_main", stars: 42212, patterns: 1, min_fov: 10, max_fov: 30 }, samples: 1 };
+    const body = url.startsWith("/api/targets?")
+      ? [{ ...M31, class: "pointable" }]
+      : url === "/api/solve"
+        ? { ...ORION2, pointing_seq: 7 }
+        : url.startsWith("/api/similar")
+          ? SIMILAR_M42
+          : url === "/api/samples"
+            ? [{ name: "orion2.jpg", label: "Orion2" }]
+            : {
+                status: "ok",
+                version: "0.1.0",
+                database: { catalog: "hip_main", stars: 42212, patterns: 1, min_fov: 10, max_fov: 30 },
+                samples: 1,
+              };
     return new Response(JSON.stringify(body));
   });
   window.localStorage.setItem("finder.frame", JSON.stringify("orion2.jpg"));

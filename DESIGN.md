@@ -222,11 +222,11 @@ Under `[data-theme="night"]` every token above is reassigned. `paper` becomes Ni
 
 ## Layout
 
-One column on a phone, in the user's reading order: the chart header (where it points), the field roster, the chart with its legend chips, then the field list, next targets and the survey view. From 64rem the main grid becomes two columns, `minmax(22rem, 30rem)` on the left for the header and lists and the chart on the right. The chart spans three rows and sticks at `top: 6rem` while the left column scrolls. The page width follows the frame. `.page-width` caps at `min(90rem, 30rem + 2.5rem + (100dvh − 11rem) × frame aspect + 5rem)`, so a wide window holds the left column plus the chart at window height, centred. The chart is likewise capped at `(100dvh − 11rem) × aspect`.
+One column on a phone. With a target set, the reading order is the guidance block, the chart header (where it points), the chart with its legend chips, then the field roster, field list, next targets and survey view. Without a target the field roster sits under the chart header, before the chart. From 64rem the main grid becomes two columns, `minmax(22rem, 30rem)` on the left for the header and lists and the chart on the right. The chart spans three rows and sticks at `top: 6rem` while the left column scrolls. With a target, guidance spans both columns above the title and chart. The page width follows the frame. `.page-width` caps at `min(90rem, 30rem + 2.5rem + (100dvh − 11rem) × frame aspect + 5rem)`, so a wide window holds the left column plus the chart at window height, centred. The chart is likewise capped at `(100dvh − 11rem) × aspect`.
 
 Gutters are 1rem on phones, 1.25rem from 40rem and 2.5rem from 64rem. Vertical gaps are 1rem, 1.25rem and 2rem across those widths, with a 2.5rem column gap. The top bar is 3.5rem tall on phones and 4rem from 40rem. Sections stack at 1.5 to 2.5rem, and list rows have 10px of vertical padding over a 4-track grid (`1.5rem 3.25rem 1fr auto`: symbol, ID, name and detail, measure). The chart keeps a 30-unit paper margin round the frame for edge labels. Facts in a line are joined by centred dots that wrap only between facts, and no line starts or ends with a dot.
 
-Breakpoints in use: 400px (wordmark appears), 40rem (`sm`), 48rem (sheet centres), 64rem (`lg`, two columns).
+Breakpoints in use: 40rem (`sm`, wordmark and target label appear), 48rem (sheet centres), 64rem (`lg`, two columns).
 
 ## Elevation & Depth
 
@@ -266,13 +266,25 @@ Ruled, square and quiet. The ink does the work.
 - **Focus:** a 2px ink outline offset 2px on the field box.
 
 ### Navigation
-- **Top bar:** sticky, Cool Paper ground, a hairline bottom rule. It carries the reticle mark and "Finder" (weight 600), then the frame chip with a 28px thumbnail, the site chip, and the Night switch.
+- **Top bar:** sticky, Cool Paper ground, a hairline bottom rule. It carries the reticle mark and "Finder" (weight 600), then the frame chip with a 28px thumbnail, the target-sheet button, the site chip, the Setup link and the Night switch. On phones the wordmark, frame label and target button label are hidden to leave room for the controls.
 
 ### Sheets
-- **Style:** a native `<dialog>`, Cool Paper ground, 1px ink border, up to 640px wide (448px for the site sheet). It rises from the bottom on phones and centres from 48rem. The header row has a headline title, a quiet Close button and a hairline below. It enters with a 280ms rise and fade on the expo-out curve.
+- **Style:** a native `<dialog>`, Cool Paper ground, 1px ink border, up to 640px wide (448px for the site sheet). It rises from the bottom on phones and centres from 48rem. The header row has a headline title, a quiet Close button and a hairline below. It enters with a 280ms rise and fade on the expo-out curve. The built target sheet searches the catalog as typed and shows its ordered answers as hairline-divided rows: family symbol, italic catalog and Messier IDs, common names, kind, magnitude and pointability class. Picking or clearing saves the shared session before closing; a failed save keeps the sheet open with an ink error.
 
 ### Chart (signature)
 The frame sits inside a 1.4-unit ink neatline with a 30-unit paper margin. The RA/Dec graticule is drawn over the frame in Graticule, animating on in 900ms. Ticks and condensed edge labels sit in the margin on all four sides. Matched stars get solid Frame Ink rings with upright names. Expected stars get dashed rings at 70%, and detected centroids get small rings at 55%. Messier objects get atlas symbols in their object colour with italic labels, and leaders run to labels set off in open sky. Compass and scale-bar furniture are in Frame Ink. Labels are laid out to avoid each other (`src/labels.ts`). A picked object thickens to 2.4. Marks ink in over 500ms after a 250 to 300ms delay. With reduced motion all animation is off.
+
+### Guidance block — built
+An ink-only ruled block leads the page when a target is set, before the doubled-rule title block. It names the target and kind, and prints the session's pointability class in Second Ink. Pointable guidance gives the whole-degree turn and tilt and the latest pointing's age, or asks for a solved frame. Down targets show the session's rising, transit and setting in device-local time to the minute; a target that never reaches the minimum altitude says so. The Sun guard refuses directions within 15° of the Sun. Without a site the block links to `/setup`. It uses no object colours, fill or shadow; night uses the existing red ink tokens.
+
+### Target reticle — built
+On the latest pointing's chart, the target's atlas family symbol sits at the supplied pixel coordinates inside four open square corner ticks in Frame Ink. Galaxy symbols retain the supplied axes and position angle. The italic object-colour label sits toward the interior of the frame. This is session furniture, outside the legend: the five chips and their counts stay the same, and hiding Deep sky leaves the target drawn. A missing or different `pointing_seq` suppresses the mark. Existing object and Frame Ink tokens collapse to red at night.
+
+### Edge arrow — built
+An off-frame target uses the existing DirectionArrow, on the ray from the chart centre toward the supplied bearing (clockwise from up). It meets a neatline inset by 12 CSS pixels so the arrow stays in the frame, with an inward italic label giving the target ID and whole-degree distance. It shares the target family's object colour and the red-only night tokens, and is outside the legend like the reticle.
+
+### Setup page — built
+The `/setup` page edits the shared observing session: site latitude and longitude, typed or taken from the device, and minimum altitude from 0° to 80°. It uses labelled 44px ruled fields, ink links and buttons, hairline separators and a doubled-rule title block. Saving and clearing the site use the session hook; validation and failed requests stay readable in ink. The top bar's Setup link opens it, and its Back to console action returns to the chart. The same paper and ink tokens make it red on black at night.
 
 ## Do's and Don'ts
 

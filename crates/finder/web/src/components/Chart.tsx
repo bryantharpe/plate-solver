@@ -19,6 +19,8 @@ import {
   type Measure,
 } from "../labels";
 import { FamilyShape } from "./Symbol";
+import { TargetMark } from "./TargetMark";
+import type { ObservingSession } from "../useSession";
 
 /** What the chart draws; each is a chip in the legend. */
 export interface Layers {
@@ -43,6 +45,7 @@ interface Props {
   busy: boolean;
   layers: Layers;
   onLayers: (layers: Layers) => void;
+  session?: ObservingSession;
 }
 
 /** Paper margin around the frame for the grid's labels, in CSS pixels. */
@@ -77,7 +80,7 @@ function useWidth(ref: RefObject<HTMLElement | null>): number {
   return width;
 }
 
-export function Chart({ report, imageUrl, label, busy, layers, onLayers }: Props) {
+export function Chart({ report, imageUrl, label, busy, layers, onLayers, session }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const width = useWidth(box);
   const [picked, setPicked] = useState<Picked>(null);
@@ -184,6 +187,14 @@ export function Chart({ report, imageUrl, label, busy, layers, onLayers }: Props
               />
             ))}
             {furniture && <Furniture geometry={furniture} u={u} />}
+            {solved &&
+              session?.target &&
+              session.guidance?.placement &&
+              session.pointing &&
+              report.pointing_seq !== undefined &&
+              report.pointing_seq === session.pointing.seq && (
+                <TargetMark target={session.target} placement={session.guidance.placement} W={W} H={H} u={u} />
+              )}
           </g>
         </svg>
       </div>

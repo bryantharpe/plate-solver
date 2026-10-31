@@ -25,6 +25,33 @@ export interface DeepSkyObject {
   mag: number | null;
 }
 
+/** The OpenNGC catalog is separate from the chart's Messier catalog. */
+export interface Target extends Omit<DeepSkyObject, "designation" | "name" | "constellation"> {
+  messier: string | null;
+  common_names: string[];
+  constellation: string;
+}
+
+export type TargetClass = "sun_guard" | "below_horizon" | "too_low" | "pointable" | "no_site";
+export interface TargetMatch extends Target {
+  class: TargetClass;
+}
+
+export type TargetPlacement =
+  | { on_frame: true; x: number; y: number; axes: [number, number]; angle: number }
+  | { on_frame: false; direction_deg: number; distance_deg: number };
+
+export interface Guidance {
+  class: TargetClass;
+  rise?: number;
+  transit?: number;
+  set?: number;
+  never?: boolean;
+  turn_deg?: number;
+  tilt_deg?: number;
+  placement?: TargetPlacement;
+}
+
 export interface Pointing {
   ra_deg: number;
   dec_deg: number;
@@ -83,6 +110,7 @@ export interface NearbyMark extends DeepSkyObject {
 export type SolveStatus = "match_found" | "no_match" | "timeout" | "cancelled" | "too_few";
 
 export interface SolveReport {
+  pointing_seq?: number;
   name: string | null;
   status: SolveStatus;
   hint: string | null;
@@ -165,6 +193,10 @@ export async function getHealth(): Promise<Health> {
 
 export async function getSamples(): Promise<Sample[]> {
   return json(await fetch("/api/samples"));
+}
+
+export async function getTargets(query: string, signal?: AbortSignal): Promise<TargetMatch[]> {
+  return json(await fetch(`/api/targets?${new URLSearchParams({ q: query })}`, { signal }));
 }
 
 export async function solve(source: FrameSource, settings: SolveSettings = {}): Promise<SolveReport> {
