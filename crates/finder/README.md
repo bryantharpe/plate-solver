@@ -30,6 +30,7 @@ cargo run --release -p finder -- --db my_camera.npz --samples ~/frames
 | `--samples DIR` | cedar's `medium_fov` samples | Folder of frames to offer on the page. |
 | `--listen ADDR` | `127.0.0.1:8080` | Address to serve on. `0.0.0.0:8080` lets other devices connect. |
 | `--state DIR` | `$XDG_STATE_HOME/finder`, otherwise `~/.local/state/finder` | Folder holding the observing session in `session.json`. |
+| `--allow-host NAME` | none | DNS name permitted for same-origin writes, in addition to IP literals and `localhost`. Repeat for multiple names. |
 | `--licenses` | | Print the third-party notices for the embedded page and data, and exit. |
 
 ### From a phone
@@ -113,6 +114,24 @@ A fresh session has no site, target or latest pointing, and a minimum altitude o
 `time` is the console's clock in Unix seconds. The binary uses the system clock and has
 no fixed-clock option.
 
+Writes to `PUT /api/session` and `POST /api/solve` follow the same-origin rule. When
+a request carries an `Origin`, its scheme, host and port must match the request's own
+origin. Its `Host` must also be an IP literal, `localhost`, or an explicitly allowed DNS
+name. A different origin or an unlisted DNS name answers 403 with a JSON `error` and
+leaves the observing session unchanged. Requests without `Origin`, such as curl and Rust
+clients, are allowed. `PUT /api/session` requires a JSON content type; `text/plain` and
+other media types answer 415 with a JSON `error`.
+
+Phones opening the console by LAN IP work without extra flags. To open it by a local DNS
+name, run, for example:
+
+```sh
+cargo run --release -p finder --locked -- --listen 0.0.0.0:8097 --allow-host surface.local
+```
+
+Then open `http://surface.local:8097`. Pass names without a scheme or port; matching is
+case insensitive and exact. Repeat `--allow-host` for each name you use.
+
 For example, set the site and choose Orion's nebula:
 
 ```sh
@@ -128,6 +147,15 @@ clears the site. A malformed edit, an unknown field (including `sun_guard`) or a
 range answers 400 with `{"error":"..."}`. An unknown target id answers 404 with the same
 error shape. Each rejected edit leaves the entire observing session unchanged.
 
+Every frame that solves becomes the latest pointing. `pointing` holds its `seq`, solved
+`frame`, J2000 `ra_deg` and `dec_deg`, and `time` in Unix seconds from the console's clock
+when the uploaded or sample frame was solved. With a site set, it also holds `alt_deg` and
+`az_deg` at that frame time. Without a site, those two fields are absent. Setting or
+changing the site recomputes them at the original frame time; clearing the site removes
+them and keeps the RA, Dec, time, frame and sequence. A frame that does not solve leaves
+the entire latest pointing unchanged. Successful API solve reports carry an optional
+`pointing_seq` equal to the session pointing's `seq`.
+
 The binary loads and saves the site, minimum altitude and canonical target id across
 restarts. `--state DIR` overrides the default folder. Empty or unset `XDG_STATE_HOME`
 falls back to `~/.local/state/finder`. Each write syncs `session.json.tmp` before renaming
@@ -139,3 +167,4 @@ folder. To persist explicitly, pass `Session::with_state_file(path)` to
 `AppState::with_session`. Tests and simulations can pass an `Arc<dyn Clock>` to
 `AppState::with_clock`; `FixedClock` provides repeatable Unix seconds, and all
 time-dependent API defaults use that clock.
+Use `AppState::with_allowed_hosts` to configure DNS names for a library server's writes.

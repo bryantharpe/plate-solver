@@ -9,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
+use crate::sky::{self, Frame, Observer};
 use crate::targets::{self, Target};
 
 /// The console's time source, in Unix seconds. Each application owns its clock.
@@ -74,6 +75,45 @@ fn present_number<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<f
     f64::deserialize(deserializer).map(Some)
 }
 
+/// The most recent solved frame's pointing, held at its frame time.
+#[derive(Debug, Clone, Serialize)]
+pub struct Pointing {
+    /// Monotonically increasing within this observing session, starting at one.
+    pub seq: u64,
+    /// The solved projection, retained for placing targets on the frame.
+    pub frame: Frame,
+    /// J2000 right ascension at the aim point (the frame centre until one is set).
+    pub ra_deg: f64,
+    /// J2000 declination at the aim point, in degrees.
+    pub dec_deg: f64,
+    /// Geometric altitude at frame time when a site is set, in degrees.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alt_deg: Option<f64>,
+    /// Azimuth at frame time when a site is set, north through east, in degrees.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub az_deg: Option<f64>,
+    /// Frame time on the console's clock, in Unix seconds.
+    pub time: f64,
+}
+
+impl Pointing {
+    fn with_site(&mut self, site: Option<Site>) {
+        let horizontal = site.map(|site| {
+            sky::alt_az(
+                self.ra_deg,
+                self.dec_deg,
+                &Observer {
+                    lat: site.lat_deg,
+                    lon: site.lon_deg,
+                    time: self.time,
+                },
+            )
+        });
+        self.alt_deg = horizontal.map(|(alt, _)| alt);
+        self.az_deg = horizontal.map(|(_, az)| az);
+    }
+}
+
 /// One consistent read of the observing session and its console time.
 #[derive(Debug, Serialize)]
 pub struct SessionView {
@@ -83,8 +123,8 @@ pub struct SessionView {
     pub min_alt_deg: f64,
     /// The resolved canonical catalog object, if selected.
     pub target: Option<&'static Target>,
-    /// No latest pointing exists until a solved frame is recorded.
-    pub pointing: Option<()>,
+    /// The latest pointing, if a frame has solved in this session.
+    pub pointing: Option<Pointing>,
     /// Unix seconds from the application's clock.
     pub time: f64,
 }
@@ -94,6 +134,7 @@ struct Values {
     site: Option<Site>,
     min_alt_deg: f64,
     target: Option<&'static Target>,
+    pointing: Option<Pointing>,
 }
 
 impl Default for Values {
@@ -102,6 +143,7 @@ impl Default for Values {
             site: None,
             min_alt_deg: 15.0,
             target: None,
+            pointing: None,
         }
     }
 }
@@ -112,7 +154,7 @@ impl Values {
             site: self.site,
             min_alt_deg: self.min_alt_deg,
             target: self.target,
-            pointing: None,
+            pointing: self.pointing.clone(),
             time,
         }
     }
@@ -152,6 +194,25 @@ impl Session {
     /// Read all session fields together, using time from the application's clock.
     pub fn snapshot(&self, time: f64) -> SessionView {
         self.values.lock().expect("observing session").view(time)
+    }
+
+    /// Record a successful solve and return its sequence. Pointings are never persisted.
+    /// The position is the solve report's J2000 centre, in degrees.
+    pub fn record_pointing(&self, frame: Frame, ra_deg: f64, dec_deg: f64, time: f64) -> u64 {
+        let mut values = self.values.lock().expect("observing session");
+        let seq = values.pointing.as_ref().map_or(1, |p| p.seq + 1);
+        let mut pointing = Pointing {
+            seq,
+            frame,
+            ra_deg,
+            dec_deg,
+            time,
+            alt_deg: None,
+            az_deg: None,
+        };
+        pointing.with_site(values.site);
+        values.pointing = Some(pointing);
+        seq
     }
 
     /// Validate the entire edit and persist it before changing any field.
@@ -216,6 +277,9 @@ impl Values {
         let mut next = self.clone();
         if let Some(site) = edit.site {
             next.site = site;
+            if let Some(pointing) = &mut next.pointing {
+                pointing.with_site(site);
+            }
         }
         if let Some(min) = edit.min_alt_deg {
             next.min_alt_deg = min;
