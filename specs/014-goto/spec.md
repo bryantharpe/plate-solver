@@ -90,9 +90,9 @@ feature (015).
 - Q: How does the node on the telescope know it has a mount? → A: From an optional
   `[mount]` table in its config file, naming the serial device. Without it the node runs
   with no mount, and its frames carry no axis positions (FR-009, US3-S16).
-- Q: Which serial code? → A: The owner chooses at the flip (owner approval 1). Since 013,
-  `rustix` is already a dependency of `crates/scope-node`, so its `termios` feature is a
-  path with no new crate, beside `serialport`.
+- Q: Which serial code? → A: Termios through `rustix` (owner approval 1, chosen
+  2026-10-31). `crates/scope-node` already depends on `rustix` since 013, so no crate is
+  added; `serialport` was the alternative.
 - Q: What do the new session fields read before they have a value? → A: They are left out
   of the body, as 013's are, so the whole-body test of a fresh session stays as it is.
 
@@ -102,16 +102,10 @@ Flipping this spec to `ready` approves the following. No existing requirement is
 no existing test or `ci.yml` changes, and no Playwright server or project changes beyond
 approval 3's two lines.
 
-1. **The serial device's code**, one of two, which the owner names at the flip (plan.md
-   § Prerequisites, item 2):
-   - `serialport` with `default-features = false` (MPL-2.0, in `deny.toml`'s allow-list,
-     no libudev), a new crate in `crates/scope-node`; or
-   - `rustix`'s `termios` and `fs` features. `rustix` is already a dependency of
-     `crates/scope-node` since 013 (its `time` feature, for the node's clock), so this
-     adds no crate.
-
-   If `serialport` is chosen and does not build for `aarch64-unknown-linux-musl` at
-   bring-up, `rustix`'s termios replaces it behind the same interface (FR-009).
+1. **Two `rustix` features for the serial device.** `rustix`'s `termios` and `fs`
+   features open the mount's serial device. `crates/scope-node` already depends on
+   `rustix` since 013 (its `time` feature, for the node's clock), so no crate is added
+   (FR-009). The owner chose this over a new `serialport` crate on 2026-10-31.
 2. **Stop is open to anyone.**
    - `POST /api/stop` skips the same-origin check that 012 put on every route that changes
      the session. 012 already left room for a route that only stops the telescope.
@@ -317,9 +311,8 @@ No serial device is opened.
     names the board version, counts per revolution, timer frequency, high-speed ratio,
     auxiliary-encoder support and axis position.
 15. **Given** the story's diff, **When** it is read, **Then** `crates/scope-node/Cargo.toml`
-    adds only the serial path the owner chose (owner approval 1): `serialport` with
-    `default-features = false`, or `rustix`'s `termios` and `fs` features. Opening the
-    device is the only code path no test reaches.
+    adds only `rustix`'s `termios` and `fs` features (owner approval 1), and no crate.
+    Opening the device is the only code path no test reaches.
 16. **Given** a config file whose `[mount]` table names `device = "/dev/ttyUSB0"`, **When**
     `scope-node --check-config` runs on it, **Then** a CLI test in
     `crates/scope-node/tests/mount_config.rs` asserts that it prints the mount's device and
@@ -781,9 +774,8 @@ unchanged and green.
   A byte-level emulator of the mount SHALL stand in for it in tests. **Refs**: the
   Sky-Watcher motor controller command set; INDI's SkyWatcher driver (retries, fast mode);
   `docs/research/2026-10-21-synscan-mount-control.md` §3–5.
-- **FR-009**: The adapter SHALL open the serial device with the serial path the owner
-  chose: `serialport` (`default-features = false`), or termios through `rustix`.
-  *(Owner approval 1.)* `scope-node --probe-mount DEVICE` SHALL run the first-test
+- **FR-009**: The adapter SHALL open the serial device with termios through `rustix`
+  (its `termios` and `fs` features). *(Owner approval 1.)* `scope-node --probe-mount DEVICE` SHALL run the first-test
   sequence (`:e1`, `:a1`, `:b1`, `:g1`, `:q1010000`, `:j1`) and print its results, for
   bring-up. The node's config file SHALL take an optional `[mount]` table naming the
   serial `device`. With it, the node drives the mount through the Sky-Watcher adapter on
@@ -982,9 +974,7 @@ unchanged and green.
     reports.
 - **Done by the maintainer at the telescope, outside the factory**, after the spec lands:
   - the checks listed in Clarifications;
-  - a cross-build of `scope-node` for `aarch64-unknown-linux-musl`, which settles, if the
-    owner chose `serialport`, whether it builds there or termios through `rustix` replaces
-    it.
+  - a cross-build of `scope-node` for `aarch64-unknown-linux-musl` with the mount code.
 
   Neither is evidence a diff can carry.
 - **Done by the maintainer after US8 lands:** the Impeccable review of GoTo, Stop and the

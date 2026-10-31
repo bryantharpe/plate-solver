@@ -32,9 +32,8 @@ React 19 for the page.
   `finder`, and `rustix` with its `time` feature in `crates/scope-node`;
 - the page: Vite, Vitest and Playwright.
 
-The serial code is the owner's choice at the flip (owner approval 1): `serialport`
-(`default-features = false`), a new crate, or `rustix`'s `termios` and `fs` features, no
-new crate. The model's fit is written in-crate, with no linear-algebra dependency. No npm
+The serial code is termios through `rustix`'s `termios` and `fs` features (owner
+approval 1). `rustix` is already locked, so no crate is added. The model's fit is written in-crate, with no linear-algebra dependency. No npm
 package is added.
 
 **Storage**: the session's state file from 012. It gains the night's syncs, zero points
@@ -75,15 +74,15 @@ and base tilt, kept until the next local noon, and the fixed terms, kept until r
 | I. Agreeing with cedar is correctness | The solver and `crates/math-core` are untouched. The simulator still uses math-core's camera model, unchanged. New numerics are checked against Meeus (refraction), synthetic TPoint terms recovered within 1″, and the simulator's known truth. |
 | II. Never weaken a gate | No existing test, golden, `scripts/ci/`, `ci.yml` or `CODEOWNERS` is edited. New tests go in new files. The proto changes only add. |
 | III. Tests first, independent expectations | Every scenario names its oracle: Meeus ch. 16, the motor-controller command set's byte strings, synthetic model terms, or the simulator's true eyepiece direction sampled in virtual time. |
-| IV. Critical paths | One dependency change, owner-approved: `serialport`, or two features of the `rustix` already locked. `scope_node.v1` gains calls and one service only. No `unsafe` is planned: `serialport` hides the termios calls, and `rustix`'s termios API is safe. |
-| V. Standalone Rust, honest licensing | `serialport` is MPL-2.0 and `rustix` is Apache-2.0 / MIT, both in `deny.toml`'s allow-list. No reference source is copied. |
+| IV. Critical paths | One dependency change, owner-approved: two features of the `rustix` already locked. `scope_node.v1` gains calls and one service only. No `unsafe` is planned: `rustix`'s termios API is safe. |
+| V. Standalone Rust, honest licensing | `rustix` is Apache-2.0 / MIT, in `deny.toml`'s allow-list. No reference source is copied. |
 
 ## Project Structure
 
 ```text
-Cargo.lock                              # US3: the serial path, if it adds a crate or feature
+Cargo.lock                              # US3: only if rustix's new features add entries
 crates/scope-node/
-├── Cargo.toml                          # US3: the owner's serial path (approval 1)
+├── Cargo.toml                          # US3: rustix's termios and fs (approval 1)
 ├── src/lib.rs                          # US1: `pub mod mount;`
 ├── src/mount/mod.rs                    # US1: the Mount trait, AxisInfo, AxisState;
 │                                       # US2, US3: their modules
@@ -257,16 +256,17 @@ rates in signed degrees per second. Nothing Sky-Watcher-specific crosses the por
   - **Stop:** `:K` on both axes, a decelerating stop, gentler than `:L` on a 16-inch tube.
     `:L` is sent only if `:K` is not acknowledged.
 
-**Serial: the owner's choice at the flip (owner approval 1).**
-- `serialport` with `default-features = false` needs no libudev, and MPL-2.0 is allowed.
-  It is a new crate.
+**Serial: termios through `rustix` (owner approval 1).**
 - `rustix`'s `termios` and `fs` features need no new crate: 013 locked `rustix` 1.1.4 in
   `crates/scope-node` for the node's clock. The device is opened with `O_NOCTTY`, put in
   raw mode, and set to 9600 or 115200 baud, in a few lines of safe calls.
+- `serialport` (`default-features = false`) was the alternative. It is a new crate, and
+  its musl build was unproven. The owner chose `rustix` on 2026-10-31.
 
-The adapter's interface is the same either way, behind `serial.rs`, and opening the device
-is the only untested shell. If `serialport` is chosen and the maintainer's musl
-cross-build at bring-up fails, `rustix`'s termios replaces it.
+The adapter's interface sits behind `serial.rs`, and opening the device is the only
+untested shell. The maintainer's cable is an FT232RL USB-to-RJ45 converter, which the
+Pi's kernel drives as `/dev/ttyUSB*`; on the Pi, the `[mount]` table names it by its
+`/dev/serial/by-id/` path, since `ttyUSB` numbers can change between boots.
 
 **Stop all is its own service.** 013's `TokenInterceptor` is a tonic server interceptor,
 installed on the generated `ScopeNodeServer`, and it sees only a request's metadata
@@ -464,13 +464,14 @@ coverage job counts it. Playwright's `simulate` project adds one GoTo-and-Stop f
 - **The adapter:** codec, transport, protocol and emulator under
   `crates/scope-node/src/mount/skywatcher/`, as above.
 - **The emulator:** implements every command the adapter sends, over an axis model.
-- **`serial.rs`:** opens the device with the owner's serial path (approval 1), and is
+- **`serial.rs`:** opens the device with termios through `rustix` (approval 1), and is
   the only untested shell.
 - **`--probe-mount`:** added in `src/main.rs`.
 - **The node's `[mount]` table:** added to 013's `config.rs`; `main.rs` builds the adapter
   on that device, or no mount without the table (§ Decisions). A new
   `tests/mount_config.rs` runs `--check-config` on the three cases (US3-S16).
-- **The dependency:** the owner's serial path goes in `crates/scope-node/Cargo.toml`, with
+- **The dependency:** `rustix`'s `termios` and `fs` features go in
+  `crates/scope-node/Cargo.toml`, with
   `Cargo.lock` updated by cargo (§ Plan traps, trap 13). `cargo-deny` and the MSRV build
   check it in the queue.
 
@@ -586,13 +587,14 @@ built.
    tests pin, owner approval 3's two Playwright lines, and `StarFrame`'s next free field
    numbers. 012: met (108a5a8). 013: not yet; on `main` at 2a2f9d2, US1, US8 and US9 have
    landed. `depends_on_landed` holds dispatch until then.
-2. **The owner approvals are given**, including which serial path approval 1 takes. The
-   owner names it, and the operator writes that one path into FR-009, US3-S15, T022 and
-   § User Story 3 before the flip.
+2. **The owner approvals are given.** Approval 1 is settled: termios through `rustix`,
+   chosen 2026-10-31 and written into FR-009, US3-S15, T022 and § User Story 3. The
+   others (the `ScopeNodeStop` service, the `[mount]` table and the Playwright lines) were
+   accepted the same day; flipping to `ready` records them all.
 3. **The repository is wired for the Ergane merge queue.** Met since 012: `ergane.yaml`
    and `ergane-gates.yml` are on `main`, and 012 and 013 have run through the queue.
 4. **The factory's coding agent can run cargo.** Met since ergane#896 (deployed
-   2026-10-28). US3 changes `Cargo.lock` if its serial path adds a crate or a feature.
+   2026-10-28). US3 changes `Cargo.lock` only if `rustix`'s new features add entries.
 5. **Two end-to-end runs never meet.** Met: #125, at 80cbd51 (013 plan, Prerequisite 6).
    US8 and US9 run `CI=1 npm run e2e` through it.
 6. **Every CI job that builds `scope-link` installs protoc.** Met: #126, at 7f487e5. US2
@@ -674,7 +676,7 @@ that keeps it from recurring. They bind every story. 013's plan holds the longer
     `clock_gettime` call is added outside 013's `clock.rs`.
 13. **`Cargo.lock` is updated by cargo, once.** `--locked` refuses a needed update, and a
     hand edit cannot lock a crate (013's US2, question 995c4dfefc6c). *Check:* US3 runs
-    cargo once without `--locked` to add its serial path, never `cargo update`, and checks
+    cargo once without `--locked` for `rustix`'s new features, never `cargo update`, and checks
     that the lock's diff only adds; every gate stays `--locked`.
 14. **One interceptor cannot exempt one call.** A tonic server interceptor sees only
     metadata, never the method (§ Decisions). *Check:* `ScopeNode` keeps 013's
@@ -691,7 +693,7 @@ that keeps it from recurring. They bind every story. 013's plan holds the longer
 | The mechanical limits: no published altitude range, the rocker and ground board limit low altitudes, and there is no azimuth hard stop, so a power cable to the ground can wrap. | GoTo targets are pointable (above the minimum altitude). The one-revolution rule unwinds the cable. The adapter reports any range limits it learns at bring-up. |
 | Someone at the eyepiece when the tube moves. | The console never moves the mount unasked: only GoTo and the second sync move it here (015 adds Track). Stop is always on screen while it moves. |
 | Freedom Find off means a push by hand is not counted. | Slips are detected at the next sync, and the GoTo still converges (US6 "pushed by hand"). |
-| `serialport`, if chosen, may not build for musl. | Termios through `rustix` behind the same interface. The maintainer's cross-build at bring-up settles it. |
+| The serial code may not build for musl. | It is `rustix`, which the node already builds with for its clock; the maintainer's cross-build at bring-up confirms the `termios` feature. |
 | A story's diff is past what the judge is shown whole. US3, US5 and US6 are the largest. | § Plan traps, trap 3: measured before proposing; a story that cannot fit escalates rather than dropping a test. |
 | 013 lands with a name or shape other than § Interfaces assumes. | Prerequisite 1: the operator re-reads the trio against 013 as landed before the flip, and fixes it on `main` first. |
 
@@ -872,7 +874,7 @@ stories:
         decision: "spec.md:US3-S16"
     preserved_behavior:
       - "013's config keys and crates/scope-node/tests/cli.rs pass unchanged; the [mount] table is optional (plan.md Shapes that existing tests pin)"
-      - "the owner's serial path is the only new dependency, and opening the device is the only untested code (spec.md US3-S15)"
+      - "rustix's termios and fs features are the only dependency change, and opening the device is the only untested code (spec.md US3-S15)"
       - "Cargo.lock keeps every existing entry at its version (plan.md Plan traps, trap 13)"
     checks:
       development:

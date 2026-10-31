@@ -7,7 +7,7 @@ description: "Task list for 014-goto: GoTo"
 **Prerequisites** (plan.md § Prerequisites):
 - 012 and 013 have landed (`depends_on_landed`), and this trio has been re-read against
   013 as landed;
-- the owner approvals in spec.md are given, with approval 1's serial path named;
+- the owner approvals in spec.md are given (approval 1: termios through `rustix`);
 - the repository is wired for the Ergane merge queue (met since 012);
 - the coding agent can run cargo (met since ergane#896);
 - `npm run e2e` waits its turn on one host-wide lock (met by #125, at 80cbd51);
@@ -168,8 +168,8 @@ description: "Task list for 014-goto: GoTo"
   - reversing by stop and wait;
   - the `!2` retry;
   - stop by `:K`, then `:L`.
-- [ ] T022 [US3] Add the serial path the owner chose (spec.md, owner approval 1) to
-  `crates/scope-node/Cargo.toml`, and update `Cargo.lock` by running cargo once without
+- [ ] T022 [US3] Add `rustix`'s `termios` and `fs` features (spec.md, owner approval 1)
+  to `crates/scope-node/Cargo.toml`, and update `Cargo.lock` by running cargo once without
   `--locked` (plan.md § Plan traps, trap 13). Open the device in a new
   `crates/scope-node/src/mount/skywatcher/serial.rs`, the only untested shell, and declare
   the adapter's modules in `crates/scope-node/src/mount/skywatcher/mod.rs` and
@@ -177,8 +177,8 @@ description: "Task list for 014-goto: GoTo"
   013's `crates/scope-node/src/config.rs`, printed by `--check-config`. In
   `crates/scope-node/src/main.rs`, add `--probe-mount DEVICE` over a probe function that
   takes any byte stream, and drive the mount from the `[mount]` table when it is set.
-- [ ] T023 [US3] Run the `lint` and `test` gates. Confirm that the chosen serial path is
-  the only new dependency and that opening the device is the only code path no test
+- [ ] T023 [US3] Run the `lint` and `test` gates. Confirm that `rustix`'s two features are
+  the only dependency change and that opening the device is the only code path no test
   reaches (US3-S15). Commit the green story (FR-007, FR-008, FR-009; US3-S1, US3-S2,
   US3-S3, US3-S4, US3-S5, US3-S6, US3-S7, US3-S8, US3-S9, US3-S10, US3-S11, US3-S12,
   US3-S13, US3-S14, US3-S15, US3-S16).
