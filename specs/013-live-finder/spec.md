@@ -1,5 +1,5 @@
 ---
-state: draft
+state: ready
 depends_on_landed: [012-targets-and-push-to]
 # Converted 2026-10-28 from the reviewed OpenSpec change feat-13 (#102). This trio is
 # now the feature's only specification. It stays draft until the owner has reviewed
@@ -8,6 +8,9 @@ depends_on_landed: [012-targets-and-push-to]
 # Refined 2026-10-31 against main at 108a5a8 (012 landed in full) and the factory's
 # gates as they run today (plan.md § Plan traps and § Refinement Record). It stays
 # draft until the prerequisites in plan.md are met.
+# Flipped to ready 2026-10-31 by the owner, once #129 staged the bring-up fixtures and
+# the flip's own PR gave the saved finder frame stars (plan.md § Prerequisites, items 2
+# and 4). The flip gives the approvals under "Owner approvals".
 ---
 
 # Feature Specification: The Live Finder
@@ -62,7 +65,7 @@ settings and the aim point, and Setup gains a scope node and camera section.
   the telescope, before this spec is ready, and stages them on `main`:
   - a saved `rpicam-hello --list-cameras` listing;
   - a short saved `rpicam-vid` YUV420 stream with padded rows, and its JSON metadata;
-  - a saved gray frame from the finder camera;
+  - a saved gray frame from the finder camera, with stars in it;
   - `fixtures.json`, which records what the files hold: the camera's model, size and
     modes, the stream's width, height, row stride and frame count, and each frame's
     timestamp and exposure;
@@ -221,7 +224,7 @@ found them itself.
 5. **Given** the saved finder frame, **When** a test detects it through the node and
    through the console's own call (`star_detection::detect_stars` with
    `plate_solver::DetectParams::cedar()`), **Then** it asserts that the two centroid lists
-   are identical, value for value and in the same order.
+   are identical, value for value and in the same order, and that they are not empty.
 6. **Given** the node's default detection settings, **When** a test compares them with
    `plate_solver::DetectParams::cedar()`, **Then** it asserts that they are equal field for
    field. `plate-solver` is only a dev-dependency of `scope-node`.
@@ -951,10 +954,11 @@ every earlier test unchanged and green, plus the new `e2e/simulate.spec.ts` in t
 - **The bring-up fixtures and notes are staged by the operator** before this spec is
   flipped to `ready`, in `fixtures/scope-node/`: the saved camera listing, the short saved
   YUV420 stream with padded rows and its JSON metadata, a saved gray frame from the finder
-  camera, `fixtures.json`, and in its `README.md` the camera's model and modes, the row
-  stride, which monotonic clock `SensorTimestamp` uses, the measured field of view,
-  detection time per frame on the Pi 3B and Wi-Fi throughput. When the finder's own camera
-  replaces the bring-up camera, the operator swaps these files, and no story changes.
+  camera with stars in it, `fixtures.json`, and in its `README.md` the camera's model and
+  modes, the row stride, which monotonic clock `SensorTimestamp` uses, the measured field
+  of view, detection time per frame on the Pi 3B and Wi-Fi throughput. When the finder's
+  own camera replaces the bring-up camera, the operator swaps these files, and no story
+  changes.
 - **The `finder-page` job's "Install protoc" step is on `main`** (owner approval 1),
   landed by the operator before this spec is flipped to `ready`.
 - **The factory's coding agent can run cargo.** It has since ergane#896 (2026-10-28), and

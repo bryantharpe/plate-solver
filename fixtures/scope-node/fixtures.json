@@ -52,7 +52,14 @@
     "file": "finder-frame.png",
     "width": 1296,
     "height": 972,
-    "source": "stream-frame2.pgm"
+    "source": "stream-frame2.pgm, with synthetic stars added",
+    "synthetic_stars": {
+      "added": 40,
+      "seed": 13,
+      "sigma_px": 1.4,
+      "peak_dn_min": 40.3,
+      "peak_dn_max": 129.8
+    }
   },
   "listing": {
     "file": "list-cameras.txt"

@@ -20,12 +20,22 @@ They live here, outside `crates/`, because the workspace loads every folder unde
   when it starts and `]` when it exits, so a reader of a live stream parses it object by
   object. Each object also carries `FrameWallClock`, the frame's wall-clock time in ns.
 - **`finder-frame.png`**: the Y plane of the stream's third frame, 1296 × 972, 8-bit
-  gray, padding dropped. It is a daytime frame of a ceiling, with no stars. A night
-  frame replaces it.
+  gray, padding dropped, **with 40 synthetic stars added**. The frame itself is a
+  daytime frame of a ceiling, with no stars, so a test comparing two detection paths on
+  it would compare two empty lists. The stars keep the camera's real background, noise
+  and saturated light fixture:
+  - round Gaussians, sigma 1.4 px;
+  - peaks 40–130 DN above the background, never past 250;
+  - at seeded random positions (seed 13), at least 40 px apart and 48 px from the edge.
+
+  `detect_stars` with `DetectParams::cedar()`'s settings finds 27 of them; the faintest
+  fall below its threshold. `fixtures.json` records the frame as synthetic, and the
+  operator's bring-up kit keeps the generator and each star's true centre. A night
+  frame of real stars replaces it.
 - **`fixtures.json`**: what the files hold. It gives the camera's model, size and modes,
   the stride alignment, the stream's size, stride, frame count, frame bytes and padding
   values, each frame's `SensorTimestamp` (ns) and `ExposureTime` (µs), and the finder
-  frame's size and source.
+  frame's size, source and synthetic stars.
 
 The capture arguments were:
 
@@ -82,6 +92,7 @@ rpicam-vid --nopreview --codec yuv420 --mode 1296:972 --width 1296 --height 972
 **Detection time per frame on the Pi 3B+.** This is `detect-timing`, `star-detection` with
 `DetectParams::cedar()`'s settings, as the median of 10 runs:
 - the daytime 1296 × 972 frame, with 0 stars: 32.1 ms;
+- the same frame with its 40 synthetic stars, 27 found: 32.8 ms;
 - a synthetic 1456 × 1088 frame with 60 stars: 41.0 ms, with 59 found.
 - The night run adds times on real stars, in every mode.
 
