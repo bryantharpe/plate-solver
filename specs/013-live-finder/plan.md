@@ -11,7 +11,7 @@ Add three crates and a live loop:
 - `crates/scope-link` holds the `scope_node.v1` protocol, its pairing token and the clock
   maths.
 - `crates/scope-node` is the service for the Raspberry Pi 3B. It holds the camera port,
-  the Arducam adapter, the console's star detection, auto-exposure and a config file.
+  the rpicam adapter, the console's star detection, auto-exposure and a config file.
 - `crates/simulator` is a full stand-in node. It renders the pattern database's stars on
   a virtual clock and runs the real node service over its simulated camera.
 
@@ -88,7 +88,7 @@ one observer and a handful of devices.
 | II. Never weaken a gate | No existing test, golden, `scripts/ci/` file, `.github/` file or `CODEOWNERS` entry is edited by a story. The `ci.yml` protoc step and the third Playwright server are owner-approved (spec § Owner approvals), and the operator lands the `ci.yml` step. New tests go in new files. |
 | III. Tests first, independent expectations | The oracles are the worked clock exchanges, saved camera fixtures, `DetectParams::cedar()`, the simulator's true directions, `sky::alt_az`, and Meeus's example 13.b inverted for the simulator's own sky maths. Each is computed outside the code under test. |
 | IV. Critical paths | The new protocol is internal to `crates/scope-link`, and `proto/` is unchanged. There is no `unsafe` and no database-format change. The dependency changes are listed above, each justified in its story. |
-| V. Standalone Rust, honest licensing | Everything is Rust. The Arducam is driven through `rpicam-apps` as a subprocess, so no C library is linked. No data is vendored beyond the operator's camera fixtures, which are the project's own captures. |
+| V. Standalone Rust, honest licensing | Everything is Rust. The camera is driven through `rpicam-apps` as a subprocess, so no C library is linked. No data is vendored beyond the operator's camera fixtures, which are the project's own captures. |
 
 ## Project Structure
 
@@ -105,11 +105,11 @@ crates/scope-link/                       # US1 (new)
 └── tests/link.rs
 crates/scope-node/                       # US2 (new); US4 adds the service
 ├── Cargo.toml                           # star-detection, scope-link; toml, image(jpeg)
-├── README.md                            # PREREQUISITE: bring-up notes; US2: musl, systemd
+├── README.md                            # US2: musl, systemd; links the bring-up notes
 ├── src/lib.rs
 ├── src/camera.rs                        # US2: the camera port, ranges, GrayFrame
 ├── src/synthetic.rs                     # US2: the database-free `simulated` camera
-├── src/arducam/{mod,listing,yuv,metadata}.rs  # US2
+├── src/rpicam/{mod,listing,yuv,metadata}.rs   # US2
 ├── src/detect.rs                        # US2: cedar's settings, top 200
 ├── src/capture.rs                       # US2: the capture loop and restarts; US4 extends
 ├── src/config.rs                        # US2
@@ -118,8 +118,7 @@ crates/scope-node/                       # US2 (new); US4 adds the service
 ├── src/preview.rs                       # US4: JPEG ≤640 px, ≤1 per 5 s
 ├── src/exposure.rs                      # US4: auto-exposure
 ├── src/main.rs                          # US2 (--config, --check-config); US4 (serves)
-├── tests/data/                          # PREREQUISITE: listing, stream, metadata, frame
-└── tests/{arducam,detect,cli}.rs        # US2
+└── tests/{rpicam,detect,cli}.rs         # US2
 crates/simulator/                        # US3 (new); US4 adds the node
 ├── Cargo.toml                           # scope-node, scope-link, pattern-database, math-core
 ├── src/lib.rs
@@ -165,6 +164,8 @@ crates/finder/
     └── e2e/{simulate,live-off}.spec.ts  # US10 (new)
 DESIGN.md, .impeccable/design.json       # US9
 .github/workflows/ci.yml                 # PREREQUISITE (operator, owner approval 1)
+fixtures/scope-node/                     # PREREQUISITE (operator): listing, stream,
+                                         # metadata, frame, fixtures.json, bring-up notes
 ```
 
 ## Interfaces
@@ -402,13 +403,12 @@ no story may edit `.github/`.
   `finder-page` job lacks the step (§ Plan traps, trap 7).
 
 **The node keeps one monotonic clock.**
-- Exposure times and heartbeat t1 and t2 come from the same monotonic clock: whichever
-  one `SensorTimestamp` uses, `CLOCK_BOOTTIME` or `CLOCK_MONOTONIC`. Bring-up confirms
-  which, and NTP steps on the Pi never move it.
-- `NodeClock`'s system implementation reads it safely: std's `Instant` for
-  `CLOCK_MONOTONIC`, or `rustix`'s `clock_gettime(Boottime)` for `CLOCK_BOOTTIME`.
-  `rustix` is already in the lockfile.
-- On a Pi that never suspends, the two are equal.
+- Exposure times and heartbeat t1 and t2 come from the same monotonic clock, the one
+  `SensorTimestamp` uses. NTP steps on the Pi never move it.
+- Bring-up could not tell `CLOCK_BOOTTIME` from `CLOCK_MONOTONIC`: on the Pi 3B+ they
+  differed by 4.4 µs, because the Pi never suspends, and they differ only by time spent
+  suspended. So `NodeClock`'s system implementation is std's `Instant`
+  (`CLOCK_MONOTONIC`), and the node needs no `rustix`.
 
 **The console maps clocks with the least-delay exchange of the last 8 s.**
 - That is 32 heartbeats at 250 ms. Crystal drift over 8 s is microseconds, against 15″
@@ -456,25 +456,33 @@ is an error naming the range. The node never silently clamps what the console se
 
 **`simulated` in the node's config is a database-free synthetic camera.** It lives in
 `scope-node` and draws seeded random stars with no catalog. That lets the Pi binary be
-checked end to end without the Arducam and without linking the pattern database, and it
+checked end to end without a camera and without linking the pattern database, and it
 is the camera behind scope-node's own unit tests. The catalog-drawn sky is the
 `simulator` crate's, which runs in-process under `finder --simulate` and in tests.
 (Decided in this conversion, because the change named the `simulated` adapter without
 saying what it renders.)
 
-**The Arducam adapter runs `rpicam-vid` as a subprocess.**
+**The rpicam adapter runs `rpicam-vid` as a subprocess.** It drives any camera Raspberry
+Pi OS's camera stack supports. Bring-up used an Arducam OV5647, and the finder will use a
+mono IMX296; both use the OS's own drivers.
 - **Capture:** `rpicam-vid --codec yuv420 -o - --metadata <fifo> --metadata-format json
   --nopreview -t 0`, with the mode, shutter, gain and frame rate set. Denoise and
   sharpening are off, and contrast and saturation are neutral, so the ISP's tone curve
   does not distort star brightness.
-- **Frames:** each is read from stdout at the configured stride (rows padded past the
-  width), and its Y plane is kept without the padding. `SensorTimestamp` gives the
-  exposure start, and `ExposureTime` its length.
+- **Frames:** each is read from stdout at the row stride, which is the width rounded up
+  to a multiple of 64 bytes, as bring-up measured (`fixtures.json`'s
+  `stride_alignment`). Its Y plane is kept without the padding. `SensorTimestamp` gives
+  the exposure start, and `ExposureTime` its length.
+- **Metadata:** `--metadata-format json` writes one JSON array: `[` when `rpicam-vid`
+  starts, one object per frame, and `]` when it exits. The adapter reads the objects one
+  by one as frames arrive, and never waits for the closing `]`.
 - **Settings changes** restart the subprocess, since `rpicam-vid` takes no runtime
   control. At 1–5 frames a second, auto-exposure's few steps cost a few seconds at most.
 - **Camera info** comes from parsing `rpicam-hello --list-cameras`.
 - **Tests:**
-  - parsing and framing run on the saved listing and the saved stream with its metadata;
+  - parsing and framing run on the saved listing and the saved stream with its metadata,
+    and every expected value comes from `fixtures.json`, never a literal, so another
+    camera's fixtures change no test;
   - the subprocess handling runs on CI with a fake `rpicam-vid` script first on `PATH`,
     which replays the fixture and exits;
   - only spawning the real binary stays untested.
@@ -499,7 +507,7 @@ exposure ← exposure · (30 / max(N, 1))^0.7
 - `/etc/scope-node/config.toml` (`--config` moves it) holds:
   - the listen address;
   - the token;
-  - the adapter, `arducam` or `simulated`;
+  - the adapter, `rpicam` or `simulated`;
   - the starting exposure and gain, each a number or `"auto"`.
 - It is parsed with serde's `deny_unknown_fields`. Errors name the key, such as
   `exposre_ms`, or the field with the bad value, such as `gain`.
@@ -682,8 +690,8 @@ the interceptor.
 
 **The crate.**
 - `crates/scope-node` is a library plus the `scope-node` binary.
-- Its dependencies are `star-detection`, `scope-link`, `tokio`, `serde`, `toml` (new),
-  `clap` and `rustix`, the last only if bring-up names `CLOCK_BOOTTIME`.
+- Its dependencies are `star-detection`, `scope-link`, `tokio`, `serde`, `toml` (new)
+  and `clap`.
 - `plate-solver` is a dev-dependency.
 
 **`camera.rs`.**
@@ -694,11 +702,12 @@ the interceptor.
 
 **`synthetic.rs`** is the `simulated` camera, which draws seeded random stars.
 
-**`arducam/`.**
+**`rpicam/`.**
 - `listing.rs` parses `rpicam-hello --list-cameras`.
 - `yuv.rs` splits a byte stream into frames at `stride × height × 3/2`, keeping
   `width` bytes of each Y row.
-- `metadata.rs` reads the JSON lines for `SensorTimestamp` (ns) and `ExposureTime` (µs).
+- `metadata.rs` reads the JSON array's objects one by one for `SensorTimestamp` (ns) and
+  `ExposureTime` (µs).
 - `mod.rs` spawns `rpicam-vid` with the arguments above, from `PATH`, pairs frames with
   metadata, and reports exit with the captured stderr.
 
@@ -709,9 +718,12 @@ restarts the camera, without the process restarting.
 **`config.rs` and `main.rs`.** `main` parses `--config` and `--check-config`, loads and
 validates the config, and then runs the capture loop. Serving is added in US4.
 
-**Fixtures.** The fixtures are the operator's (Prerequisites). Their sizes and the mode
-they were taken in are recorded in `crates/scope-node/tests/data/README.md`, by the
-operator.
+**Fixtures.** The fixtures are the operator's (Prerequisites), in `fixtures/scope-node/`
+(§ Plan traps, trap 11). `fixtures.json` records the camera's model, size and modes, the
+stream's width, height, stride and frame count, and each frame's timestamp and exposure.
+The tests take every expected camera value from it, never from a literal. When the
+finder's own camera replaces the bring-up camera, the operator swaps the files and
+`fixtures.json`, and no test changes.
 
 ## User Story 3 — The simulator
 
@@ -879,27 +891,27 @@ two for the connector, plus `simulator` as a dev-dependency.
    it. Met: 012 completed on 2026-10-31 with US8 at 108a5a8, and the shapes above were
    re-read against US7 and US8 as they landed.
 2. **The bring-up fixtures and notes are on `main`**, staged by the operator from the Pi
-   3B and its Arducam.
-   - In `crates/scope-node/tests/data/`:
-     - `list-cameras.txt`, a saved `rpicam-hello --list-cameras`;
-     - `stream.yuv` and `stream.json`, a short `rpicam-vid --codec yuv420` stream with
-       padded rows and its metadata;
-     - `finder-frame.png`, a saved gray frame;
-     - a `README.md` giving each file's mode, stride, frame count and size.
+   3B+ and its camera, in `fixtures/scope-node/`:
+   - `list-cameras.txt`, a saved `rpicam-hello --list-cameras`;
+   - `stream.yuv` and `stream.json`, a short `rpicam-vid --codec yuv420` stream with
+     padded rows and its metadata;
+   - `finder-frame.png`, a saved gray frame;
+   - `fixtures.json`, which records what the files hold (§ User Story 2, Fixtures).
 
      The stream and the frame are each well over 200 KiB. Take the smallest mode whose
      rows are padded, keep two or three frames, and compress the stream if that keeps the
      test simple. That is why no story can carry them.
-   - In `crates/scope-node/README.md`, the bring-up notes:
-     - the Arducam's model and modes;
+   - `README.md`, each file's mode, stride, frame count and size, and the bring-up notes:
+     - the camera's model and modes;
      - the row stride;
      - which monotonic clock `SensorTimestamp` uses;
      - the finder camera's measured field of view;
      - detection time per frame on the Pi 3B;
      - Wi-Fi throughput.
-3. **The `finder-page` job installs protoc** (owner approval 1). The operator lands the
-   same "Install protoc" step the Rust jobs use in `.github/workflows/ci.yml`. The
-   factory's `test` gate and `ergane-gates.yml` need no change.
+3. **The `finder-page` job installs protoc** (owner approval 1). Met: #126, at 7f487e5,
+   which added the same "Install protoc" step the Rust jobs use to
+   `.github/workflows/ci.yml`. The factory's `test` gate and `ergane-gates.yml` need no
+   change.
 4. **The owner approvals are given.** They are listed in spec § Owner approvals, and
    flipping to `ready` records them.
 5. **The factory's coding agent can run cargo.** Met since ergane#896 (deployed
@@ -916,8 +928,8 @@ two for the connector, plus `simulator` as a dev-dependency.
 
 ## Plan traps
 
-Lessons from building 012 on this factory, each with its mechanism and the check that
-keeps it from recurring. They bind every story.
+Lessons from building 012 on this factory, and from staging 013's bring-up, each with
+its mechanism and the check that keeps it from recurring. They bind every story.
 
 1. **Gate evidence or nothing.** The judge credits only the gate results and the story's
    diff. A Then clause that names a check only CI runs, or a test no gate runs, fails
@@ -992,12 +1004,17 @@ keeps it from recurring. They bind every story.
     preview goes below the legend (T066), the stale state makes neither block taller
     (T067), and US8 and US9 run `CI=1 npm run e2e` before proposing, with
     `e2e/session.spec.ts` unchanged and green.
+11. **A folder under `crates/` needs a `Cargo.toml`.** The workspace's members are
+    `crates/*`, so cargo loads every folder there as a crate. Staging the fixtures in
+    `crates/scope-node/tests/data/` before US2 creates the crate failed every cargo
+    command with "failed to load manifest for workspace member". *Check:* the fixtures
+    and notes live in `fixtures/scope-node/`, and US2 creates `crates/scope-node` whole.
 
 ## Risks
 
 | Risk | Mitigation |
 |---|---|
-| The Arducam needs Arducam's own drivers, or doesn't support the Pi 3B. | Bring-up runs before the spec is ready. The camera port makes another camera an adapter, not a respec. |
+| The finder's camera needs its maker's own drivers, or doesn't support the Pi 3B. | Bring-up runs before the spec is ready. The bring-up camera (an Arducam OV5647) and the finder's (a mono IMX296) both use Raspberry Pi OS's own drivers. The camera port makes another camera an adapter, not a respec. |
 | The finder camera's field lies outside the bundled 10–30° database. | Bring-up measures it, and the operator builds a matching database with `database-generation`, outside the factory. Setup warns when frames don't solve (FR-037). |
 | The ISP's tone curve compresses star brightness and shifts the threshold. | Neutral ISP settings. Bring-up compares against a raw capture, and sigma can be adjusted from Setup. |
 | 2.4 GHz-only Wi-Fi is slow. | Star lists are about 1 KB. Previews are capped at one per 5 s and 640 px. Bring-up measures throughput. |
@@ -1075,10 +1092,10 @@ stories:
         disposition: add
         assertion: "the simulated camera refuses an exposure past its range with an error naming the range, and takes no frame"
         decision: "spec.md:US2-S1"
-      - path: crates/scope-node/tests/arducam.rs
+      - path: crates/scope-node/tests/rpicam.rs
         status: new
         disposition: add
-        assertion: "the saved listing parses to the model, every mode and the active mode; the padded stream gives each Y plane byte for byte with the saved times; a fake rpicam-vid that exits is reported with its stderr and restarted in the same process"
+        assertion: "the saved listing parses to the model, the full size and every mode as fixtures.json records them; the padded stream gives each Y plane byte for byte with the saved times, at fixtures.json's stride; a fake rpicam-vid that exits is reported with its stderr and restarted in the same process"
         decision: "spec.md:US2-S3"
       - path: crates/scope-node/tests/detect.rs
         status: new
@@ -1096,7 +1113,7 @@ stories:
         assertion: "star-detection still agrees with cedar-detect; the node calls it and never forks it"
         decision: "spec.md:FR-006"
     preserved_behavior:
-      - "the operator's fixtures in crates/scope-node/tests/data/ and bring-up notes in crates/scope-node/README.md are unchanged (tasks.md T020, T021)"
+      - "the operator's fixtures and bring-up notes in fixtures/scope-node/ are unchanged (tasks.md T020, T021)"
       - "the repository has no .cargo/config.toml, which scripts/ci/e2e-eval.sh refuses (spec.md FR-008)"
       - "scope-node's [dependencies] name no plate-solver, pattern-database or finder (spec.md US2-S9, SC-005)"
     checks:
@@ -1114,15 +1131,15 @@ stories:
       - crates/scope-node/src/camera.rs
       - crates/scope-node/src/synthetic.rs
       - crates/scope-node/src/clock.rs
-      - crates/scope-node/src/arducam/mod.rs
-      - crates/scope-node/src/arducam/listing.rs
-      - crates/scope-node/src/arducam/yuv.rs
-      - crates/scope-node/src/arducam/metadata.rs
+      - crates/scope-node/src/rpicam/mod.rs
+      - crates/scope-node/src/rpicam/listing.rs
+      - crates/scope-node/src/rpicam/yuv.rs
+      - crates/scope-node/src/rpicam/metadata.rs
       - crates/scope-node/src/detect.rs
       - crates/scope-node/src/capture.rs
       - crates/scope-node/src/config.rs
       - crates/scope-node/src/main.rs
-      - crates/scope-node/tests/arducam.rs
+      - crates/scope-node/tests/rpicam.rs
       - crates/scope-node/tests/detect.rs
       - crates/scope-node/tests/cli.rs
     shared_writes:
