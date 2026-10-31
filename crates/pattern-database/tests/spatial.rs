@@ -103,54 +103,54 @@ fn nearby_stars_all_inclusive_radius_returns_every_star() {
 }
 
 #[test]
-fn kdtree_query_scales_sublinearly() {
-    // Build a sequence of synthetic catalogs and measure query time. For a
-    // fixed angular radius on a uniform sphere, the number of stars inside the
-    // cap grows linearly with N. A linear scan's query time tracks that growth.
-    // A KD-tree query time should grow sublinearly because it prunes most nodes.
-    let mut last_count: Option<usize> = None;
-    let mut last_time: Option<std::time::Duration> = None;
-    let mut prev_n: usize = 0;
-
-    // Fixed 5° radius: the cap covers a constant solid angle, so result count
-    // is proportional to N.
+fn kdtree_query_beats_a_linear_scan() {
+    // A KD-tree prunes, so at a size where a linear scan touches every star its
+    // radius query must be clearly faster than that scan. One large catalog
+    // timed against its own scan, in interleaved batches compared by median,
+    // stays stable on a noisy CI runner. The previous version compared timing
+    // ratios between catalogs as small as 400 stars, where a query returns 0 to
+    // 2 stars in well under a microsecond, and noise alone failed it.
+    let n = 51_200;
+    let db = synthetic_database(n);
     let radius = 5.0_f64.to_radians();
     let boresight = UnitVector::from_radec(1.0, 0.3);
 
-    for n in [400_usize, 1600, 6400, 25600] {
-        let db = synthetic_database(n);
+    let expected = brute_force(&db, boresight, radius);
+    assert!(
+        expected.len() > 50,
+        "the cap should hold enough stars that both queries do real work; got {}",
+        expected.len()
+    );
+    assert_eq!(db.nearby_stars(boresight, radius), expected);
 
-        // Average many runs to reduce timing noise in CI.
-        let runs = 100;
-        for _ in 0..runs {
-            let _ = db.nearby_stars(boresight, radius);
-        }
+    let batches = 9;
+    let runs = 10;
+    let mut tree_times = Vec::with_capacity(batches);
+    let mut scan_times = Vec::with_capacity(batches);
+    for _ in 0..batches {
         let start = Instant::now();
         for _ in 0..runs {
-            let _ = db.nearby_stars(boresight, radius);
+            std::hint::black_box(db.nearby_stars(boresight, radius));
         }
-        let elapsed = start.elapsed();
-        let per_query = elapsed / runs as u32;
+        tree_times.push(start.elapsed());
 
-        let count = db.nearby_stars(boresight, radius).len();
-
-        if let (Some(prev_count), Some(prev_time)) = (last_count, last_time) {
-            let count_ratio = (count as f64).max(1.0) / (prev_count as f64).max(1.0);
-            let time_ratio = per_query.as_secs_f64() / prev_time.as_secs_f64();
-            // A linear scan would show time_ratio ≈ count_ratio. A KD-tree
-            // should be well below that. The bound is intentionally loose to
-            // stay stable under CI noise while still catching a degenerate
-            // linear scan.
-            assert!(
-                time_ratio < count_ratio * 1.5,
-                "query time scaled too fast: N {prev_n} -> {n}, result count {prev_count} -> {count} (ratio {count_ratio:.2}), per-query time ratio {time_ratio:.2}"
-            );
+        let start = Instant::now();
+        for _ in 0..runs {
+            std::hint::black_box(brute_force(&db, boresight, radius));
         }
-
-        last_count = Some(count);
-        last_time = Some(per_query);
-        prev_n = n;
+        scan_times.push(start.elapsed());
     }
+    tree_times.sort();
+    scan_times.sort();
+    let tree = tree_times[batches / 2];
+    let scan = scan_times[batches / 2];
+
+    // A degenerate tree that visits every node runs at about the scan's speed.
+    // A working one is far faster; 3x leaves a wide margin for noise.
+    assert!(
+        tree * 3 < scan,
+        "KD-tree query is not clearly faster than a linear scan at N {n}: median {tree:?} vs {scan:?} per {runs} queries"
+    );
 }
 
 /// Build a simple in-memory database with `n` stars on a uniform-ish sphere.
