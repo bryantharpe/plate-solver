@@ -3,21 +3,41 @@ import { defineConfig } from "@playwright/test";
 // End to end: the real `finder` binary, its database and sample frames, serving the built
 // page (dist/), driven in Chromium. Set FINDER_URL to test a server that is already
 // running; otherwise a release build is started here (the first run compiles it).
-const url = process.env.FINDER_URL ?? "http://127.0.0.1:8097";
+const externalURL = process.env.FINDER_URL;
+const consoleURL = "http://127.0.0.1:8097";
+const sessionURL = "http://127.0.0.1:8098";
+
+function server(port: number, name: string) {
+  return {
+    // Create state at server startup, never in the user's normal state directory.
+    // mktemp gives each server and each run a separate folder, even after a failure.
+    command: [
+      "mkdir -p target",
+      `state_dir=$(mktemp -d target/finder-e2e-${name}.XXXXXX)`,
+      `cargo run --release --locked -p finder -- --listen 127.0.0.1:${port} --state "$state_dir"`,
+    ].join(" && "),
+    cwd: "../../..",
+    url: `http://127.0.0.1:${port}/api/health`,
+    timeout: 20 * 60_000,
+    reuseExistingServer: false,
+  };
+}
 
 export default defineConfig({
   testDir: "e2e",
   timeout: 60_000,
   forbidOnly: !!process.env.CI,
   reporter: "list",
-  use: { baseURL: url, browserName: "chromium" },
-  webServer: process.env.FINDER_URL
-    ? undefined
-    : {
-        command: "cargo run --release --locked -p finder -- --listen 127.0.0.1:8097",
-        cwd: "../../..",
-        url: `${url}/api/health`,
-        timeout: 20 * 60_000,
-        reuseExistingServer: !process.env.CI,
-      },
+  use: { baseURL: externalURL ?? consoleURL, browserName: "chromium" },
+  projects: [
+    { name: "default", testIgnore: "**/session.spec.ts" },
+    {
+      name: "session",
+      testMatch: "**/session.spec.ts",
+      use: { baseURL: externalURL ?? sessionURL },
+      // An explicit URL shares one server: finish the existing suite before edits.
+      dependencies: externalURL ? ["default"] : [],
+    },
+  ],
+  webServer: externalURL ? undefined : [server(8097, "console"), server(8098, "session")],
 });
