@@ -96,15 +96,17 @@ settings and the aim point, and Setup gains a scope node and camera section.
 - Q: Can the factory's `test` gate run protoc and a third Playwright server? → A: Yes,
   with no change to the gate. plan.md § Plan traps gives the evidence, and the one
   condition on the host: nothing else may listen on 8097–8099 while a story's gates run.
-- Q: Can any of the ten stories build at the same time? → A: Yes, the two page stories.
+- Q: Can any of the ten stories be in flight at the same time? → A: Yes, the two page stories.
   This replaces "in one chain" in the slicing answer above. The first seven stories stay
   a chain, because each compiles against the crate or feature the one before it adds.
   US8 and US9 write only `crates/finder/web/**`, which no Rust story touches, and their
   tests fake the server from plan.md § Interfaces, so they build beside the first track.
-  US10 joins the two tracks. The factory runs up to two stories at once, so the longest
-  path drops from ten stories to eight. Each builder has its own worktree, but every
-  builder and gate shares the host's ports, so two end-to-end runs must not meet
-  (plan.md, Prerequisite 6).
+  US10 joins the two tracks. The factory keeps up to two stories in flight, so the
+  longest path drops from ten stories to eight. It has one coding agent, though, so two
+  stories never build at once: one builds while the other is verified or in the merge
+  queue, and the saving is that overlap, not a second builder. Each story has its own
+  worktree, but every builder and gate shares the host's ports, so two end-to-end runs
+  must not meet (plan.md, Prerequisite 6).
 
 ## Owner approvals
 
@@ -1044,7 +1046,9 @@ creates:
 | US10 | US9: it drives the finished page |
 | US10 | US7: it drives that page on `finder --simulate`, which US7 adds |
 
-The graph has two tracks, and the factory can build a story from each at the same time.
+The graph has two tracks, and the factory can keep a story from each in flight. It has
+one coding agent, so the two never build at the same moment: while one story builds, the
+other is verified or in the merge queue.
 The first seven stories are a chain: each compiles against the crate or feature the one
 before it adds, each changes `Cargo.lock`, and US5 to US7 all edit
 `crates/finder/src/api.rs` and `src/session.rs`. The page stories, US8 and US9, write only
@@ -1055,8 +1059,8 @@ finished page on the simulator.
 
 `concurrent_with: [US7]` on US8 overrides one edge the factory would otherwise infer. Both
 stories' tasks name the route `/api/live/preview.jpg`, which it reads as a shared file;
-they share no file. Building two stories at once also needs plan.md's Prerequisite 6, so
-that two end-to-end runs never contend for the same ports.
+they share no file. Keeping two stories in flight also needs plan.md's Prerequisite 6, so
+that one story's end-to-end run never contends with the other's for the same ports.
 
 The edges from US2 to US4 and from US5 to US7 add no order the chain does not already
 give. They name the two pairs of stories that share a file without being neighbours, so

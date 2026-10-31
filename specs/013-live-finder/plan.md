@@ -905,14 +905,14 @@ two for the connector, plus `simulator` as a dev-dependency.
 5. **The factory's coding agent can run cargo.** Met since ergane#896 (deployed
    2026-10-28): 012's stories built and tested with it. Every story from US1 to US7
    changes `Cargo.lock`, and US2 adds `toml`, which a hand edit cannot lock.
-6. **Two end-to-end runs never meet.** Two stories build at once (spec.md § Work Graph),
-   and every builder and gate binds 8097–8099 when it runs `npm run e2e`. The operator
-   lands a change to `crates/finder/web/package.json`, approved by the owner, that makes
-   the `e2e` script hold one host-wide lock for the run: `flock` on a file in
-   `$PLAYWRIGHT_BROWSERS_PATH`, the Playwright cache that every builder and every gate
-   binds from the same host folder. A run that finds the lock taken waits for it. If it
-   cannot land, the operator puts `depends_on_merged: [US7]` back on US8 before 013 is
-   flipped, and the stories run as one chain.
+6. **Two end-to-end runs never meet.** Met: #125, at 80cbd51. Two stories are in flight
+   at once (spec.md § Work Graph): one builds while the other's gates run, and every
+   builder and gate binds 8097–8099 when it runs `npm run e2e`. That script now runs
+   `crates/finder/web/scripts/e2e.sh`, which builds the release server, then holds
+   `flock` on `.finder-e2e.lock` in `$PLAYWRIGHT_BROWSERS_PATH`, the Playwright cache
+   that every builder and every gate binds from the same host folder. A run that finds
+   the lock taken waits for it, for up to an hour. With `FINDER_URL` set, it takes no
+   lock, since it binds no port.
 
 ## Plan traps
 
@@ -955,11 +955,13 @@ keeps it from recurring. They bind every story.
    network, so every e2e run binds the host's 127.0.0.1:8097, 8098 and 8099. A console
    left running on one of them, or a second e2e run at the same time, fails the run
    before a test starts (`reuseExistingServer: false`). The factory runs one gate at a
-   time across the host, but a builder runs `npm run e2e` in its own sandbox, so with two
-   stories building, two runs can meet. *Check:* the operator keeps 8097–8099 free on the
-   factory host while a story builds; every e2e run goes through `npm run e2e`, which
-   waits its turn (Prerequisite 6), never `npx playwright` directly; a test binds
-   `127.0.0.1:0`, and only `playwright.config.ts` names a fixed port.
+   time in each worker process, but a builder runs `npm run e2e` in its own sandbox. So
+   with two stories in flight, one story's builder can run e2e while the other's gate
+   does, and during a rolling worker deploy two gates can run at once. *Check:* the
+   operator keeps 8097–8099 free on the factory host while a story builds; every e2e run
+   goes through `npm run e2e`, which waits its turn (Prerequisite 6), never
+   `npx playwright` directly; a test binds `127.0.0.1:0`, and only `playwright.config.ts`
+   names a fixed port.
 7. **The gate can run it.** A probe on 2026-10-31 ran one gate through Ergane's own
    `run_gates`, inside the real gate boundary with this repository's caches, on `main` at
    5f61b89, and passed. In it, `/usr/bin/protoc` compiled a proto3 `optional`,
