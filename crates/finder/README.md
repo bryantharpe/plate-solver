@@ -29,6 +29,7 @@ cargo run --release -p finder -- --db my_camera.npz --samples ~/frames
 | `--db PATH` | cedar's `default_database.npz` | Pattern database covering your camera's field of view. |
 | `--samples DIR` | cedar's `medium_fov` samples | Folder of frames to offer on the page. |
 | `--listen ADDR` | `127.0.0.1:8080` | Address to serve on. `0.0.0.0:8080` lets other devices connect. |
+| `--state DIR` | `$XDG_STATE_HOME/finder`, otherwise `~/.local/state/finder` | Folder holding the observing session in `session.json`. |
 | `--licenses` | | Print the third-party notices for the embedded page and data, and exit. |
 
 ### From a phone
@@ -104,3 +105,37 @@ The page uses the API types in `web/src/api.ts`, which mirror the Rust structs i
 | `GET /api/samples/{name}` | A sample frame's file. `…/thumb` is a 320-pixel JPEG preview. |
 | `POST /api/solve` | Multipart: an `image` file or a `sample` name, and optionally `fov`, `fov_max_error`, `distortion`, `bin`, `sigma`, `stars`, `timeout_ms` (the `solve_image` flags). Answers a `SolveReport`. |
 | `GET /api/similar?id=M42&lat=&lon=&time=` | Objects like `id`, best first. With `lat`/`lon` (degrees, east positive) and optional Unix `time`, each has its altitude and whether it is up. |
+| `GET /api/session` | One shared observing session: `{site, min_alt_deg, target, pointing, time}`. |
+| `PUT /api/session` | JSON partial edit: `{site?, min_alt_deg?, target?}`. Answers the updated observing session. |
+
+All phones and laptops connected to the console read and edit the same observing session.
+A fresh session has no site, target or latest pointing, and a minimum altitude of 15°.
+`time` is the console's clock in Unix seconds. The binary uses the system clock and has
+no fixed-clock option.
+
+For example, set the site and choose Orion's nebula:
+
+```sh
+curl -X PUT http://127.0.0.1:8080/api/session \
+  -H 'Content-Type: application/json' \
+  -d '{"site":{"lat_deg":40,"lon_deg":-75},"target":"M42"}'
+```
+
+The returned target is the full canonical catalog object (`NGC 1976`, Messier `M42`).
+Latitude accepts ±90°, longitude ±180° (east positive), and `min_alt_deg` accepts 0–80°.
+Omitted fields remain unchanged; `{"target":null}` clears the target and `{"site":null}`
+clears the site. A malformed edit, an unknown field (including `sun_guard`) or an invalid
+range answers 400 with `{"error":"..."}`. An unknown target id answers 404 with the same
+error shape. Each rejected edit leaves the entire observing session unchanged.
+
+The binary loads and saves the site, minimum altitude and canonical target id across
+restarts. `--state DIR` overrides the default folder. Empty or unset `XDG_STATE_HOME`
+falls back to `~/.local/state/finder`. Each write syncs `session.json.tmp` before renaming
+it to `session.json`. An unreadable or invalid state file is reported on stderr and kept
+as `session.json.bad` beside a fresh file. Time and latest pointing are not persisted.
+
+Library callers get an in-memory session by default, without reading or writing a state
+folder. To persist explicitly, pass `Session::with_state_file(path)` to
+`AppState::with_session`. Tests and simulations can pass an `Arc<dyn Clock>` to
+`AppState::with_clock`; `FixedClock` provides repeatable Unix seconds, and all
+time-dependent API defaults use that clock.
