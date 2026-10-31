@@ -1,0 +1,60 @@
+{
+  "camera": {
+    "model": "ov5647",
+    "width": 2592,
+    "height": 1944,
+    "bit_depth": 10,
+    "bayer_order": "GBRG",
+    "modes": [
+      {
+        "width": 640,
+        "height": 480
+      },
+      {
+        "width": 1296,
+        "height": 972
+      },
+      {
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "width": 2592,
+        "height": 1944
+      }
+    ]
+  },
+  "stride_alignment": 64,
+  "stream": {
+    "file": "stream.yuv",
+    "metadata": "stream.json",
+    "format": "yuv420",
+    "width": 1296,
+    "height": 972,
+    "stride": 1344,
+    "frames": 3,
+    "frame_bytes": 1959552,
+    "padding_byte_values": [
+      0
+    ],
+    "sensor_timestamps_ns": [
+      596376924000,
+      596562099000,
+      596747272000
+    ],
+    "exposure_times_us": [
+      19956,
+      19956,
+      19956
+    ]
+  },
+  "finder_frame": {
+    "file": "finder-frame.png",
+    "width": 1296,
+    "height": 972,
+    "source": "stream-frame2.pgm"
+  },
+  "listing": {
+    "file": "list-cameras.txt"
+  }
+}

@@ -19,6 +19,8 @@
 
 /reference-solutions/                           @bryantharpe
 /crates/*/tests/data/                           @bryantharpe
+/fixtures/                                      @bryantharpe
+/.secretsignore                                 @bryantharpe
 /crates/plate-solver/tests/reference_parity.rs  @bryantharpe
 /crates/plate-solver/tests/image_parity.rs      @bryantharpe
 /crates/grpc-service/tests/e2e_service.rs       @bryantharpe
