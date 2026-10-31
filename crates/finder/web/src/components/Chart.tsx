@@ -133,7 +133,8 @@ export function Chart({ report, imageUrl, label, busy, layers, onLayers, session
       className="chart lg:mx-auto lg:max-w-[calc((100dvh-11rem)*var(--chart-aspect))]"
       style={{ "--chart-aspect": W / H } as CSSProperties}
     >
-      <div ref={box}>
+      {/* Leave room for guidance on a phone while keeping the legend at full width. */}
+      <div ref={box} className={session?.target ? "max-sm:mx-5" : undefined}>
         <svg
           key={key}
           viewBox={`${-m} ${-m} ${W + 2 * m} ${H + 2 * m}`}
