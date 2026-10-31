@@ -4,6 +4,7 @@ import type { LiveReport, ObservingSession } from "./api";
 import { ORION2 } from "./test/fixtures";
 import { SESSION, TIME } from "./test/targets";
 import { useLive } from "./useLive";
+import { useSession } from "./useSession";
 
 // Oracles: the stream wire contract, the saved Orion report, and FR-035's strict
 // >5 s boundary. The browser clock deliberately differs from the console clock.
@@ -53,6 +54,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -133,5 +135,27 @@ describe("live reports", () => {
     act(() => vi.advanceTimersByTime(60000));
     expect(result.current.stale).toBe(false);
     expect(result.current.session.pointing?.source).toBe("upload");
+  });
+
+  it("preserves optional live session fields on reads without adding missing or null fields", async () => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const wire: ObservingSession = {
+      ...CONNECTED,
+      camera_settings: { exposure_ms: "auto", gain: 2, sigma: 8 },
+      aim: { x: 700, y: 420 },
+      field: { fov_deg: 12, db_min_fov_deg: 10, db_max_fov_deg: 30, unsolved_s: 0 },
+    };
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify(wire)));
+    const { result, unmount } = renderHook(() => useSession());
+    await act(async () => {});
+    expect(result.current.session).toEqual(wire);
+    unmount();
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ site: null, node: null })));
+    const empty = renderHook(() => useSession());
+    await act(async () => {});
+    for (const key of ["node", "camera_settings", "aim", "field"] as const) {
+      expect(empty.result.current.session[key]).toBeUndefined();
+      expect(Object.hasOwn(empty.result.current.session, key)).toBe(false);
+    }
   });
 });

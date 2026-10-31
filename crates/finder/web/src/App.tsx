@@ -5,6 +5,7 @@ import { ChartHeader, ChartHeaderPlaceholder } from "./components/ChartHeader";
 import { FieldList, FieldRoster } from "./components/FieldList";
 import { FramePicker, SampleGrid } from "./components/FramePicker";
 import { GuidanceBlock } from "./components/GuidanceBlock";
+import { LivePreview } from "./components/LivePreview";
 import { Upload } from "./components/Icons";
 import { NextTargets } from "./components/NextTargets";
 import { SetupPage } from "./components/SetupPage";
@@ -14,13 +15,18 @@ import { TargetSheet } from "./components/TargetSheet";
 import { useLastSample, useNight, useSite } from "./settings";
 import { useSolve } from "./useSolve";
 import { useSession } from "./useSession";
+import { useLive } from "./useLive";
 
 const FIRST_SAMPLE = "orion2.jpg";
+// A transparent pixel keeps the chart's existing image layer empty until a preview
+// is available below it, without making a request for a full camera photograph.
+const LIVE_IMAGE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 export function App() {
   const [night, setNight] = useNight();
   const [browserSite, setBrowserSite] = useSite();
   const { session, loaded, error: sessionError, put } = useSession();
+  const { live, pointingSeq: liveSeq, previewSeq, stale, session: liveSession } = useLive(session);
   const site = useMemo(
     () => (session.site ? { lat: session.site.lat_deg, lon: session.site.lon_deg } : null),
     [session.site?.lat_deg, session.site?.lon_deg],
@@ -77,15 +83,41 @@ export function App() {
     run(source, solveWith);
   };
 
-  const report = state.phase === "done" ? state.report : null;
+  const uploadedReport = state.phase === "done" ? state.report : null;
+  // Sequence numbers order solved uploads and live pointings on the console.
+  // Arrival order also covers no-match reports, which carry no pointing sequence.
+  const [preferLive, setPreferLive] = useState(false);
+  useEffect(() => {
+    if (live) setPreferLive(true);
+  }, [live]);
+  useEffect(() => {
+    if (state.phase === "done" || state.phase === "error") setPreferLive(false);
+  }, [state]);
+  const showLive =
+    live !== null &&
+    (uploadedReport?.pointing_seq !== undefined && liveSeq != null
+      ? liveSeq > uploadedReport.pointing_seq
+      : preferLive);
+  const liveReport = useMemo(
+    () =>
+      live && {
+        ...live.report,
+        ...(live.pointing_seq !== null && { pointing_seq: live.pointing_seq }),
+      },
+    [live],
+  );
+  const report = showLive ? liveReport : uploadedReport;
   const reference = useMemo(() => {
     const objects = report?.objects ?? [];
     return objects.find((o) => o.id === selected) ?? objects.find((o) => o.inside) ?? objects[0] ?? null;
   }, [report, selected]);
 
-  const source = state.phase === "idle" ? null : state.source;
-  const label = state.phase === "idle" ? null : state.label;
-  const busy = state.phase === "solving";
+  const source = showLive || state.phase === "idle" ? null : state.source;
+  const label = showLive ? `Live frame ${live.frame_id}` : state.phase === "idle" ? null : state.label;
+  const imageUrl = showLive ? LIVE_IMAGE : state.phase === "idle" ? "" : state.imageUrl;
+  const busy = !showLive && state.phase === "solving";
+  const hasFrame = showLive || state.phase !== "idle";
+  const chartSession = showLive ? liveSession : session;
 
   // The frame's shape sets how wide the page is on a big screen (see .page-width); keep
   // the last one while the next frame solves.
@@ -127,10 +159,10 @@ export function App() {
           >
             {session.target && (
               <div className="lg:col-span-2 lg:row-start-1">
-                <GuidanceBlock session={session} onSetup={() => navigate("/setup")} />
+                <GuidanceBlock session={liveSession} stale={stale} onSetup={() => navigate("/setup")} />
               </div>
             )}
-            {state.phase !== "idle" && (
+            {hasFrame && (
               <div
                 className={`space-y-3 sm:space-y-4 lg:col-start-1 ${session.target ? "lg:row-start-2" : "lg:row-start-1"}`}
               >
@@ -139,6 +171,7 @@ export function App() {
                     report={report}
                     label={label ?? ""}
                     sigma={settings.sigma ?? 8}
+                    stale={showLive && stale}
                     onRetry={(sigma) => {
                       const next = { ...settings, sigma };
                       setSettings(next);
@@ -149,30 +182,31 @@ export function App() {
                   <ChartHeaderPlaceholder busy={busy} label={label} />
                 )}
                 {report?.pointing && !session.target && <FieldRoster report={report} />}
-                {state.phase === "error" && (
+                {!showLive && state.phase === "error" && (
                   <ErrorNote message={state.message} onRetry={() => run(state.source, settings)} />
                 )}
               </div>
             )}
 
-            {state.phase === "idle" && (
+            {!hasFrame && (
               <div className={`lg:col-span-2 ${session.target ? "lg:row-start-2" : "lg:row-start-1"}`}>
                 <FirstRun onPick={(name) => open({ kind: "sample", name })} onUpload={() => setPicker(true)} />
               </div>
             )}
 
-            {state.phase !== "idle" && (
+            {hasFrame && (
               <div className={`lg:col-start-2 lg:row-span-3 ${session.target ? "lg:row-start-2" : "lg:row-start-1"}`}>
                 <div className="lg:sticky lg:top-24">
                   <Chart
                     report={report}
-                    imageUrl={state.imageUrl}
-                    label={state.label}
+                    imageUrl={imageUrl}
+                    label={label ?? ""}
                     busy={busy}
                     layers={layers}
                     onLayers={setLayers}
-                    session={session}
+                    session={chartSession}
                   />
+                  {showLive && <LivePreview seq={previewSeq} />}
                 </div>
               </div>
             )}

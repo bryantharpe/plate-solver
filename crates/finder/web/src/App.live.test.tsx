@@ -44,11 +44,12 @@ const CONNECTED: ObservingSession = {
 };
 function serve(initial: ObservingSession = CONNECTED) {
   let session = initial;
+  const started = Date.now();
   vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
     const url = String(input);
     const body =
       url === "/api/session"
-        ? session
+        ? { ...session, time: (session.time ?? TIME) + (Date.now() - started) / 1000 }
         : url === "/api/solve"
           ? { ...VIRGO, pointing_seq: 9 }
           : url.startsWith("/api/similar")
@@ -167,14 +168,40 @@ describe("the live console", () => {
     await act(async () => {});
     const stream = FakeEventSource.instances[0]!;
     act(() => stream.emit(LIVE));
-    fireEvent.click(screen.getByRole("button", { name: "Open a frame" }));
+    fireEvent.click(screen.getByRole("button", { name: "Live frame 42" }));
     await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: /Chart Virgo/ }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Choose a frame" })).getByRole("button", { name: "Virgo" }),
+    );
     await act(async () => {});
     expect(screen.getByRole("heading", { name: VIRGO.pointing!.constellation.name })).toBeTruthy();
     act(() => stream.emit({ ...LIVE, frame_id: 41, pointing_seq: 8 }));
     expect(screen.getByRole("heading", { name: VIRGO.pointing!.constellation.name })).toBeTruthy();
     act(() => stream.emit({ ...LIVE, frame_id: 43, pointing_seq: 10, report: { ...LIVE.report, pointing_seq: 10 } }));
     expect(screen.getByRole("heading", { name: "Orion" })).toBeTruthy();
+  });
+
+  it("keeps the last solved pointing's age through an unsolved report", async () => {
+    serve();
+    render(<App />);
+    await act(async () => {});
+    const stream = FakeEventSource.instances[0]!;
+    act(() => stream.emit(LIVE));
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    act(() =>
+      stream.emit({
+        ...LIVE,
+        frame_id: 43,
+        time: TIME + 1,
+        pointing_seq: null,
+        preview_seq: null,
+        report: { ...LIVE.report, pointing: null, pointing_seq: undefined, status: "no_match" },
+      }),
+    );
+    await act(() => vi.advanceTimersByTimeAsync(4000));
+    await act(() => vi.advanceTimersByTimeAsync(250));
+    expect(within(screen.getByRole("region", { name: /Target/ })).getByText(/pointing stale/i)).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "No match" })).getByText(/pointing stale/i)).toBeTruthy();
+    expect(screen.getByRole("region", { name: /Target/ }).textContent).not.toMatch(/turn |tilt /i);
   });
 });

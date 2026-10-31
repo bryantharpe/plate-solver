@@ -1,21 +1,7 @@
 // One shared observing session, refreshed while this page is in use.
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Guidance, Target } from "./api";
-
-export interface SessionSite {
-  lat_deg: number;
-  lon_deg: number;
-}
-
-export interface ObservingSession {
-  site: SessionSite | null;
-  min_alt_deg?: number;
-  target?: Target | null;
-  /** Only the latest pointing fields consumed by the page. */
-  pointing?: { seq: number; time: number; ra_deg: number; dec_deg: number; alt_deg?: number; az_deg?: number } | null;
-  time?: number;
-  guidance?: Guidance;
-}
+import type { ObservingSession, SessionSite } from "./api";
+export type { ObservingSession, SessionSite } from "./api";
 
 export interface SessionEdit {
   site?: SessionSite | null;
@@ -46,6 +32,10 @@ async function request(init?: RequestInit): Promise<ObservingSession> {
     ...(body?.pointing !== undefined && { pointing: body.pointing }),
     ...(body?.time !== undefined && { time: body.time }),
     ...(body?.guidance != null && { guidance: body.guidance }),
+    ...(body?.node != null && { node: body.node }),
+    ...(body?.camera_settings != null && { camera_settings: body.camera_settings }),
+    ...(body?.aim != null && { aim: body.aim }),
+    ...(body?.field != null && { field: body.field }),
   };
 }
 
