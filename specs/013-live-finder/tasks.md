@@ -7,9 +7,10 @@ description: "Task list for 013-live-finder: The Live Finder"
 **Prerequisites** (plan.md § Prerequisites):
 - 012 has landed;
 - the bring-up fixtures, their `fixtures.json` and the bring-up notes are in
-  `fixtures/scope-node/`;
+  `fixtures/scope-node/` (met by #129, at 2bb426a, with the frame's stars added at the
+  flip);
 - the `finder-page` job installs protoc (met by #126, at 7f487e5);
-- the owner approvals in spec.md are given;
+- the owner approvals in spec.md are given (met by the flip, 2026-10-31);
 - the coding agent can run cargo (met since ergane#896, 2026-10-28);
 - `npm run e2e` waits its turn on one host-wide lock (met by #125, at 80cbd51).
 
@@ -96,7 +97,7 @@ description: "Task list for 013-live-finder: The Live Finder"
     loop restarts the camera in the same process (US2-S4).
 - [ ] T013 [US2] Write a failing `crates/scope-node/tests/detect.rs`:
   - the saved finder frame, detected by `scope_node::detect` and by `detect_stars` with
-    `DetectParams::cedar()`, gives identical lists (US2-S5);
+    `DetectParams::cedar()`, gives identical lists, and they are not empty (US2-S5);
   - `DetectSettings::cedar()` equals `DetectParams::cedar()` field for field (US2-S6).
 - [ ] T014 [US2] Write a failing `crates/scope-node/tests/cli.rs` that runs the built
   binary:

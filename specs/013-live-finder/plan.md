@@ -895,7 +895,7 @@ two for the connector, plus `simulator` as a dev-dependency.
    - `list-cameras.txt`, a saved `rpicam-hello --list-cameras`;
    - `stream.yuv` and `stream.json`, a short `rpicam-vid --codec yuv420` stream with
      padded rows and its metadata;
-   - `finder-frame.png`, a saved gray frame;
+   - `finder-frame.png`, a saved gray frame with stars in it (§ Plan traps, trap 12);
    - `fixtures.json`, which records what the files hold (§ User Story 2, Fixtures).
 
      The stream and the frame are each well over 200 KiB. Take the smallest mode whose
@@ -908,12 +908,16 @@ two for the connector, plus `simulator` as a dev-dependency.
      - the finder camera's measured field of view;
      - detection time per frame on the Pi 3B;
      - Wi-Fi throughput.
+
+   Met: #129, at 2bb426a, from the Pi 3B+ and an Arducam OV5647. The flip's PR replaced
+   its starless daytime frame with the same frame plus 40 synthetic stars, recorded as
+   synthetic in `fixtures.json`, until a night frame of real stars replaces it.
 3. **The `finder-page` job installs protoc** (owner approval 1). Met: #126, at 7f487e5,
    which added the same "Install protoc" step the Rust jobs use to
    `.github/workflows/ci.yml`. The factory's `test` gate and `ergane-gates.yml` need no
    change.
 4. **The owner approvals are given.** They are listed in spec § Owner approvals, and
-   flipping to `ready` records them.
+   flipping to `ready` records them. Met: the owner flipped 013 to `ready` on 2026-10-31.
 5. **The factory's coding agent can run cargo.** Met since ergane#896 (deployed
    2026-10-28): 012's stories built and tested with it. Every story from US1 to US7
    changes `Cargo.lock`, and US2 adds `toml`, which a hand edit cannot lock.
@@ -1009,6 +1013,11 @@ its mechanism and the check that keeps it from recurring. They bind every story.
     `crates/scope-node/tests/data/` before US2 creates the crate failed every cargo
     command with "failed to load manifest for workspace member". *Check:* the fixtures
     and notes live in `fixtures/scope-node/`, and US2 creates `crates/scope-node` whole.
+12. **A test that compares two paths passes on empty input.** US2-S5 compares the node's
+    detection with the console's. The first saved frame was a daytime frame with no
+    stars, on which both give an empty list, so a node that detected nothing would have
+    passed. *Check:* the saved frame has stars in it, and US2-S5 also asserts that the
+    lists are not empty, so a starless frame fails the test instead of passing it.
 
 ## Risks
 
@@ -1100,7 +1109,7 @@ stories:
       - path: crates/scope-node/tests/detect.rs
         status: new
         disposition: add
-        assertion: "the saved finder frame gives identical centroid lists through the node and through detect_stars with DetectParams::cedar(), and DetectSettings::cedar() equals DetectParams::cedar() field for field"
+        assertion: "the saved finder frame gives identical, non-empty centroid lists through the node and through detect_stars with DetectParams::cedar(), and DetectSettings::cedar() equals DetectParams::cedar() field for field"
         decision: "spec.md:US2-S5"
       - path: crates/scope-node/tests/cli.rs
         status: new
