@@ -3,7 +3,15 @@ import type { Guidance } from "../api";
 import type { ObservingSession } from "../useSession";
 import { TARGET_CLASS_LABEL } from "./TargetSheet";
 
-export function GuidanceBlock({ session, onSetup }: { session: ObservingSession; onSetup?: () => void }) {
+export function GuidanceBlock({
+  session,
+  onSetup,
+  stale,
+}: {
+  session: ObservingSession;
+  onSetup?: () => void;
+  stale?: boolean;
+}) {
   const { target, guidance, pointing } = session;
   if (!target) return null;
   const age = pointing && session.time !== undefined ? Math.max(0, Math.floor(session.time - pointing.time)) : null;
@@ -25,7 +33,12 @@ export function GuidanceBlock({ session, onSetup }: { session: ObservingSession;
         {target.kind}
         {guidance && ` · ${TARGET_CLASS_LABEL[guidance.class]}`}
       </p>
-      {!guidance ? (
+      {stale || guidance?.stale ? (
+        <>
+          <p className="font-semibold">Pointing stale</p>
+          <p className="quiet">Waiting for a live solve.</p>
+        </>
+      ) : !guidance ? (
         <p className="quiet">Loading guidance…</p>
       ) : guidance.class === "sun_guard" ? (
         <p>The console will not point within 15° of the Sun.</p>

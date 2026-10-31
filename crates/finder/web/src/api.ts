@@ -43,6 +43,7 @@ export type TargetPlacement =
 
 export interface Guidance {
   class: TargetClass;
+  stale?: true;
   rise?: number;
   transit?: number;
   set?: number;
@@ -124,6 +125,63 @@ export interface SolveReport {
   objects: ObjectMark[];
   nearby: NearbyMark[];
   grid: GridLine[];
+}
+
+export interface LiveReport {
+  frame_id: number;
+  /** Mid-exposure, on the console's clock, in Unix seconds. */
+  time: number;
+  pointing_seq: number | null;
+  preview_seq: number | null;
+  stars: number;
+  report: SolveReport;
+  guidance?: Guidance;
+}
+
+export interface SessionSite {
+  lat_deg: number;
+  lon_deg: number;
+}
+
+export interface SessionPointing {
+  seq: number;
+  time: number;
+  ra_deg: number;
+  dec_deg: number;
+  alt_deg?: number;
+  az_deg?: number;
+  source?: "upload" | "live";
+  frame_id?: number;
+}
+
+export interface SessionNode {
+  address: string | null;
+  token_set: boolean;
+  connected: boolean;
+  last_frame_age_s: number | null;
+  offset_s: number | null;
+  camera: {
+    model: string;
+    width: number;
+    height: number;
+    exposure_ms: { min: number; max: number };
+    gain: { min: number; max: number };
+  } | null;
+  stars: number | null;
+  out_of_range: { setting: "exposure_ms" | "gain"; stored: number; min: number; max: number }[];
+}
+
+export interface ObservingSession {
+  site: SessionSite | null;
+  min_alt_deg?: number;
+  target?: Target | null;
+  pointing?: SessionPointing | null;
+  time?: number;
+  guidance?: Guidance;
+  node?: SessionNode;
+  camera_settings?: { exposure_ms: "auto" | number; gain: "auto" | number; sigma: number };
+  aim?: { x: number; y: number };
+  field?: { fov_deg: number | null; db_min_fov_deg: number; db_max_fov_deg: number; unsolved_s: number };
 }
 
 export interface Observer {

@@ -53,9 +53,10 @@ interface HeaderProps {
   /** The threshold the frame was solved at, and a way to solve it again at another. */
   sigma: number;
   onRetry: (sigma: number) => void;
+  stale?: boolean;
 }
 
-export function ChartHeader({ report, label, sigma, onRetry }: HeaderProps) {
+export function ChartHeader({ report, label, sigma, onRetry, stale = false }: HeaderProps) {
   const p = report.pointing;
   const t = report.timing_ms;
   if (!p) {
@@ -69,7 +70,7 @@ export function ChartHeader({ report, label, sigma, onRetry }: HeaderProps) {
           <span className="mt-0.5 shrink-0 text-alert">
             <Alert size={18} />
           </span>
-          <span>{report.hint}</span>
+          <span>{stale ? "Pointing stale" : report.hint}</span>
         </p>
         <p className="mt-2 text-sm text-ink-2">
           {label}: {report.detected.length} stars detected at {sigma}σ, {report.used} tried · {ms(t.detect + t.solve)}
@@ -109,13 +110,11 @@ export function ChartHeader({ report, label, sigma, onRetry }: HeaderProps) {
         ]}
       />
       <div className="mt-1 flex items-start gap-1.5 text-[0.9375rem] text-ink-2">
-        <span className="mt-0.5 shrink-0 text-ink">
-          <Check size={18} />
-        </span>
+        <span className="mt-0.5 shrink-0 text-ink">{stale ? <Alert size={18} /> : <Check size={18} />}</span>
         <Clauses
           className="min-w-0"
           items={[
-            `Solved in ${ms(t.detect + t.solve)}`,
+            stale ? "Pointing stale" : `Solved in ${ms(t.detect + t.solve)}`,
             `${p.matched} of ${report.detected.length} stars matched`,
             `${arcsec(p.rmse_arcsec)}\u00a0RMS`,
           ]}
