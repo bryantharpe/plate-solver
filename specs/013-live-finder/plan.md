@@ -407,8 +407,11 @@ no story may edit `.github/`.
   `SensorTimestamp` uses. NTP steps on the Pi never move it.
 - Bring-up could not tell `CLOCK_BOOTTIME` from `CLOCK_MONOTONIC`: on the Pi 3B+ they
   differed by 4.4 µs, because the Pi never suspends, and they differ only by time spent
-  suspended. So `NodeClock`'s system implementation is std's `Instant`
-  (`CLOCK_MONOTONIC`), and the node needs no `rustix`.
+  suspended. So the node reads `CLOCK_MONOTONIC`.
+- std's `Instant` cannot be that clock here: it never exposes the clock's own reading,
+  and `SensorTimestamp` is a raw reading of it. `NodeClock`'s system implementation calls
+  `rustix::time::clock_gettime(ClockId::Monotonic)`, which is safe code. `rustix` 1.1.4
+  is already in the lockfile, so only its `time` feature is new.
 
 **The console maps clocks with the least-delay exchange of the last 8 s.**
 - That is 32 heartbeats at 250 ms. Crystal drift over 8 s is microseconds, against 15″
@@ -478,7 +481,9 @@ mono IMX296; both use the OS's own drivers.
   by one as frames arrive, and never waits for the closing `]`.
 - **Settings changes** restart the subprocess, since `rpicam-vid` takes no runtime
   control. At 1–5 frames a second, auto-exposure's few steps cost a few seconds at most.
-- **Camera info** comes from parsing `rpicam-hello --list-cameras`.
+- **Camera info** comes from parsing `rpicam-hello --list-cameras -v`: the model, size
+  and modes from its camera block, and the exposure and gain ranges from its
+  `ExposureTime` (µs) and `AnalogueGain` controls. The plain listing has no ranges.
 - **Tests:**
   - parsing and framing run on the saved listing and the saved stream with its metadata,
     and every expected value comes from `fixtures.json`, never a literal, so another
@@ -690,8 +695,8 @@ the interceptor.
 
 **The crate.**
 - `crates/scope-node` is a library plus the `scope-node` binary.
-- Its dependencies are `star-detection`, `scope-link`, `tokio`, `serde`, `toml` (new)
-  and `clap`.
+- Its dependencies are `star-detection`, `scope-link`, `tokio`, `serde`, `toml` (new),
+  `clap`, and `rustix` with its `time` feature, for `NodeClock`.
 - `plate-solver` is a dev-dependency.
 
 **`camera.rs`.**
@@ -703,7 +708,8 @@ the interceptor.
 **`synthetic.rs`** is the `simulated` camera, which draws seeded random stars.
 
 **`rpicam/`.**
-- `listing.rs` parses `rpicam-hello --list-cameras`.
+- `listing.rs` parses `rpicam-hello --list-cameras -v`, including the `ExposureTime` and
+  `AnalogueGain` controls.
 - `yuv.rs` splits a byte stream into frames at `stride × height × 3/2`, keeping
   `width` bytes of each Y row.
 - `metadata.rs` reads the JSON array's objects one by one for `SensorTimestamp` (ns) and
@@ -892,7 +898,7 @@ two for the connector, plus `simulator` as a dev-dependency.
    re-read against US7 and US8 as they landed.
 2. **The bring-up fixtures and notes are on `main`**, staged by the operator from the Pi
    3B+ and its camera, in `fixtures/scope-node/`:
-   - `list-cameras.txt`, a saved `rpicam-hello --list-cameras`;
+   - `list-cameras.txt`, a saved `rpicam-hello --list-cameras -v`;
    - `stream.yuv` and `stream.json`, a short `rpicam-vid --codec yuv420` stream with
      padded rows and its metadata;
    - `finder-frame.png`, a saved gray frame with stars in it (§ Plan traps, trap 12);
@@ -1104,7 +1110,7 @@ stories:
       - path: crates/scope-node/tests/rpicam.rs
         status: new
         disposition: add
-        assertion: "the saved listing parses to the model, the full size and every mode as fixtures.json records them; the padded stream gives each Y plane byte for byte with the saved times, at fixtures.json's stride; a fake rpicam-vid that exits is reported with its stderr and restarted in the same process"
+        assertion: "the saved listing parses to the model, the full size, every mode, and the exposure and gain ranges as fixtures.json records them; the padded stream gives each Y plane byte for byte with the saved times, at fixtures.json's stride; a fake rpicam-vid that exits is reported with its stderr and restarted in the same process"
         decision: "spec.md:US2-S3"
       - path: crates/scope-node/tests/detect.rs
         status: new
