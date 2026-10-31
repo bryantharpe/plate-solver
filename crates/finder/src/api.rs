@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 use axum::body::Bytes;
 use axum::extract::multipart::{Field, MultipartError};
 use axum::extract::rejection::{JsonRejection, QueryRejection};
-use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
-use axum::http::{header, StatusCode, Uri};
+use axum::extract::{DefaultBodyLimit, FromRequestParts, Multipart, Path, Query, State};
+use axum::http::{header, request::Parts, uri::Authority, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -48,6 +48,7 @@ pub struct AppState {
     thumbs: Arc<Mutex<HashMap<String, Bytes>>>,
     session: Arc<Session>,
     clock: Arc<dyn Clock>,
+    allowed_hosts: Arc<Vec<String>>,
 }
 
 impl AppState {
@@ -66,6 +67,7 @@ impl AppState {
             thumbs: Arc::new(Mutex::new(HashMap::new())),
             session: Arc::new(Session::default()),
             clock: Arc::new(SystemClock),
+            allowed_hosts: Arc::new(Vec::new()),
         }
     }
 
@@ -86,6 +88,93 @@ impl AppState {
     pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
         self.clock = clock;
         self
+    }
+
+    /// Allow these DNS names for same-origin writes, in addition to IPs and localhost.
+    /// Names have no scheme or port; matching is case insensitive and exact.
+    pub fn with_allowed_hosts(mut self, hosts: impl IntoIterator<Item = String>) -> Self {
+        self.allowed_hosts = Arc::new(hosts.into_iter().collect());
+        self
+    }
+}
+
+/// Checked before either write route extracts its body (RFC 6454 sections 5 and 7).
+/// No Origin is allowed for non-browser clients; browser writes also need a trusted Host
+/// to prevent DNS rebinding. Forwarded headers cannot override the request's origin.
+struct SessionWrite;
+
+impl FromRequestParts<AppState> for SessionWrite {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, ApiError> {
+        let denied = || {
+            ApiError::new(
+                StatusCode::FORBIDDEN,
+                "writes require the console's own origin and an allowed host",
+            )
+        };
+        let mut origins = parts.headers.get_all(header::ORIGIN).iter();
+        let Some(origin) = origins.next() else {
+            return Ok(Self);
+        };
+        if origins.next().is_some() {
+            return Err(denied());
+        }
+        let origin = origin.to_str().map_err(|_| denied())?;
+        let origin_uri: Uri = origin.parse().map_err(|_| denied())?;
+        let scheme = parts.uri.scheme_str().unwrap_or("http");
+        let origin_authority = origin_uri.authority().ok_or_else(denied)?;
+        // An Origin is only a scheme and authority, never a path, query or user info.
+        if origin_uri.scheme_str() != Some(scheme)
+            || !origin.eq_ignore_ascii_case(&format!("{scheme}://{origin_authority}"))
+            || origin_authority.as_str().contains('@')
+        {
+            return Err(denied());
+        }
+        let mut hosts = parts.headers.get_all(header::HOST).iter();
+        let host: Authority = hosts
+            .next()
+            .ok_or_else(denied)?
+            .to_str()
+            .map_err(|_| denied())?
+            .parse()
+            .map_err(|_| denied())?;
+        if hosts.next().is_some() || host.as_str().contains('@') {
+            return Err(denied());
+        }
+        let default_port = match scheme {
+            "http" => 80,
+            "https" => 443,
+            _ => return Err(denied()),
+        };
+        let port = |authority: &Authority| {
+            // `Authority::port()` also returns None for an invalid explicit port.
+            // Only a genuinely absent port may take the scheme's default.
+            let suffix = &authority.as_str()[authority.host().len()..];
+            if suffix.is_empty() {
+                Some(default_port)
+            } else {
+                suffix.strip_prefix(':')?.parse::<u16>().ok()
+            }
+        };
+        if !host.host().eq_ignore_ascii_case(origin_authority.host())
+            || port(&host).is_none()
+            || port(&host) != port(origin_authority)
+        {
+            return Err(denied());
+        }
+        let name = host.host();
+        let ip = name.trim_start_matches('[').trim_end_matches(']');
+        if ip.parse::<std::net::IpAddr>().is_err()
+            && !name.eq_ignore_ascii_case("localhost")
+            && !state
+                .allowed_hosts
+                .iter()
+                .any(|allowed| name.eq_ignore_ascii_case(allowed))
+        {
+            return Err(denied());
+        }
+        Ok(Self)
     }
 }
 
@@ -114,6 +203,7 @@ async fn get_session(State(state): State<AppState>) -> Json<SessionView> {
 
 async fn put_session(
     State(state): State<AppState>,
+    _write: SessionWrite,
     edit: Result<Json<SessionEdit>, JsonRejection>,
 ) -> Result<Json<SessionView>, ApiError> {
     let Json(edit) = edit.map_err(|error| {
@@ -400,6 +490,7 @@ fn check(o: &SolveOptions) -> Result<(), ApiError> {
 
 async fn solve(
     State(state): State<AppState>,
+    _write: SessionWrite,
     mut multipart: Multipart,
 ) -> Result<Json<SolveReport>, ApiError> {
     // Take the gate before reading the form. Each upload may be up to SOLVE_BODY_LIMIT, and
@@ -429,13 +520,23 @@ async fn solve(
         Source::Sample(name) => (read_sample(&state, &name).await?, Some(name)),
     };
     let db = state.db.clone();
+    let session = state.session.clone();
+    let clock = state.clock.clone();
     let options = form.options;
     let report = tokio::task::spawn_blocking(move || {
         let _permit = permit;
         let t = Instant::now();
         let image = solve::decode_gray(&bytes)?;
         let decode = t.elapsed().as_secs_f64() * 1e3;
-        let mut report = solve::solve_frame(&db, &image, &options);
+        let (mut report, frame) = solve::solve_frame_with_frame(&db, &image, &options);
+        if let (Some(frame), Some(pointing)) = (frame, &report.pointing) {
+            report.pointing_seq = Some(session.record_pointing(
+                frame,
+                pointing.ra_deg,
+                pointing.dec_deg,
+                clock.now(),
+            ));
+        }
         report.timing_ms.decode = decode;
         report.name = name;
         Ok::<_, DecodeError>(report)

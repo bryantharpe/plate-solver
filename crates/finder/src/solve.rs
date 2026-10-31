@@ -350,6 +350,9 @@ pub struct SolveReport {
     pub used: usize,
     /// Where it points, when it solved.
     pub pointing: Option<Pointing>,
+    /// Session sequence assigned when this solve records the latest pointing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pointing_seq: Option<u64>,
     /// Matched catalog stars, then the brightest unmatched ones that should be in frame.
     pub stars: Vec<StarMark>,
     /// Deep-sky objects on or overlapping the frame: those centered in it first, brightest
@@ -367,6 +370,15 @@ fn ms(since: Instant) -> f64 {
 
 /// Detect, solve, and place what the solution says is on the frame.
 pub fn solve_frame(db: &PatternDatabase, image: &GrayImage, options: &SolveOptions) -> SolveReport {
+    solve_frame_with_frame(db, image, options).0
+}
+
+/// Detect, solve and report, retaining the solved projection for the observing session.
+pub fn solve_frame_with_frame(
+    db: &PatternDatabase,
+    image: &GrayImage,
+    options: &SolveOptions,
+) -> (SolveReport, Option<Frame>) {
     let cedar = DetectParams::cedar();
     let t = Instant::now();
     let detected = detect_stars(
@@ -419,20 +431,22 @@ pub fn solve_frame(db: &PatternDatabase, image: &GrayImage, options: &SolveOptio
             .collect(),
         used: centroids.len(),
         pointing: None,
+        pointing_seq: None,
         stars: Vec::new(),
         objects: Vec::new(),
         nearby: Vec::new(),
         grid: Vec::new(),
     };
-    if status == Status::MatchFound {
-        if let Some(frame) = Frame::from_solution(&solution) {
-            report.pointing = Some(pointing(&solution, &frame));
-            report.stars = star_marks(db, &solution, &frame, options.distortion);
-            (report.objects, report.nearby) = object_marks(&frame);
-            report.grid = graticule(&frame);
-        }
+    let frame = (status == Status::MatchFound)
+        .then(|| Frame::from_solution(&solution))
+        .flatten();
+    if let Some(frame) = &frame {
+        report.pointing = Some(pointing(&solution, frame));
+        report.stars = star_marks(db, &solution, frame, options.distortion);
+        (report.objects, report.nearby) = object_marks(frame);
+        report.grid = graticule(frame);
     }
-    report
+    (report, frame)
 }
 
 fn pointing(solution: &Solution, frame: &Frame) -> Pointing {

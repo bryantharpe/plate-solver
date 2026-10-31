@@ -22,6 +22,21 @@
 //! coordinates are `lat_deg` (±90°) and `lon_deg` (±180°, east positive); the minimum
 //! altitude accepts 0–80°. Unknown fields are refused, including Sun guard overrides.
 //!
+//! Writes (`PUT /api/session` and `POST /api/solve`) enforce the same-origin rule:
+//! an `Origin` must match the request's scheme, Host and port. With an Origin, Host
+//! must also be an IP literal, `localhost`, or a DNS name explicitly allowed with
+//! repeatable `--allow-host NAME` flags (for example `--allow-host surface.local`).
+//! A rejected origin or host answers 403 with a JSON `error`. Requests without an
+//! Origin remain allowed for curl and Rust clients. Session edits require a JSON
+//! content type; other media types answer 415 with a JSON `error`.
+//! Library servers configure names with [`AppState::with_allowed_hosts`].
+//!
+//! Every successful solve records the latest pointing: its sequence, solved frame,
+//! J2000 RA/Dec, console time, and altitude/azimuth when a site is set. Its report
+//! carries the sequence as optional `pointing_seq`; a frame that does not solve
+//! leaves the pointing unchanged. Site edits recompute altitude/azimuth at the
+//! frame's original time; clearing the site drops only those horizontal coordinates.
+//!
 //! The binary keeps site, minimum altitude and target in `session.json` under
 //! `--state DIR`, defaulting to `$XDG_STATE_HOME/finder` or `~/.local/state/finder`.
 //! Writes are atomic; unreadable state is reported on stderr and retained with a `.bad`

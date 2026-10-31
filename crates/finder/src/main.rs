@@ -31,6 +31,9 @@ struct Args {
     /// Session state folder (default: $XDG_STATE_HOME/finder or ~/.local/state/finder).
     #[arg(long)]
     state: Option<PathBuf>,
+    /// DNS name allowed for same-origin writes, besides IPs and localhost (repeatable).
+    #[arg(long)]
+    allow_host: Vec<String>,
     /// Print the third-party notices for the embedded page and data, and exit.
     #[arg(long)]
     licenses: bool,
@@ -85,7 +88,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     axum::serve(
         listener,
-        router(AppState::new(db, samples).with_session(session)),
+        router(
+            AppState::new(db, samples)
+                .with_session(session)
+                .with_allowed_hosts(args.allow_host),
+        ),
     )
     .await?;
     Ok(())

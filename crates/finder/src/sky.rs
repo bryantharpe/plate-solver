@@ -40,6 +40,36 @@ pub struct Frame {
     pub center: UnitVector,
 }
 
+// Keep serialization at the console boundary; math-core stays independent of serde.
+impl Serialize for Frame {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Camera {
+            width: f64,
+            height: f64,
+            fov: f64,
+        }
+        #[derive(Serialize)]
+        struct View {
+            rotation: [[f64; 3]; 3],
+            camera: Camera,
+            distortion: f64,
+            center: [f64; 3],
+        }
+        View {
+            rotation: self.rotation.rows,
+            camera: Camera {
+                width: self.camera.width,
+                height: self.camera.height,
+                fov: self.camera.fov,
+            },
+            distortion: self.distortion,
+            center: [self.center.x, self.center.y, self.center.z],
+        }
+        .serialize(serializer)
+    }
+}
+
 impl Frame {
     /// The frame of a solution, or `None` when it did not solve.
     pub fn from_solution(solution: &Solution) -> Option<Self> {
