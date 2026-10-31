@@ -544,36 +544,46 @@ fn star_marks(
     marks
 }
 
-fn object_marks(frame: &Frame) -> (Vec<ObjectMark>, Vec<NearbyMark>) {
+/// One symbol through the same overlap and projection path as the report's objects.
+pub(crate) fn object_mark(frame: &Frame, object: &DeepSkyObject) -> Option<ObjectMark> {
     let half_diagonal = frame.half_diagonal().to_degrees();
     let px_per_deg = 3600.0 / frame.arcsec_per_px();
-    let (mut marks, mut nearby) = (Vec::new(), Vec::new());
-    for object in catalog::messier() {
-        let separation_deg = angular_distance(frame.center, object.vector()).to_degrees();
-        let radius_deg = object.major_arcmin.unwrap_or(0.0) / 120.0;
-        let minor_deg = object.minor_arcmin.map_or(radius_deg, |m| m / 120.0);
-        if separation_deg <= half_diagonal + radius_deg {
-            if let Some(point) = frame.project(object.vector()) {
-                let radius_px = radius_deg * px_per_deg;
-                if frame.contains(point, radius_px) {
-                    // Position angle runs from north through east, and east is a quarter
-                    // turn counterclockwise from north on a frame of the sky.
-                    let north = frame.north_at(object.vector()).unwrap_or(0.0);
-                    let angle_deg = (north - object.pa_deg.unwrap_or(0.0)).rem_euclid(360.0);
-                    marks.push(ObjectMark {
-                        object: object.clone(),
-                        x: point.0,
-                        y: point.1,
-                        radius_px,
-                        minor_px: minor_deg * px_per_deg,
-                        angle_deg,
-                        separation_deg,
-                        inside: frame.contains(point, 0.0),
-                    });
-                    continue;
-                }
+    let separation_deg = angular_distance(frame.center, object.vector()).to_degrees();
+    let radius_deg = object.major_arcmin.unwrap_or(0.0) / 120.0;
+    let minor_deg = object.minor_arcmin.map_or(radius_deg, |m| m / 120.0);
+    if separation_deg <= half_diagonal + radius_deg {
+        if let Some(point) = frame.project(object.vector()) {
+            let radius_px = radius_deg * px_per_deg;
+            if frame.contains(point, radius_px) {
+                // Position angle runs from north through east, and east is a quarter
+                // turn counterclockwise from north on a frame of the sky.
+                let north = frame.north_at(object.vector()).unwrap_or(0.0);
+                let angle_deg = (north - object.pa_deg.unwrap_or(0.0)).rem_euclid(360.0);
+                return Some(ObjectMark {
+                    object: object.clone(),
+                    x: point.0,
+                    y: point.1,
+                    radius_px,
+                    minor_px: minor_deg * px_per_deg,
+                    angle_deg,
+                    separation_deg,
+                    inside: frame.contains(point, 0.0),
+                });
             }
         }
+    }
+    None
+}
+
+fn object_marks(frame: &Frame) -> (Vec<ObjectMark>, Vec<NearbyMark>) {
+    let half_diagonal = frame.half_diagonal().to_degrees();
+    let (mut marks, mut nearby) = (Vec::new(), Vec::new());
+    for object in catalog::messier() {
+        if let Some(mark) = object_mark(frame, object) {
+            marks.push(mark);
+            continue;
+        }
+        let separation_deg = angular_distance(frame.center, object.vector()).to_degrees();
         if separation_deg <= half_diagonal + NEARBY_DEG {
             if let Some(point) = frame.project_pinhole(object.vector()) {
                 nearby.push(NearbyMark {
