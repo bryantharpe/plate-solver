@@ -10,7 +10,8 @@ description: "Task list for 013-live-finder: The Live Finder"
   in `crates/scope-node/README.md`;
 - the `finder-page` job installs protoc;
 - the owner approvals in spec.md are given;
-- the coding agent can run cargo (met since ergane#896, 2026-10-28).
+- the coding agent can run cargo (met since ergane#896, 2026-10-28);
+- `npm run e2e` waits its turn on one host-wide lock (met by #125, at 80cbd51).
 
 **Rules for every story:**
 - Never edit an existing test, golden, `scripts/ci/`, `.github/` or `CODEOWNERS`.
@@ -28,8 +29,9 @@ description: "Task list for 013-live-finder: The Live Finder"
   files). The judge reads the diff and both gates' output within one 128 KiB budget, and
   refuses evidence past it.
 - A test binds `127.0.0.1:0`. Only `playwright.config.ts` names a fixed port (8097–8099).
-- Run Playwright only through `npm run e2e`. Two stories can build at once, and every e2e
-  run binds the host's 8097–8099, so each run waits its turn (plan.md, Prerequisite 6).
+- Run Playwright only through `npm run e2e`. Two stories can be in flight at once, and
+  every e2e run binds the host's 8097–8099, so each run waits its turn (plan.md,
+  Prerequisite 6).
 - A new field of a session read, or of the state file, is left out until it has a value
   (spec.md § Edge Cases).
 
@@ -529,8 +531,9 @@ US8 → US9 ──────────────────────�
 ```
 
 Every arrow is a merge edge: the later story starts from a `main` that holds the earlier
-one. The factory builds a story from each track at the same time, so US8 starts with US1,
-once plan.md's Prerequisite 6 is met.
+one. The factory keeps a story from each track in flight, so US8 starts with US1. It has
+one coding agent, so the two never build at the same moment: one builds while the other
+is verified or in the merge queue.
 - **US1 to US7** each change `Cargo.lock`, and a new crate's `Cargo.toml`, or `finder`'s.
 - **US5, US6 and US7** each edit `crates/finder/src/api.rs`, `src/session.rs`, `src/lib.rs`
   and `src/main.rs`.
