@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { getHealth, type FrameSource, type Health, type SolveSettings } from "./api";
 import { Chart, DEFAULT_LAYERS, type Layers } from "./components/Chart";
 import { ChartHeader, ChartHeaderPlaceholder } from "./components/ChartHeader";
@@ -6,21 +6,51 @@ import { FieldList, FieldRoster } from "./components/FieldList";
 import { FramePicker, SampleGrid } from "./components/FramePicker";
 import { Upload } from "./components/Icons";
 import { NextTargets } from "./components/NextTargets";
-import { SiteDialog } from "./components/SiteDialog";
+import { SetupPage } from "./components/SetupPage";
 import { SurveyView } from "./components/SurveyView";
 import { TopBar } from "./components/TopBar";
 import { useLastSample, useNight, useSite } from "./settings";
 import { useSolve } from "./useSolve";
+import { useSession } from "./useSession";
 
 const FIRST_SAMPLE = "orion2.jpg";
 
 export function App() {
   const [night, setNight] = useNight();
-  const [site, setSite] = useSite();
+  const [browserSite, setBrowserSite] = useSite();
+  const { session, loaded, error: sessionError, put } = useSession();
+  const site = useMemo(
+    () => (session.site ? { lat: session.site.lat_deg, lon: session.site.lon_deg } : null),
+    [session.site?.lat_deg, session.site?.lon_deg],
+  );
+  const adopted = useRef(false);
+  useEffect(() => {
+    if (!loaded || adopted.current) return;
+    adopted.current = true;
+    if (!browserSite) return;
+    if (session.site) {
+      setBrowserSite(null);
+      return;
+    }
+    // Clear the old browser copy only after the session accepts it. The ref also
+    // prevents duplicate adoption when React checks effects twice in StrictMode.
+    void put({ site: { lat_deg: browserSite.lat, lon_deg: browserSite.lon } })
+      .then(() => setBrowserSite(null))
+      .catch(() => {});
+  }, [loaded, browserSite, session.site, put, setBrowserSite]);
   const [lastSample, setLastSample] = useLastSample();
   const { state, run } = useSolve();
   const [picker, setPicker] = useState(false);
-  const [siteOpen, setSiteOpen] = useState(false);
+  const [path, setPath] = useState(() => window.location.pathname);
+  useEffect(() => {
+    const popped = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", popped);
+    return () => window.removeEventListener("popstate", popped);
+  }, []);
+  const navigate = (next: string) => {
+    window.history.pushState(null, "", next);
+    setPath(next);
+  };
   const [layers, setLayers] = useState<Layers>(DEFAULT_LAYERS);
   const [selected, setSelected] = useState<string | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
@@ -69,88 +99,109 @@ export function App() {
         site={site}
         night={night}
         onFrame={() => setPicker(true)}
-        onSite={() => setSiteOpen(true)}
+        onSite={() => navigate("/setup")}
+        onSetup={() => navigate("/setup")}
+        onHome={() => navigate("/")}
+        setup={path === "/setup"}
         onNight={setNight}
       />
-      {/*
+      {sessionError && (
+        <p role="alert" className="page-width px-4 pt-3 text-ink">
+          {sessionError}
+        </p>
+      )}
+      {path === "/setup" ? (
+        <SetupPage session={session} put={put} onBack={() => navigate("/")} />
+      ) : (
+        <>
+          {/*
         One column on a phone, in reading order: where it points and what is in it, the
         chart, then the rest. On a wide screen the chart takes the right column and stays
         in view while the left one scrolls.
       */}
-      <main className="page-width grid gap-x-10 gap-y-4 px-4 pt-3 pb-16 sm:gap-y-5 sm:px-5 sm:pt-4 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-8 lg:px-10 lg:pt-8">
-        {state.phase !== "idle" && (
-          <div className="space-y-3 sm:space-y-4 lg:col-start-1 lg:row-start-1">
-            {report ? (
-              <ChartHeader
-                report={report}
-                label={label ?? ""}
-                sigma={settings.sigma ?? 8}
-                onRetry={(sigma) => {
-                  const next = { ...settings, sigma };
-                  setSettings(next);
-                  if (source) open(source, next);
-                }}
-              />
-            ) : (
-              <ChartHeaderPlaceholder busy={busy} label={label} />
+          <main className="page-width grid gap-x-10 gap-y-4 px-4 pt-3 pb-16 sm:gap-y-5 sm:px-5 sm:pt-4 lg:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-8 lg:px-10 lg:pt-8">
+            {state.phase !== "idle" && (
+              <div className="space-y-3 sm:space-y-4 lg:col-start-1 lg:row-start-1">
+                {report ? (
+                  <ChartHeader
+                    report={report}
+                    label={label ?? ""}
+                    sigma={settings.sigma ?? 8}
+                    onRetry={(sigma) => {
+                      const next = { ...settings, sigma };
+                      setSettings(next);
+                      if (source) open(source, next);
+                    }}
+                  />
+                ) : (
+                  <ChartHeaderPlaceholder busy={busy} label={label} />
+                )}
+                {report?.pointing && <FieldRoster report={report} />}
+                {state.phase === "error" && (
+                  <ErrorNote message={state.message} onRetry={() => run(state.source, settings)} />
+                )}
+              </div>
             )}
-            {report?.pointing && <FieldRoster report={report} />}
-            {state.phase === "error" && (
-              <ErrorNote message={state.message} onRetry={() => run(state.source, settings)} />
+
+            {state.phase === "idle" && (
+              <div className="lg:col-span-2 lg:row-start-1">
+                <FirstRun onPick={(name) => open({ kind: "sample", name })} onUpload={() => setPicker(true)} />
+              </div>
             )}
-          </div>
-        )}
 
-        {state.phase === "idle" && (
-          <div className="lg:col-span-2 lg:row-start-1">
-            <FirstRun onPick={(name) => open({ kind: "sample", name })} onUpload={() => setPicker(true)} />
-          </div>
-        )}
+            {state.phase !== "idle" && (
+              <div className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
+                <div className="lg:sticky lg:top-24">
+                  <Chart
+                    report={report}
+                    imageUrl={state.imageUrl}
+                    label={state.label}
+                    busy={busy}
+                    layers={layers}
+                    onLayers={setLayers}
+                  />
+                </div>
+              </div>
+            )}
 
-        {state.phase !== "idle" && (
-          <div className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
-            <div className="lg:sticky lg:top-24">
-              <Chart
-                report={report}
-                imageUrl={state.imageUrl}
-                label={state.label}
-                busy={busy}
-                layers={layers}
-                onLayers={setLayers}
-              />
-            </div>
-          </div>
-        )}
+            {report?.pointing && (
+              <div className="pt-3 lg:col-start-1 lg:row-start-2 lg:pt-0">
+                <FieldList report={report} selected={reference?.id ?? null} onSelect={setSelected} />
+              </div>
+            )}
 
-        {report?.pointing && (
-          <div className="pt-3 lg:col-start-1 lg:row-start-2 lg:pt-0">
-            <FieldList report={report} selected={reference?.id ?? null} onSelect={setSelected} />
-          </div>
-        )}
+            {report?.pointing && (
+              <div className="space-y-10 pt-5 lg:col-start-1 lg:row-start-3 lg:pt-0">
+                <NextTargets
+                  reference={reference}
+                  nearby={report.nearby}
+                  site={site}
+                  minAlt={session.min_alt_deg}
+                  onSetSite={() => navigate("/setup")}
+                />
+                <SurveyView pointing={report.pointing} />
+              </div>
+            )}
 
-        {report?.pointing && (
-          <div className="space-y-10 pt-5 lg:col-start-1 lg:row-start-3 lg:pt-0">
-            <NextTargets reference={reference} nearby={report.nearby} site={site} onSetSite={() => setSiteOpen(true)} />
-            <SurveyView pointing={report.pointing} />
-          </div>
-        )}
-
-        <footer className="pt-5 text-sm text-ink-2 lg:col-span-2 lg:row-start-4 lg:pt-0">
-          {health
-            ? `Database: ${health.database.catalog}, ${health.database.stars.toLocaleString("en-US")} stars, fields ${health.database.min_fov}–${health.database.max_fov}° · finder ${health.version}`
-            : "Finder"}
-        </footer>
-      </main>
-
+            <footer className="pt-5 text-sm text-ink-2 lg:col-span-2 lg:row-start-4 lg:pt-0">
+              {health
+                ? `Database: ${health.database.catalog}, ${health.database.stars.toLocaleString("en-US")} stars, fields ${health.database.min_fov}–${health.database.max_fov}° · finder ${health.version}`
+                : "Finder"}
+            </footer>
+          </main>
+        </>
+      )}
       <FramePicker
         open={picker}
         current={source?.kind === "sample" ? source.name : null}
         settings={settings}
         onSettings={setSettings}
         onClose={() => setPicker(false)}
-        onPick={(source) => open(source)}
+        onPick={(source) => {
+          if (path === "/setup") navigate("/");
+          open(source);
+        }}
       />
-      <SiteDialog open={siteOpen} site={site} onClose={() => setSiteOpen(false)} onSave={setSite} />
     </div>
   );
 }

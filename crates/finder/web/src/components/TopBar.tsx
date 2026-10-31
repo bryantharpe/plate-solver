@@ -12,23 +12,36 @@ interface Props {
   onFrame: () => void;
   onSite: () => void;
   onNight: (on: boolean) => void;
+  onSetup: () => void;
+  onHome: () => void;
+  setup: boolean;
 }
 
 const siteText = (site: Site) => `${Math.abs(site.lat).toFixed(1)}° ${site.lat >= 0 ? "N" : "S"}`;
 
-export function TopBar({ source, label, site, night, onFrame, onSite, onNight }: Props) {
+export function TopBar({ source, label, site, night, onFrame, onSite, onNight, onSetup, onHome, setup }: Props) {
   return (
     <header className="sticky top-0 z-10 border-b border-rule bg-paper">
       <div className="page-width flex h-14 items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-5 lg:px-10">
         <a
           href="/"
+          onClick={(e) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            onHome();
+          }}
           className="mr-auto flex items-center gap-2 font-semibold tracking-[0.02em]"
           aria-label="Finder home"
         >
           <Reticle size={22} />
           <span className="hidden text-[1.05rem] min-[400px]:inline">Finder</span>
         </a>
-        <button type="button" className="chip max-w-[44vw] pl-1.5" onClick={onFrame} aria-haspopup="dialog">
+        <button
+          type="button"
+          className="chip min-w-0 max-w-[30vw] sm:max-w-[44vw] pl-1.5"
+          onClick={onFrame}
+          aria-haspopup="dialog"
+        >
           {source?.kind === "sample" ? (
             <img src={thumbUrl(source.name)} alt="" className="photo size-7 object-cover" />
           ) : (
@@ -43,13 +56,24 @@ export function TopBar({ source, label, site, night, onFrame, onSite, onNight }:
           type="button"
           className="chip px-2.5"
           onClick={onSite}
-          aria-haspopup="dialog"
           aria-label={site ? `Site ${siteText(site)}` : "Set your site"}
         >
           <Pin size={17} />
           <span className="hidden sm:inline">{site ? siteText(site) : "Set site"}</span>
           {site && <span className="sm:hidden">{Math.round(site.lat)}°</span>}
         </button>
+        <a
+          href="/setup"
+          className="chip"
+          aria-current={setup ? "page" : undefined}
+          onClick={(e) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            onSetup();
+          }}
+        >
+          Setup
+        </a>
         <label className="flex items-center gap-2 text-sm font-medium">
           <span className="hidden sm:inline">Night</span>
           <span className="sm:hidden" aria-hidden="true">
