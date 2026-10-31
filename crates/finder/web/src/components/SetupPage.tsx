@@ -2,6 +2,10 @@
 import { useEffect, useState } from "react";
 import { isValidSite } from "../settings";
 import type { ObservingSession, SessionEdit } from "../useSession";
+import { useLive } from "../useLive";
+import { AimTap } from "./AimTap";
+import { FieldWarning } from "./FieldWarning";
+import { ScopeNodeSection } from "./ScopeNodeSection";
 
 interface Props {
   session: ObservingSession;
@@ -10,6 +14,7 @@ interface Props {
 }
 
 export function SetupPage({ session, put, onBack }: Props) {
+  const { live } = useLive(session);
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
   const [minAlt, setMinAlt] = useState("15");
@@ -162,6 +167,9 @@ export function SetupPage({ session, put, onBack }: Props) {
           </button>
         </form>
       </section>
+      <ScopeNodeSection session={session} live={live} />
+      <FieldWarning field={session.field} />
+      <AimTap session={session} live={live} />
     </main>
   );
 }

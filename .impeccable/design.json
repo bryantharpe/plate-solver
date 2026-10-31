@@ -577,7 +577,7 @@
       "name": "Guidance Block",
       "kind": "custom",
       "refersTo": "list-row",
-      "description": "Built in src/components/GuidanceBlock.tsx. Ink-only ruled block before the title and chart: target name, kind and class; whole-degree turn/tilt and pointing age, device-local rise/transit/set to the minute, Sun-guard refusal or a /setup site link. Red ink at night.",
+      "description": "Built in src/components/GuidanceBlock.tsx. Ink-only ruled block before the title and chart: target name, kind and class; whole-degree turn/tilt and pointing age, device-local rise/transit/set to the minute, Sun-guard refusal or a /setup site link. Red ink at night. For a live pointing older than 5 s, the direction and age lines become Pointing stale and Waiting for a live solve; turn and tilt are removed.",
       "html": "<section class=\"ds-guidance\"><h2>Target <i>M78</i></h2><p>Reflection nebula · Pointable now</p><p>turn clockwise 34° · tilt up 12°</p><p>Pointing 2 min ago.</p></section>",
       "css": ".ds-guidance{color:var(--color-ink);border-block:1px solid var(--color-ink);padding-block:.75rem}.ds-guidance h2{font-size:1.125rem;font-weight:650}.ds-guidance p{margin-block:.5rem}"
     },
@@ -601,9 +601,49 @@
       "name": "Setup Page",
       "kind": "custom",
       "refersTo": "input",
-      "description": "Built in src/components/SetupPage.tsx at /setup. Shared session site from labelled latitude/longitude fields or device location, minimum altitude 0–80°, Save site, Forget the site and Back to console. Ruled 44px controls, doubled-rule title, ink validation and save errors, no shadows. Existing tokens give red-only night mode.",
+      "description": "Built in src/components/SetupPage.tsx at /setup. Shared session site from labelled latitude/longitude fields or device location, minimum altitude 0–80°, Save site, Forget the site and Back to console. Ruled 44px controls, doubled-rule title, ink validation and save errors, no shadows. Existing tokens give red-only night mode. Below these, Scope node and camera, the camera field/database range warning, and Aim point sections edit the same shared observing session.",
       "html": "<section class=\"ds-setup\"><h1>Setup</h1><label>Latitude <input inputmode=\"decimal\" value=\"40\"/>°</label><label>Longitude <input inputmode=\"decimal\" value=\"-75\"/>°</label><label>Minimum altitude <input type=\"number\" min=\"0\" max=\"80\" value=\"15\"/>°</label><button>Save site</button><a href=\"/\">Back to console</a></section>",
       "css": ".ds-setup{color:var(--color-ink);background:var(--color-paper)}.ds-setup label{display:block;margin-block:1rem}.ds-setup input,.ds-setup button{min-height:44px;border:1px solid var(--color-ink);border-radius:0;background:transparent;color:inherit;padding-inline:12px}"
+    },
+    {
+      "name": "Live Chart",
+      "kind": "custom",
+      "refersTo": "display",
+      "description": "Built in src/App.tsx with useLive.ts. Connected scope links open /api/live. Each live report draws the existing chart, coordinates, star marks and guidance. Sequence numbers retain newer uploaded pointings until a newer live solve. The five legend chips and phone first-screen order stay unchanged.",
+      "html": "<section aria-label=\"Live chart\"><h1>Orion</h1><p>Live frame 42</p><svg aria-label=\"Star chart\"></svg></section>",
+      "css": "section{color:var(--color-ink)}"
+    },
+    {
+      "name": "Live Preview",
+      "kind": "custom",
+      "refersTo": "list-row",
+      "description": "Built in src/components/LivePreview.tsx. Occasional /api/live/preview.jpg?seq=N photographs remain below the chart and legend in a ruled box. The last photograph stays between preview events. The .photo class uses the luminance-to-red night filter.",
+      "html": "<div class=\"ds-preview\"><img class=\"photo\" src=\"/api/live/preview.jpg?seq=42\" alt=\"Live preview, frame 42\"/></div>",
+      "css": ".ds-preview{margin-top:1rem;border:1px solid var(--color-ink);background:var(--color-photo)}.ds-preview img{display:block;width:100%;height:auto}[data-theme=\"night\"] .photo{filter:url(#red-only)}"
+    },
+    {
+      "name": "Stale Pointing",
+      "kind": "custom",
+      "refersTo": "display",
+      "description": "Built in ChartHeader.tsx, GuidanceBlock.tsx and useLive.ts. At more than 5 s old, a live pointing says Pointing stale in the existing solved-time clause and guidance lines, with no turn or tilt. The 250 ms timer uses console time from polls and live events. The next live solve restores directions; uploaded pointings do not expire. Existing ink tokens and line slots keep the phone layout and red-only night mode.",
+      "html": "<div class=\"ds-stale\"><p>Pointing stale</p><p>Waiting for a live solve.</p></div>",
+      "css": ".ds-stale{color:var(--color-ink)}.ds-stale p+p{color:var(--color-ink-2)}"
+    },
+    {
+      "name": "Scope Node and Camera",
+      "kind": "custom",
+      "refersTo": "input",
+      "description": "Built in ScopeNodeSection.tsx on /setup. Shows link state and camera model from session reads, and latest star count from live events. Ruled 44px address and empty password token fields; token_set says A token is set, blank preserves it, successful save clears it. Exposure and gain take auto or a positive value; threshold takes 1–50 sigma or auto for 8 sigma. One PUT saves the entered fields. Stored exposure/gain outside the camera range names the value and range. FieldWarning.tsx shows solved field beside database range, warning within 1 degree of an end, outside it, or after 30 s unsolved with at least 10 stars. Drafts survive live events; refusals use ink alerts.",
+      "html": "<section class=\"ds-node\"><h2>Scope node and camera</h2><p>Connected · Simulated IMX296 · 30 stars</p><label>Token <input type=\"password\" value=\"\"/></label><p>A token is set. Leave empty to keep it.</p><button>Save scope node and camera</button><p>Camera field: 12° · Database range: 10–30°</p></section>",
+      "css": ".ds-node{color:var(--color-ink)}.ds-node input,.ds-node button{min-height:44px;border:1px solid var(--color-ink);border-radius:0;background:transparent;color:inherit}.ds-node p{color:var(--color-ink-2)}"
+    },
+    {
+      "name": "Aim-Point Tap",
+      "kind": "custom",
+      "refersTo": "input",
+      "description": "Built in AimTap.tsx on /setup. Centre a star in the eyepiece, then tap the .photo live preview. The shown photograph retains its frame id and full-frame dimensions; a tap scales its displayed rectangle to full-frame pixels and POSTs /api/aim. The console snaps to a star. 422 and expired-frame reasons stay visible without changing the aim point. Unloaded or failed previews accept no tap. Saved coordinates and Reset aim point remain available without a preview; DELETE restores frame centre immediately. Moving the finder camera is the cue to reset. Existing ink and red-only filter at night.",
+      "html": "<section class=\"ds-aim\"><h2>Aim point</h2><p>Aim point: (700, 420) px</p><button aria-label=\"Set aim point on live preview\"><img class=\"photo\" alt=\"Live preview, frame 42\"/></button><button>Reset aim point</button></section>",
+      "css": ".ds-aim{color:var(--color-ink)}.ds-aim button{border:1px solid var(--color-ink);background:transparent;color:inherit;min-height:44px}.ds-aim img{display:block;width:100%;height:auto}[data-theme=\"night\"] .photo{filter:url(#red-only)}"
     }
   ],
   "narrative": {
