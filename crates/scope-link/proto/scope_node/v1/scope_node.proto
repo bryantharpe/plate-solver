@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package scope_node.v1;
+
+// Internal scope link. Every call requires the session's bearer token.
+service ScopeNode {
+  rpc Describe(DescribeRequest) returns (CameraInfo);
+  rpc Frames(FramesRequest) returns (stream StarFrame);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatReply);
+  // Returns the settings in force.
+  rpc Configure(Settings) returns (Settings);
+  // Asks for a preview on the next star frame.
+  rpc RequestPreview(PreviewRequest) returns (PreviewAck);
+}
+
+message DescribeRequest {}
+message FramesRequest {}
+message PreviewRequest {}
+message PreviewAck {}
+
+message Mode {
+  uint32 width = 1;
+  uint32 height = 2;
+  double fps = 3;
+}
+
+message CameraInfo {
+  string model = 1;
+  uint32 width = 2;
+  uint32 height = 3;
+  repeated Mode modes = 4;
+  Mode active_mode = 5;
+  double exposure_min_ms = 6;
+  double exposure_max_ms = 7;
+  double gain_min = 8;
+  double gain_max = 9;
+}
+
+message Settings {
+  // Absent exposure or gain means automatic control.
+  optional double exposure_ms = 1;
+  optional double gain = 2;
+  Detection detection = 3;
+}
+
+message Detection {
+  double sigma = 1;
+  uint32 binning = 2;
+  bool normalize_rows = 3;
+  bool detect_hot_pixels = 4;
+}
+
+message StarFrame {
+  uint64 id = 1;
+  // Exposure start and end in seconds on the node's monotonic clock.
+  double start_s = 2;
+  double end_s = 3;
+  uint32 width = 4;
+  uint32 height = 5;
+  // Actual exposure and gain used, including when automatically controlled.
+  double exposure_ms = 6;
+  double gain = 7;
+  Settings settings = 8;
+  // At most 200 centroids, brightest first, in full-frame pixels.
+  repeated Centroid centroids = 9;
+  optional bytes preview_jpeg = 10;
+}
+
+message Centroid {
+  double x = 1;
+  double y = 2;
+  double brightness = 3;
+}
+
+message HeartbeatRequest {
+  // Console send time, in seconds on the console's clock.
+  double t0 = 1;
+}
+
+message HeartbeatReply {
+  // Echoed console send time; the console records receive time t3 locally.
+  double t0 = 1;
+  // Node receive and reply times on the same clock as exposure times.
+  double t1 = 2;
+  double t2 = 3;
+}

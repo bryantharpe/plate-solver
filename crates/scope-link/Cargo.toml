@@ -1,0 +1,29 @@
+[package]
+name = "scope-link"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Paired scope_node.v1 protocol, clock mapping and in-memory transport."
+
+[dependencies]
+tonic = "0.14.6"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "io-util", "sync"] }
+tower = { version = "0.5.2", features = ["util"] }
+hyper-util = { version = "0.1.20", features = ["tokio"] }
+tokio-stream = "0.1.18"
+# Used only by the code `tonic-prost-build` generates into OUT_DIR (`prost::`
+# paths, `#[prost(..)]` attributes, `tonic_prost::` codecs). Removing either
+# fails the build; see [package.metadata.cargo-machete] below.
+prost = "0.14.4"
+tonic-prost = "0.14.6"
+
+[build-dependencies]
+tonic-prost-build = "0.14.6"
+
+# cargo-machete scans hand-written source only, so it cannot see the generated
+# code in OUT_DIR that requires these two. Verified by removing each and
+# rebuilding: both are load-bearing.
+[package.metadata.cargo-machete]
+ignored = ["prost", "tonic-prost"]
