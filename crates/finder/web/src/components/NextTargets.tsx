@@ -160,7 +160,7 @@ function Similar({
   );
 }
 
-function DirectionArrow({ degrees }: { degrees: number }) {
+export function DirectionArrow({ degrees }: { degrees: number }) {
   return (
     <svg
       viewBox="-8 -8 16 16"

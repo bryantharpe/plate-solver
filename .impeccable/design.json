@@ -572,6 +572,38 @@
       "description": "Hairline-divided object row: atlas symbol in object colour, italic ID, name and kind, magnitude.",
       "html": "<ul class=\"ds-list\"><li><button class=\"ds-row\" aria-pressed=\"true\"><svg viewBox=\"-12 -12 24 24\" width=\"18\" height=\"18\" class=\"ds-nebula\"><rect x=\"-8\" y=\"-8\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"/></svg><span class=\"ds-id\">M42</span><span><span class=\"ds-name\">Great Orion Nebula</span><span class=\"ds-sub\">Nebula with cluster</span></span><span class=\"ds-mag\">mag <b>4.0</b></span></button></li><li><button class=\"ds-row\" aria-pressed=\"false\"><svg viewBox=\"-12 -12 24 24\" width=\"18\" height=\"18\" class=\"ds-galaxy\"><ellipse rx=\"8\" ry=\"4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"/></svg><span class=\"ds-id\">M49</span><span><span class=\"ds-name\">NGC 4472</span><span class=\"ds-sub\">Galaxy</span></span><span class=\"ds-mag\">mag <b>8.3</b></span></button></li></ul>",
       "css": ".ds-list{font-family: var(--font-sans, 'Archivo Variable', Archivo, ui-sans-serif, system-ui, sans-serif);list-style:none;margin:0;padding:0;max-width:30rem;border-top:1px solid var(--color-rule,#d0d3d8);border-bottom:1px solid var(--color-rule,#d0d3d8);color:var(--color-ink,#0f141d);font-feature-settings:'tnum' 1}.ds-list li+li{border-top:1px solid var(--color-rule,#d0d3d8)}.ds-row{font:inherit;color:inherit;display:grid;grid-template-columns:1.5rem 3.25rem 1fr auto;align-items:center;column-gap:.5rem;width:100%;padding:.625rem 0;border:0;background:transparent;text-align:left;cursor:pointer;transition:background-color 160ms}.ds-row:hover,.ds-row[aria-pressed=true]{background:var(--color-paper-2,#eff1f4)}.ds-row:focus-visible{outline:2px solid var(--color-ink,#0f141d);outline-offset:2px}.ds-nebula{color:var(--color-nebula,#007445);justify-self:center}.ds-galaxy{color:var(--color-galaxy,#c22826);justify-self:center}.ds-id{font-weight:600;font-style:italic}.ds-name{display:block}.ds-sub{display:block;font-size:.875rem;color:var(--color-ink-2,#444b56)}.ds-mag{font-size:.875rem;color:var(--color-ink-2,#444b56);text-align:right}.ds-mag b{font-size:1rem;font-weight:400;color:var(--color-ink,#0f141d)}"
+    },
+    {
+      "name": "Guidance Block",
+      "kind": "custom",
+      "refersTo": "list-row",
+      "description": "Built in src/components/GuidanceBlock.tsx. Ink-only ruled block before the title and chart: target name, kind and class; whole-degree turn/tilt and pointing age, device-local rise/transit/set to the minute, Sun-guard refusal or a /setup site link. Red ink at night.",
+      "html": "<section class=\"ds-guidance\"><h2>Target <i>M78</i></h2><p>Reflection nebula · Pointable now</p><p>turn clockwise 34° · tilt up 12°</p><p>Pointing 2 min ago.</p></section>",
+      "css": ".ds-guidance{color:var(--color-ink);border-block:1px solid var(--color-ink);padding-block:.75rem}.ds-guidance h2{font-size:1.125rem;font-weight:650}.ds-guidance p{margin-block:.5rem}"
+    },
+    {
+      "name": "Target Reticle",
+      "kind": "custom",
+      "refersTo": "list-row",
+      "description": "Built in src/components/TargetMark.tsx. Atlas family symbol at the session placement, with four open square corner ticks in Frame Ink and an italic object-colour label. Galaxy axes and angle are retained. Only on the latest pointing; independent of the five legend layers and their counts. Existing tokens turn red at night.",
+      "html": "<svg viewBox=\"-24 -24 100 60\"><g class=\"ds-target\"><rect x=\"-8\" y=\"-8\" width=\"16\" height=\"16\"/><path class=\"ds-reticle\" d=\"M-14 -8V-14H-8M8 -14H14V-8M14 8V14H8M-8 14H-14V8\"/><text x=\"19\" y=\"4\">M78</text></g></svg>",
+      "css": ".ds-target{color:var(--color-nebula-photo);fill:none;stroke:currentColor;stroke-width:1.6}.ds-reticle{stroke:var(--color-on-photo)}.ds-target text{fill:currentColor;stroke:var(--color-photo);paint-order:stroke;font-style:italic;font-size:13px}"
+    },
+    {
+      "name": "Edge Arrow",
+      "kind": "custom",
+      "refersTo": "list-row",
+      "description": "Built in src/components/TargetMark.tsx, reusing DirectionArrow. Intersects the centre-to-target bearing with a 12 CSS px inset frame edge. Inward italic label gives ID and whole-degree distance. Matches pointing_seq, outside the legend; object colour becomes red at night.",
+      "html": "<svg viewBox=\"-110 -16 128 32\" class=\"ds-edge\"><g transform=\"rotate(109)\"><path d=\"M0 6V-5M-3.5 -1.5L0 -5L3.5 -1.5\"/></g><text x=\"-16\" y=\"4\" text-anchor=\"end\">M79 · 21°</text></svg>",
+      "css": ".ds-edge{color:var(--color-cluster-photo);fill:none;stroke:currentColor;stroke-width:1.6}.ds-edge text{fill:currentColor;stroke:var(--color-photo);paint-order:stroke;font-style:italic;font-size:13px}"
+    },
+    {
+      "name": "Setup Page",
+      "kind": "custom",
+      "refersTo": "input",
+      "description": "Built in src/components/SetupPage.tsx at /setup. Shared session site from labelled latitude/longitude fields or device location, minimum altitude 0–80°, Save site, Forget the site and Back to console. Ruled 44px controls, doubled-rule title, ink validation and save errors, no shadows. Existing tokens give red-only night mode.",
+      "html": "<section class=\"ds-setup\"><h1>Setup</h1><label>Latitude <input inputmode=\"decimal\" value=\"40\"/>°</label><label>Longitude <input inputmode=\"decimal\" value=\"-75\"/>°</label><label>Minimum altitude <input type=\"number\" min=\"0\" max=\"80\" value=\"15\"/>°</label><button>Save site</button><a href=\"/\">Back to console</a></section>",
+      "css": ".ds-setup{color:var(--color-ink);background:var(--color-paper)}.ds-setup label{display:block;margin-block:1rem}.ds-setup input,.ds-setup button{min-height:44px;border:1px solid var(--color-ink);border-radius:0;background:transparent;color:inherit;padding-inline:12px}"
     }
   ],
   "narrative": {

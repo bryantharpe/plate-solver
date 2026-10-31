@@ -1,6 +1,6 @@
 // One shared observing session, refreshed while this page is in use.
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DeepSkyObject } from "./api";
+import type { Guidance, Target } from "./api";
 
 export interface SessionSite {
   lat_deg: number;
@@ -10,7 +10,11 @@ export interface SessionSite {
 export interface ObservingSession {
   site: SessionSite | null;
   min_alt_deg?: number;
-  target?: DeepSkyObject | null;
+  target?: Target | null;
+  /** Only the latest pointing fields consumed by the page. */
+  pointing?: { seq: number; time: number; ra_deg: number; dec_deg: number; alt_deg?: number; az_deg?: number } | null;
+  time?: number;
+  guidance?: Guidance;
 }
 
 export interface SessionEdit {
@@ -35,7 +39,14 @@ async function request(init?: RequestInit): Promise<ObservingSession> {
   }
   const body = (await response.json()) as Partial<ObservingSession> | null;
   // Older page fixtures answer unknown routes with health data, without session fields.
-  return { site: body?.site ?? null, min_alt_deg: body?.min_alt_deg, target: body?.target ?? null };
+  return {
+    site: body?.site ?? null,
+    min_alt_deg: body?.min_alt_deg,
+    target: body?.target ?? null,
+    ...(body?.pointing !== undefined && { pointing: body.pointing }),
+    ...(body?.time !== undefined && { time: body.time }),
+    ...(body?.guidance != null && { guidance: body.guidance }),
+  };
 }
 
 export function useSession() {

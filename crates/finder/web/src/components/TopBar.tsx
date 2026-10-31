@@ -10,6 +10,7 @@ interface Props {
   site: Site | null;
   night: boolean;
   onFrame: () => void;
+  onTarget: () => void;
   onSite: () => void;
   onNight: (on: boolean) => void;
   onSetup: () => void;
@@ -19,7 +20,19 @@ interface Props {
 
 const siteText = (site: Site) => `${Math.abs(site.lat).toFixed(1)}° ${site.lat >= 0 ? "N" : "S"}`;
 
-export function TopBar({ source, label, site, night, onFrame, onSite, onNight, onSetup, onHome, setup }: Props) {
+export function TopBar({
+  source,
+  label,
+  site,
+  night,
+  onFrame,
+  onTarget,
+  onSite,
+  onNight,
+  onSetup,
+  onHome,
+  setup,
+}: Props) {
   return (
     <header className="sticky top-0 z-10 border-b border-rule bg-paper">
       <div className="page-width flex h-14 items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-5 lg:px-10">
@@ -34,12 +47,13 @@ export function TopBar({ source, label, site, night, onFrame, onSite, onNight, o
           aria-label="Finder home"
         >
           <Reticle size={22} />
-          <span className="hidden text-[1.05rem] min-[400px]:inline">Finder</span>
+          <span className="hidden text-[1.05rem] sm:inline">Finder</span>
         </a>
         <button
           type="button"
           className="chip min-w-0 max-w-[30vw] sm:max-w-[44vw] pl-1.5"
           onClick={onFrame}
+          aria-label={label ?? "Frames"}
           aria-haspopup="dialog"
         >
           {source?.kind === "sample" ? (
@@ -49,8 +63,18 @@ export function TopBar({ source, label, site, night, onFrame, onSite, onNight, o
               <Reticle size={14} />
             </span>
           )}
-          <span className="truncate">{label ?? "Frames"}</span>
+          <span className="hidden truncate sm:inline">{label ?? "Frames"}</span>
           <Chevron size={16} />
+        </button>
+        <button
+          type="button"
+          className="chip px-2.5"
+          onClick={onTarget}
+          aria-label="Choose target"
+          aria-haspopup="dialog"
+        >
+          <Reticle size={17} />
+          <span className="hidden sm:inline">Target</span>
         </button>
         <button
           type="button"
