@@ -17,6 +17,12 @@ pattern-database = { version = "0.1.0", path = "../pattern-database" }
 math-core = { version = "0.1.0", path = "../math-core" }
 tokio = { version = "1.53.1", features = ["time"] }
 
+# Run the same gRPC service over loopback TCP and in-memory HTTP/2.
+tonic = "0.14.6"
+tokio-stream = { version = "0.1.18", features = ["net"] }
+
 [dev-dependencies]
+# Decode and measure the actual JPEG previews on the link.
+image = { version = "0.25.1", default-features = false, features = ["jpeg"] }
 plate-solver = { version = "0.1.0", path = "../plate-solver" }
 tokio = { version = "1.53.1", features = ["macros", "rt", "test-util"] }

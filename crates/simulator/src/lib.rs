@@ -3,6 +3,8 @@
 
 pub mod camera;
 pub mod clock;
+pub mod controls;
+pub mod node;
 mod noise;
 pub mod optics;
 pub mod render;
@@ -10,5 +12,7 @@ pub mod sky;
 
 pub use camera::SimCamera;
 pub use clock::VirtualClock;
-pub use optics::{Optics, Simulator, TrueDirection, TrueDirections};
+pub use controls::Simulator;
+pub use node::SimNode;
+pub use optics::{Optics, TrueDirection, TrueDirections};
 pub use sky::Site;

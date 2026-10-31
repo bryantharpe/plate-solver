@@ -1,9 +1,9 @@
 use clap::Parser;
 use scope_node::{
-    capture::CaptureLoop,
     clock::SystemClock,
     config::{Adapter, Config},
     rpicam::RpicamCamera,
+    service::NodeService,
     synthetic::SyntheticCamera,
     Camera, Settings,
 };
@@ -38,18 +38,27 @@ async fn start(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
     let settings = config.settings();
     match config.adapter {
-        Adapter::Rpicam => capture(RpicamCamera::discover().await?, settings).await,
-        Adapter::Simulated => capture(SyntheticCamera::new(Arc::new(SystemClock)), settings).await,
+        Adapter::Rpicam => serve(RpicamCamera::discover().await?, settings, &config).await,
+        Adapter::Simulated => {
+            serve(
+                SyntheticCamera::new(Arc::new(SystemClock)),
+                settings,
+                &config,
+            )
+            .await
+        }
     }
 }
 
-async fn capture(
-    camera: impl Camera,
+async fn serve(
+    camera: impl Camera + 'static,
     settings: Settings,
+    config: &Config,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut capture = CaptureLoop::new(camera, settings)?;
-    loop {
-        // CaptureLoop reports adapter errors and retries after one second.
-        let _ = capture.next().await;
-    }
+    let service = NodeService::new(camera, Arc::new(SystemClock), &config.token, settings)?;
+    tonic::transport::Server::builder()
+        .add_service(service.into_server())
+        .serve(config.listen)
+        .await?;
+    Ok(())
 }
