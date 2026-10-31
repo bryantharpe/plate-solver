@@ -20,6 +20,12 @@ serde_json = "1.0"
 rustix = { version = "1.1.4", features = ["time", "fs"] }
 clap = { version = "4.6", default-features = false, features = ["std", "help", "usage", "error-context", "derive"] }
 
+# Node service and broadcast stream; same tonic stack as scope-link.
+tonic = "0.14.6"
+tokio-stream = { version = "0.1.18", features = ["sync"] }
+# Small previews; no other image formats enter the runtime dependency graph.
+image = { version = "0.25.1", default-features = false, features = ["jpeg"] }
+
 [dev-dependencies]
 plate-solver = { version = "0.1.0", path = "../plate-solver" }
 image = { version = "0.25.1", default-features = false, features = ["png"] }
