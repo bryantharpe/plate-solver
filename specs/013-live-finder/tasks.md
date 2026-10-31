@@ -28,6 +28,8 @@ description: "Task list for 013-live-finder: The Live Finder"
   files). The judge reads the diff and both gates' output within one 128 KiB budget, and
   refuses evidence past it.
 - A test binds `127.0.0.1:0`. Only `playwright.config.ts` names a fixed port (8097–8099).
+- Run Playwright only through `npm run e2e`. Two stories can build at once, and every e2e
+  run binds the host's 8097–8099, so each run waits its turn (plan.md, Prerequisite 6).
 - A new field of a session read, or of the state file, is left out until it has a value
   (spec.md § Edge Cases).
 
@@ -412,7 +414,8 @@ description: "Task list for 013-live-finder: The Live Finder"
   `/api/live/preview.jpg?seq=N`, inside the `.photo` element (US8-S4).
 - [ ] T064 [US8] Write failing Vitest tests in a new
   `crates/finder/web/src/App.live.test.tsx`:
-  - a recorded live event draws its pointing and stars in the chart (US8-S3);
+  - a live event written from plan.md § Interfaces (the live stream) draws its pointing
+    and stars in the chart (US8-S3);
   - with M78 set and the pointing past 5 s, the guidance block and the chart say stale and
     show no turn or tilt (US8-S5).
 
@@ -518,20 +521,26 @@ description: "Task list for 013-live-finder: The Live Finder"
 
 ## Execution Order
 
-The stories land in one chain:
+The stories land in two tracks that join at US10:
 
 ```text
-US1 → US2 → US3 → US4 → US5 → US6 → US7 → US8 → US9 → US10
+US1 → US2 → US3 → US4 → US5 → US6 → US7 ─┐
+US8 → US9 ────────────────────────────────┴→ US10
 ```
 
 Every arrow is a merge edge: the later story starts from a `main` that holds the earlier
-one.
+one. The factory builds a story from each track at the same time, so US8 starts with US1,
+once plan.md's Prerequisite 6 is met.
 - **US1 to US7** each change `Cargo.lock`, and a new crate's `Cargo.toml`, or `finder`'s.
 - **US5, US6 and US7** each edit `crates/finder/src/api.rs`, `src/session.rs`, `src/lib.rs`
   and `src/main.rs`.
 - **US8 and US9** both rebuild `crates/finder/web/dist` and edit `src/api.ts`.
-- **US10** drives the finished page.
-- **US2 → US4 and US5 → US7** are stated as edges too, though the chain implies them: US4
+- **US8 and US9 share no file with US1 to US7.** They write only `crates/finder/web/**`,
+  and their tests fake the server from plan.md § Interfaces. `concurrent_with: [US7]` on
+  US8 overrides the edge the factory would infer from both naming the route
+  `/api/live/preview.jpg`.
+- **US10** drives the finished page on `finder --simulate`, so it waits for US7 and US9.
+- **US2 → US4 and US5 → US7** are stated as edges too, though the first track implies them: US4
   extends US2's node files, and US7 changes `crates/finder/Cargo.toml` and `Cargo.lock`
   after US5.
 - **`[P]`** marks nothing here: every task within a story shares a file with another.

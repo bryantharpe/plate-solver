@@ -905,6 +905,14 @@ two for the connector, plus `simulator` as a dev-dependency.
 5. **The factory's coding agent can run cargo.** Met since ergane#896 (deployed
    2026-10-28): 012's stories built and tested with it. Every story from US1 to US7
    changes `Cargo.lock`, and US2 adds `toml`, which a hand edit cannot lock.
+6. **Two end-to-end runs never meet.** Two stories build at once (spec.md § Work Graph),
+   and every builder and gate binds 8097–8099 when it runs `npm run e2e`. The operator
+   lands a change to `crates/finder/web/package.json`, approved by the owner, that makes
+   the `e2e` script hold one host-wide lock for the run: `flock` on a file in
+   `$PLAYWRIGHT_BROWSERS_PATH`, the Playwright cache that every builder and every gate
+   binds from the same host folder. A run that finds the lock taken waits for it. If it
+   cannot land, the operator puts `depends_on_merged: [US7]` back on US8 before 013 is
+   flipped, and the stories run as one chain.
 
 ## Plan traps
 
@@ -942,12 +950,16 @@ keeps it from recurring. They bind every story.
    *Check:* no task runs a tool outside the gates. A new dependency is used, or sits in a
    `cargo-machete` ignore with its reason, and builds on Rust 1.96, because only the merge
    queue checks either.
-6. **The gate's ports are the host's.** The gate boundary unshares only the PID namespace,
-   so the e2e servers bind the host's 127.0.0.1:8097, 8098 and 8099. A console left
-   running on one of them, or a second e2e run at the same time, fails the gate before a
-   test runs (`reuseExistingServer: false`). *Check:* the operator keeps 8097–8099 free on
-   the factory host while a story builds; 013 is a chain, so one story's gates run at a
-   time; a test binds `127.0.0.1:0`, and only `playwright.config.ts` names a fixed port.
+6. **The gate's ports are the host's.** The gate boundary and the builder's sandbox both
+   unshare only the PID namespace. Each builder has its own worktree, but not its own
+   network, so every e2e run binds the host's 127.0.0.1:8097, 8098 and 8099. A console
+   left running on one of them, or a second e2e run at the same time, fails the run
+   before a test starts (`reuseExistingServer: false`). The factory runs one gate at a
+   time across the host, but a builder runs `npm run e2e` in its own sandbox, so with two
+   stories building, two runs can meet. *Check:* the operator keeps 8097–8099 free on the
+   factory host while a story builds; every e2e run goes through `npm run e2e`, which
+   waits its turn (Prerequisite 6), never `npx playwright` directly; a test binds
+   `127.0.0.1:0`, and only `playwright.config.ts` names a fixed port.
 7. **The gate can run it.** A probe on 2026-10-31 ran one gate through Ergane's own
    `run_gates`, inside the real gate boundary with this repository's caches, on `main` at
    5f61b89, and passed. In it, `/usr/bin/protoc` compiled a proto3 `optional`,
@@ -993,6 +1005,7 @@ keeps it from recurring. They bind every story.
 | Paused-time tests could advance virtual time while a `spawn_blocking` solve runs, dropping frames that should be solved. | Tokio does not auto-advance paused time while a blocking task is in flight. US6's first test asserts every frame is solved, which would catch a regression. |
 | The `ci.yml` step is not landed, and `finder-page` cannot build `finder` from US5 on. | It is a prerequisite (item 3), not a story task. |
 | A story passes the gates but fails a check only the queue runs (coverage, the cedar eval, `cargo machete`, `cargo deny`, the secret scan, `msrv`). | The `test` gate runs `finder-page`'s checks, so those no longer differ. The rest are met by construction (§ Plan traps, trap 5), and a queue failure is reported back to the node's ladder. |
+| The page track is built against § Interfaces before US5–US7 exist, and US10 is the first story to run both together. | § Interfaces pins every field the page reads, US8's live event is written from it, and a mismatch US10 finds goes back to the story that drifted. |
 
 ## Refinement Record
 

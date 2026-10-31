@@ -96,6 +96,15 @@ settings and the aim point, and Setup gains a scope node and camera section.
 - Q: Can the factory's `test` gate run protoc and a third Playwright server? → A: Yes,
   with no change to the gate. plan.md § Plan traps gives the evidence, and the one
   condition on the host: nothing else may listen on 8097–8099 while a story's gates run.
+- Q: Can any of the ten stories build at the same time? → A: Yes, the two page stories.
+  This replaces "in one chain" in the slicing answer above. The first seven stories stay
+  a chain, because each compiles against the crate or feature the one before it adds.
+  US8 and US9 write only `crates/finder/web/**`, which no Rust story touches, and their
+  tests fake the server from plan.md § Interfaces, so they build beside the first track.
+  US10 joins the two tracks. The factory runs up to two stories at once, so the longest
+  path drops from ten stories to eight. Each builder has its own worktree, but every
+  builder and gate shares the host's ports, so two end-to-end runs must not meet
+  (plan.md, Prerequisite 6).
 
 ## Owner approvals
 
@@ -1005,7 +1014,8 @@ US7:
   implements: [FR-029, FR-030, FR-031, FR-032, FR-033]
 US8:
   depends_on: []
-  depends_on_merged: [US7]
+  depends_on_merged: []
+  concurrent_with: [US7]
   implements: [FR-034, FR-035]
 US9:
   depends_on: []
@@ -1013,7 +1023,7 @@ US9:
   implements: [FR-036, FR-037, FR-038, FR-039, FR-040]
 US10:
   depends_on: []
-  depends_on_merged: [US9]
+  depends_on_merged: [US9, US7]
   implements: [FR-041, FR-042]
 ```
 
@@ -1030,14 +1040,23 @@ creates:
 | US6 | US5: the live loop reads frames from the link client and settings from the session |
 | US7 | US6: `--simulate` runs the live loop on the in-process simulator |
 | US7 | US5: it changes `crates/finder/Cargo.toml` and `Cargo.lock` again, after US5, the last story to change them |
-| US8 | US7: the page draws the `/api/live` stream |
 | US9 | US8: it adds to the page US8 changed and rebuilds the `web/dist` US8 rebuilt |
 | US10 | US9: it drives the finished page |
+| US10 | US7: it drives that page on `finder --simulate`, which US7 adds |
 
-The chain is deliberate. The first seven stories each add or change a crate's
-`Cargo.toml` and the shared `Cargo.lock`, and US5 to US7 all edit `crates/finder/src/api.rs`
-and `src/session.rs`; the page stories both rebuild `web/dist`. No two stories may run
-together without sharing a file.
+The graph has two tracks, and the factory can build a story from each at the same time.
+The first seven stories are a chain: each compiles against the crate or feature the one
+before it adds, each changes `Cargo.lock`, and US5 to US7 all edit
+`crates/finder/src/api.rs` and `src/session.rs`. The page stories, US8 and US9, write only
+`crates/finder/web/**`, which no Rust story touches, and their tests fake the server from
+plan.md § Interfaces, so they build beside the first track. US9 follows US8 because both
+edit `web/src/api.ts` and rebuild `web/dist`. US10 joins the tracks: it drives the
+finished page on the simulator.
+
+`concurrent_with: [US7]` on US8 overrides one edge the factory would otherwise infer. Both
+stories' tasks name the route `/api/live/preview.jpg`, which it reads as a shared file;
+they share no file. Building two stories at once also needs plan.md's Prerequisite 6, so
+that two end-to-end runs never contend for the same ports.
 
 The edges from US2 to US4 and from US5 to US7 add no order the chain does not already
 give. They name the two pairs of stories that share a file without being neighbours, so
