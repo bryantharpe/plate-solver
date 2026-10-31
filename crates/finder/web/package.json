@@ -11,7 +11,7 @@
     "format": "prettier --write src e2e index.html vite.config.ts playwright.config.ts",
     "format:check": "prettier --check src e2e index.html vite.config.ts playwright.config.ts",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "sh scripts/e2e.sh"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
