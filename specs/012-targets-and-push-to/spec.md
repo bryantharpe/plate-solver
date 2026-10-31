@@ -418,8 +418,8 @@ server stories' API.
 - `App.test.tsx`, `settings.test.ts`, `SiteDialog.test.tsx` and `NextTargets.test.tsx`
   are unchanged.
 
-Then the build-freshness check that CI's `finder-page` job runs passes on the rebuilt
-`web/dist`.
+Then the `test` gate's build-freshness step passes on the rebuilt `web/dist` (the same
+check CI's `finder-page` job runs).
 
 **Acceptance Scenarios**:
 
@@ -449,8 +449,9 @@ Then the build-freshness check that CI's `finder-page` job runs passes on the re
 8. **Given** the top bar, **When** Setup is chosen, **Then** the URL is `/setup` through
    `history.pushState`, and the Setup page leads back to the console. No npm package is
    added, so `package.json` dependencies are unchanged.
-9. **Given** the rebuilt `web/dist`, **When** CI's build-freshness check runs, **Then**
-   the committed build is the build of this source.
+9. **Given** the rebuilt `web/dist`, **When** the `test` gate runs `npm run build` and then
+   `git status --porcelain -- dist`, **Then** it lists nothing: the committed build is the
+   build of this source.
 
 ---
 
@@ -476,7 +477,7 @@ US5's guidance and US6's session hook.
   `src/App.target.test.tsx`;
 - `Chart.test.tsx`, `App.test.tsx` and every other existing test are unchanged.
 
-Then the build-freshness check passes.
+Then the `test` gate's build-freshness step passes.
 
 **Acceptance Scenarios**:
 
@@ -516,8 +517,9 @@ Then the build-freshness check passes.
 13. **Given** `DESIGN.md` and `.impeccable/design.json`, **When** they are read, **Then**
     they describe four new parts as built: the guidance block, the target reticle, the
     edge arrow and the Setup page.
-14. **Given** the rebuilt `web/dist`, **When** CI's build-freshness check runs, **Then**
-    the committed build is the build of this source, and no npm package was added.
+14. **Given** the rebuilt `web/dist`, **When** the `test` gate runs `npm run build` and then
+    `git status --porcelain -- dist`, **Then** it lists nothing: the committed build is the
+    build of this source, and no npm package was added.
 
 ---
 
@@ -902,12 +904,16 @@ piece by piece. They come last because they exercise every story before them.
   - a horizon that varies by direction.
 - **Done by the maintainer after US7 lands:** the Impeccable review of the new parts.
 - **The factory's gates and CI:**
-  - The factory's local gates are `lint` and `test`, which are cargo only.
-  - The page stories (US6, US7) must also pass `npm run typecheck`,
-    `npm run format:check`, `npm test` and the build-freshness check. The end-to-end
-    story (US8) must pass `npm run e2e`.
-  - All of these run in CI's required `finder-page` check in the merge queue, and every
-    story's tasks run them before proposing.
+  - The factory's local gates are `lint` and `test`. `test` runs the cargo tests and
+    then, in `crates/finder/web`, the checks CI's required `finder-page` job runs:
+    `npm ci`, `npm run typecheck`, `npm run format:check`, `npm test`, `npm run build`
+    followed by the build-freshness step (`git status --porcelain -- dist` lists
+    nothing), and `npm run e2e`. Every story's gate results carry them, so the page
+    stories' Vitest and Playwright scenarios have gate evidence.
+  - `crates/finder/web/dist/**` is marked generated in `.gitattributes`, so a rebuilt
+    bundle appears in a story's diff as changed files rather than as ~590 KB of
+    minified text.
+  - Every story's tasks still run these checks before proposing.
 
 ## Work Graph
 
